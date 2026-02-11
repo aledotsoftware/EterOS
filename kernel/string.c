@@ -17,6 +17,8 @@ void* memcpy(void* dest, const void* src, size_t n) {
     /* Copiar bloques de 8 bytes (64 bits) usando rep movsq */
     size_t qwords = n / 8;
     size_t remainder = n % 8;
+    void* d = dest;
+    const void* s = src;
 
     asm volatile (
         "rep movsq"
@@ -38,11 +40,26 @@ void* memcpy(void* dest, const void* src, size_t n) {
 
 void* memset(void* dest, int c, size_t n) {
     void* original_dest = dest;
+    uint64_t val = (uint8_t)c;
+    uint64_t pattern = val | (val << 8) | (val << 16) | (val << 24) |
+                       (val << 32) | (val << 40) | (val << 48) | (val << 56);
     
+    /* Copiar bloques de 8 bytes (64 bits) usando rep stosq */
+    size_t qwords = n / 8;
+    size_t remainder = n % 8;
+
     __asm__ volatile (
-        "cld; rep stosb"
-        : "+D"(dest), "+c"(n)
-        : "a"(c)
+        "cld; rep stosq"
+        : "+D"(dest), "+c"(qwords)
+        : "a"(pattern)
+        : "memory"
+    );
+
+    /* Copiar los bytes restantes */
+    __asm__ volatile (
+        "rep stosb"
+        : "+D"(dest), "+c"(remainder)
+        : "a"(val)
         : "memory"
     );
     
