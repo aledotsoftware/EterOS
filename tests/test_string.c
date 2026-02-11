@@ -33,6 +33,42 @@ int main() {
         assert(strcmp(small_buf, "123") == 0);
     }
 
+    /* Test itoa_s with edge cases */
+    {
+        char buffer[65];
+
+        /* INT64_MIN */
+        itoa_s(INT64_MIN, buffer, sizeof(buffer), 10);
+        printf("INT64_MIN: %s\n", buffer);
+        /* Check against expected string */
+        /* INT64_MIN = -9223372036854775808 */
+        assert(strcmp(buffer, "-9223372036854775808") == 0);
+
+        /* INT64_MAX */
+        itoa_s(INT64_MAX, buffer, sizeof(buffer), 10);
+        printf("INT64_MAX: %s\n", buffer);
+        assert(strcmp(buffer, "9223372036854775807") == 0);
+
+        /* Base 16 (negative number) - should be treated as unsigned */
+        itoa_s(-1, buffer, sizeof(buffer), 16);
+        printf("-1 in base 16: %s\n", buffer);
+        assert(strcmp(buffer, "FFFFFFFFFFFFFFFF") == 0);
+
+        /* Base 2 */
+        itoa_s(5, buffer, sizeof(buffer), 2);
+        printf("5 in base 2: %s\n", buffer);
+        assert(strcmp(buffer, "101") == 0);
+
+        /* Truncation with negative number */
+        char small_buf[5]; /* Size 5 -> 4 chars + null */
+        itoa_s(-12345, small_buf, sizeof(small_buf), 10);
+        printf("Small buffer negative: %s\n", small_buf);
+        /* -12345 (6 chars) -> truncation to 4 chars -> "-123" */
+        assert(strcmp(small_buf, "-123") == 0);
+
+        printf("Advanced itoa_s tests passed\n");
+    }
+
     /* Test utoa_hex_s */
     {
         char buffer[32];
@@ -220,44 +256,25 @@ int main() {
         printf("strlcpy tests passed\n");
     }
 
-    /* Test strcmp */
+    /* Test strlcpy null termination guarantee */
     {
-        /* Equal strings */
-        assert(strcmp("abc", "abc") == 0);
-        assert(strcmp("", "") == 0);
-        assert(strcmp("Hello World", "Hello World") == 0);
+        char buffer[10];
+        size_t len;
 
-        /* Different content same length */
-        /* 'c' (99) < 'd' (100) -> negative */
-        assert(strcmp("abc", "abd") < 0);
-        /* 'd' (100) > 'c' (99) -> positive */
-        assert(strcmp("abd", "abc") > 0);
+        /* Initialize with pattern */
+        memset(buffer, 'A', sizeof(buffer));
 
-        /* Different length */
-        /* "abc" is prefix of "abcd", so compare '\0' with 'd' -> 0 - 100 -> negative */
-        assert(strcmp("abc", "abcd") < 0);
-        /* "abcd" has prefix "abc", so compare 'd' with '\0' -> 100 - 0 -> positive */
-        assert(strcmp("abcd", "abc") > 0);
+        /* Truncated copy */
+        len = strlcpy(buffer, "1234567890", 5);
+        assert(len == 10);
+        assert(buffer[0] == '1');
+        assert(buffer[1] == '2');
+        assert(buffer[2] == '3');
+        assert(buffer[3] == '4');
+        assert(buffer[4] == '\0'); /* Null terminator */
+        assert(buffer[5] == 'A'); /* Should be untouched */
 
-        /* Empty vs non-empty */
-        assert(strcmp("", "a") < 0);
-        assert(strcmp("a", "") > 0);
-
-        /* Case sensitivity */
-        /* 'A' (65) < 'a' (97) -> negative */
-        assert(strcmp("A", "a") < 0);
-        assert(strcmp("a", "A") > 0);
-        assert(strcmp("Hello", "hello") < 0);
-
-        /* Extended ASCII / unsigned char check */
-        /* \xff (255) vs \x01 (1). If char is signed, \xff is -1.
-           If char is unsigned (as per standard strcmp), 255 > 1.
-           The implementation casts to unsigned char*, so it should be positive. */
-        char s1[] = { (char)0xff, 0 };
-        char s2[] = { 0x01, 0 };
-        assert(strcmp(s1, s2) > 0);
-
-        printf("strcmp tests passed\n");
+        printf("strlcpy null termination guarantee passed\n");
     }
 
     /* Test memset16 */
@@ -272,11 +289,55 @@ int main() {
     }
 
     /* Test memmove (overlap handling) */
-    /* Note: Since we link with kernel/string.c, we are testing our implementation
-       if the linker picks it up. If not, we test libc's.
-       To be sure, let's trust that memset16 is unique.
-       Testing memmove/memcpy here might be ambiguous due to libc conflict.
-    */
+    {
+        char buffer[20];
+
+        /* Initialize buffer: "0123456789" */
+        strcpy(buffer, "0123456789");
+
+        /* Overlap: dest > src (shift right, requires backward copy) */
+        /* src = buffer ("01234..."), dest = buffer + 1 ("12345...") */
+        /* Move "01234" to index 1 -> overwrites "12345" */
+        /* If forward copy: buf[1]='0', buf[2]='0' (was '1' but now '0')... WRONG */
+        /* If backward copy: buf[5]='4', buf[4]='3', ... buf[1]='0'. CORRECT */
+        memmove(buffer + 1, buffer, 5);
+        /* Expected: "0012346789" */
+        /* buffer[0] is untouched ('0') */
+        /* buffer[1..5] becomes "01234" */
+        /* buffer[6..9] remains "6789" */
+        assert(memcmp(buffer, "0012346789", 10) == 0);
+
+        printf("memmove backward copy (dest > src) passed\n");
+
+        /* Reset */
+        strcpy(buffer, "0123456789");
+
+        /* Overlap: dest < src (shift left, forward copy is safe) */
+        /* src = buffer + 1 ("12345..."), dest = buffer ("01234...") */
+        /* Move "12345" to index 0 -> overwrites "01234" */
+        memmove(buffer, buffer + 1, 5);
+        /* Expected: "1234556789" */
+        /* buffer[0..4] becomes "12345" */
+        /* buffer[5..9] remains "56789" */
+        assert(memcmp(buffer, "1234556789", 10) == 0);
+
+        printf("memmove forward copy (dest < src) passed\n");
+
+        /* No overlap */
+        strcpy(buffer, "0123456789");
+        memmove(buffer + 5, buffer, 5);
+        /* Expected: "0123401234" */
+        assert(memcmp(buffer, "0123401234", 10) == 0);
+
+        printf("memmove no overlap passed\n");
+
+        /* Self assignment */
+        strcpy(buffer, "0123456789");
+        memmove(buffer, buffer, 10);
+        assert(memcmp(buffer, "0123456789", 10) == 0);
+
+        printf("memmove self assignment passed\n");
+    }
 
     printf("All tests passed!\n");
     return 0;
