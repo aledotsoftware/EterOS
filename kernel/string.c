@@ -20,7 +20,7 @@ void* memcpy(void* dest, const void* src, size_t n) {
 
     asm volatile (
         "rep movsq"
-        : "+D"(d), "+S"(s), "+c"(qwords)
+        : "+D"(dest), "+S"(src), "+c"(qwords)
         :
         : "memory"
     );
@@ -28,7 +28,7 @@ void* memcpy(void* dest, const void* src, size_t n) {
     /* Copiar los bytes restantes */
     asm volatile (
         "rep movsb"
-        : "+D"(d), "+S"(s), "+c"(remainder)
+        : "+D"(dest), "+S"(src), "+c"(remainder)
         :
         : "memory"
     );
@@ -209,6 +209,19 @@ void itoa_s(int64_t value, char* buffer, size_t buffer_size, int base) {
         chars_to_copy--;
     }
     buffer[j] = '\0';
+}
+
+void utoa_hex(uint64_t value, char* buffer) {
+    const char hex_chars[] = "0123456789ABCDEF";
+
+    buffer[0] = '0';
+    buffer[1] = 'x';
+
+    for (int i = 15; i >= 0; i--) {
+        buffer[2 + (15 - i)] = hex_chars[(value >> (i * 4)) & 0xF];
+    }
+
+    buffer[18] = '\0';
 }
 
 void utoa_hex_s(uint64_t value, char* buffer, size_t buffer_size) {
