@@ -22,7 +22,7 @@
 # =============================================================================
 
 param(
-    [ValidateSet("all", "boot", "kernel", "image", "run", "debug", "clean", "info")]
+    [ValidateSet("all", "boot", "kernel", "image", "vdi", "run", "debug", "clean", "info")]
     [string]$Target = "all"
 )
 
@@ -72,6 +72,14 @@ $LD = Find-Tool "x86_64-elf-ld"       $crossSearchPaths
 $OBJCOPY = Find-Tool "x86_64-elf-objcopy"  $crossSearchPaths
 $QEMU = Find-Tool "qemu-system-x86_64"  $qemuSearchPaths
 
+# VBoxManage (opcional — para generar VDI)
+$vboxSearchPaths = @(
+    "C:\Program Files\Oracle\VirtualBox",
+    "C:\Program Files (x86)\Oracle\VirtualBox",
+    "$env:LOCALAPPDATA\Programs\Oracle\VirtualBox"
+)
+$VBOXMANAGE = Find-Tool "VBoxManage" $vboxSearchPaths
+
 # Verificar herramientas críticas
 $missing = @()
 if (!$AS) { $missing += "nasm" }
@@ -104,6 +112,7 @@ $BOOT_BIN = "$BUILD_DIR\boot.bin"
 $KERNEL_ELF = "$BUILD_DIR\kernel.elf"
 $KERNEL_BIN = "$BUILD_DIR\kernel.bin"
 $OS_IMAGE = "$BUILD_DIR\eteros.img"
+$OS_VDI = "$BUILD_DIR\eteros.vdi"
 
 $CFLAGS = @(
     "-ffreestanding",
@@ -126,7 +135,8 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\drivers\serial\serial.c",
     "$KERNEL_DIR\drivers\input\keyboard.c",
     "$KERNEL_DIR\arch\x86_64\idt.c",
-    "$KERNEL_DIR\arch\x86_64\pic.c"
+    "$KERNEL_DIR\arch\x86_64\pic.c",
+    "$KERNEL_DIR\apps\santitravel.c"
 )
 
 # ---- Funciones auxiliares ----
@@ -154,7 +164,8 @@ function Initialize-BuildDirs {
         "$BUILD_DIR\$KERNEL_DIR\drivers\video",
         "$BUILD_DIR\$KERNEL_DIR\drivers\serial",
         "$BUILD_DIR\$KERNEL_DIR\drivers\input",
-        "$BUILD_DIR\$KERNEL_DIR\arch\x86_64"
+        "$BUILD_DIR\$KERNEL_DIR\arch\x86_64",
+        "$BUILD_DIR\$KERNEL_DIR\apps"
     )
     foreach ($d in $dirs) {
         if (!(Test-Path $d)) {
@@ -232,6 +243,33 @@ function Invoke-ImageBuild {
     Write-Step "OK" "Imagen: $imagePath ($totalSize bytes)"
 }
 
+function Invoke-VdiBuild {
+    if (!$VBOXMANAGE) {
+        Write-Step "ERR" "VBoxManage no encontrado. Instalar VirtualBox para generar VDI."
+        Write-Host "    Descargar: https://www.virtualbox.org/wiki/Downloads" -ForegroundColor Gray
+        return
+    }
+
+    $imgPath = Join-Path (Get-Location) $OS_IMAGE
+    $vdiPath = Join-Path (Get-Location) $OS_VDI
+
+    # Eliminar VDI anterior si existe (VBoxManage no sobreescribe)
+    if (Test-Path $vdiPath) {
+        Remove-Item -Force $vdiPath
+    }
+
+    Write-Step "VDI" "Convirtiendo $OS_IMAGE -> $OS_VDI"
+    & $VBOXMANAGE convertfromraw $imgPath $vdiPath --format VDI 2>&1 | Out-Null
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Step "ERR" "Fallo al convertir a VDI"
+        return
+    }
+
+    $vdiSize = (Get-Item $vdiPath).Length
+    Write-Step "OK" "VDI: $vdiPath ($vdiSize bytes)"
+}
+
 function Invoke-QemuRun {
     param([bool]$DebugMode = $false)
 
@@ -290,7 +328,14 @@ function Show-BuildInfo {
     Write-Host ""
     Write-Host "  Boot source:  $BOOT_SRC"
     Write-Host "  Kernel srcs:  $($KERNEL_SRCS -join ', ')"
-    Write-Host "  Output:       $OS_IMAGE"
+    Write-Host "  Output IMG:   $OS_IMAGE"
+    Write-Host "  Output VDI:   $OS_VDI"
+    if ($VBOXMANAGE) {
+        Write-Host "  VBoxManage:   $VBOXMANAGE" -ForegroundColor Green
+    }
+    else {
+        Write-Host "  VBoxManage:   [NO ENCONTRADO - VDI deshabilitado]" -ForegroundColor Yellow
+    }
     Write-Host ""
 }
 
@@ -307,10 +352,12 @@ switch ($Target) {
         Invoke-BootBuild
         Invoke-KernelBuild
         Invoke-ImageBuild
+        Invoke-VdiBuild
         Write-Host ""
         Write-Host "  ================================================" -ForegroundColor Green
         Write-Host "    eterOS construido exitosamente!" -ForegroundColor Green
-        Write-Host "    Imagen: $OS_IMAGE" -ForegroundColor White
+        Write-Host "    IMG: $OS_IMAGE" -ForegroundColor White
+        Write-Host "    VDI: $OS_VDI" -ForegroundColor White
         Write-Host "    Ejecutar: .\build.ps1 -Target run" -ForegroundColor White
         Write-Host "  ================================================" -ForegroundColor Green
         Write-Host ""
@@ -342,6 +389,13 @@ switch ($Target) {
         Invoke-KernelBuild
         Invoke-ImageBuild
         Invoke-QemuRun -DebugMode $true
+    }
+    "vdi" {
+        Initialize-BuildDirs
+        Invoke-BootBuild
+        Invoke-KernelBuild
+        Invoke-ImageBuild
+        Invoke-VdiBuild
     }
     "clean" {
         Invoke-BuildClean

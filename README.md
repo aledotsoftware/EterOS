@@ -1,8 +1,8 @@
-# 🌌 éterOS: El Sistema Operativo de la Nueva Era
+# 🌌 éterOS: El Sistema Operativo Universal
 
-éterOS es un sistema operativo desarrollado desde el **"cero absoluto" (Bare-Metal)** para arquitectura **x86_64**. No es solo un kernel; es una propuesta de computación fluida, ligera y minimalista, diseñada para eliminar las capas de abstracción innecesarias del software moderno.
+éterOS es un sistema operativo desarrollado desde el **"cero absoluto" (Bare-Metal)** diseñado para correr en **cualquier dispositivo**: desde un microcontrolador en un aire acondicionado hasta un cluster de servidores en un data center. Un solo kernel, una sola filosofía, infinitas plataformas.
 
-> *"El código que no existe no puede fallar. éterOS: Simplicidad absoluta sobre el metal."*
+> *"El éter lo llena todo, invisible e infinito. éterOS: Un sistema operativo que no conoce límites."*
 
 ## ✨ Filosofía y Visión
 
@@ -17,10 +17,18 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 | Objetivo | Meta |
 |---|---|
 | **Tamaño total** | < 10 MB (kernel + drivers + apps + assets) |
-| **Arquitectura** | x86_64 nativo (Long Mode) |
-| **Portabilidad** | HAL preparada para RISC-V y ARM |
+| **Arquitecturas** | x86_64, aarch64, ARM Cortex-M, RISC-V, Xtensa, AVR |
+| **Portabilidad** | HAL universal con tiers Micro / Core / Full |
 | **Compatibilidad** | Capa POSIX para ejecutar software como Apache |
 | **Estética** | Tema "Austral Aurora" — modos oscuros con acentos de luz |
+
+### 💻 Dónde corre éterOS
+
+| Tier | Edición | Dispositivos | Arquitecturas |
+|---|---|---|---|
+| **Tier 1** | éterOS-Micro | Aire acondicionado, microondas, sensores IoT, drones | ARM Cortex-M, AVR, RISC-V32, Xtensa |
+| **Tier 2** | éterOS-Core | Tablets, phones, Raspberry Pi, satélites, robots | aarch64, RISC-V64 |
+| **Tier 3** | éterOS-Full | PCs, servidores, data centers, estaciones de trabajo | x86_64 |
 
 ## 📂 Estructura del Proyecto
 
@@ -33,15 +41,24 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 ├── kernel/                     # Ether-Core: El corazón del sistema
 │   ├── main.c                  # Punto de entrada (kmain)
 │   ├── string.c                # Utilidades de cadena y memoria
+│   ├── shell.c                 # Terminal interactiva de comandos
+│   ├── arch/                   # HAL — Una carpeta por arquitectura
+│   │   ├── x86_64/             # ✅ Implementado (PC / servidores)
+│   │   ├── aarch64/            # 🔜 Planificado (RPi, phones, satélites)
+│   │   ├── arm-cortex-m/       # 🔜 Planificado (STM32, Pico, IoT)
+│   │   ├── riscv64/            # 🔜 Planificado (SiFive, StarFive)
+│   │   └── xtensa/             # 🔜 Planificado (ESP32)
 │   └── drivers/                # El sistema sensorial
 │       ├── video/vga.c         # AetherGraphics (VGA → GOP en futuro)
-│       └── serial/serial.c     # UART 16550 para depuración
+│       ├── serial/serial.c     # UART 16550 para depuración
+│       └── input/keyboard.c    # Teclado PS/2 (IRQ-driven)
 ├── include/                    # API del sistema
+│   ├── hal.h                   # 🌍 HAL universal (interfaz multi-arch)
 │   ├── types.h                 # Tipos freestanding
-│   ├── vga.h                   # API de video
-│   ├── string.h                # API de cadenas
-│   ├── serial.h                # API serial
-│   └── io.h                    # E/S de puertos (inline)
+│   ├── idt.h / pic.h           # Interrupciones (x86_64)
+│   ├── keyboard.h / shell.h    # Input y terminal
+│   ├── vga.h / serial.h        # Video y debug
+│   └── io.h / string.h         # I/O y utilidades
 ├── scripts/                    # Herramientas de despliegue
 │   ├── setup_wsl.sh            # Setup para WSL2
 │   ├── setup_windows.ps1       # Setup para Windows nativo

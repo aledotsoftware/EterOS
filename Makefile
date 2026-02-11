@@ -56,7 +56,8 @@ KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/drivers/serial/serial.c \
               $(KERNEL_DIR)/drivers/input/keyboard.c \
               $(KERNEL_DIR)/arch/x86_64/idt.c    \
-              $(KERNEL_DIR)/arch/x86_64/pic.c
+              $(KERNEL_DIR)/arch/x86_64/pic.c     \
+              $(KERNEL_DIR)/apps/santitravel.c
 
 # ---- Archivos objeto ----
 KERNEL_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(KERNEL_SRCS))
@@ -95,6 +96,7 @@ dirs:
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/drivers/serial
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/drivers/input
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/arch/x86_64
+	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/apps
 
 # ---- Bootloader (binario plano, incluye Stage 1 + Stage 2) ----
 boot: dirs $(BOOT_BIN)

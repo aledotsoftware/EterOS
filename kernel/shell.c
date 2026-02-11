@@ -18,6 +18,7 @@
 #include "../include/string.h"
 #include "../include/serial.h"
 #include "../include/io.h"
+#include "../include/santitravel.h"
 
 /* ========================================================================= */
 /* Constantes del sistema                                                    */
@@ -70,6 +71,24 @@ static const shell_command_t commands[] = {
 #define NUM_COMMANDS  (sizeof(commands) / sizeof(commands[0]))
 
 /* ========================================================================= */
+/* Registro de Aplicaciones (separado de comandos del kernel)                 */
+/* ========================================================================= */
+
+/** Entrada en el registro de aplicaciones. */
+typedef struct {
+    const char*   name;          /* Nombre de la app */
+    const char*   description;   /* Descripción */
+    const char*   version;       /* Versión */
+    void        (*run)(void);    /* Entry point de la app */
+} app_entry_t;
+
+static const app_entry_t apps[] = {
+    { "santitravel", "Aventuras con Santi", "1.0", santitravel_run },
+};
+
+#define NUM_APPS  (sizeof(apps) / sizeof(apps[0]))
+
+/* ========================================================================= */
 /* Helpers internos                                                          */
 /* ========================================================================= */
 
@@ -107,7 +126,7 @@ static void shell_print_prompt(void) {
 static void cmd_help(const char* args) {
     (void)args;
     terminal_write_string("\n");
-    terminal_write_colored("  Comandos disponibles:\n\n",
+    terminal_write_colored("  Comandos del sistema:\n\n",
                           VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
 
     for (size_t i = 0; i < NUM_COMMANDS; i++) {
@@ -123,6 +142,26 @@ static void cmd_help(const char* args) {
         terminal_write_string(commands[i].description);
         terminal_write_string("\n");
     }
+
+    terminal_write_string("\n");
+    terminal_write_colored("  Aplicaciones instaladas:\n\n",
+                          VGA_COLOR_LIGHT_MAGENTA, VGA_COLOR_BLACK);
+
+    for (size_t i = 0; i < NUM_APPS; i++) {
+        terminal_write_colored("    ", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+        terminal_write_colored(apps[i].name,
+                              VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+
+        size_t name_len = strlen(apps[i].name);
+        size_t pad = (name_len < 12) ? 12 - name_len : 1;
+        while (pad--) terminal_write_string(" ");
+
+        terminal_write_string(apps[i].description);
+        terminal_write_colored(" v", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+        terminal_write_colored(apps[i].version, VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+        terminal_write_string("\n");
+    }
+
     terminal_write_string("\n");
 }
 
@@ -273,6 +312,21 @@ void shell_run(void) {
                         commands[i].handler(args);
                         found = true;
                         break;
+                    }
+                }
+
+                if (!found) {
+                    /* Buscar en registro de aplicaciones */
+                    for (size_t i = 0; i < NUM_APPS; i++) {
+                        if (match_command(input, apps[i].name)) {
+                            serial_write_string("[eterOS] Ejecutando app: ");
+                            serial_write_string(apps[i].name);
+                            serial_write_string("\n");
+                            apps[i].run();
+                            terminal_initialize();
+                            found = true;
+                            break;
+                        }
                     }
                 }
 
