@@ -269,33 +269,38 @@ protected_mode_start:
 PAGE_TABLE_ADDR equ 0x70000             ; Dirección base de las tablas
 
 setup_page_tables:
-    ; Limpiar 3 páginas de 4 KB (PML4 + PDPT + PD = 12 KB)
+    ; 1. Limpiar 6 páginas de 4 KB (PML4 + PDPT + 4*PD = 24 KB)
     mov edi, PAGE_TABLE_ADDR
     xor eax, eax
-    mov ecx, (4096 * 3) / 4            ; 12 KB / 4 bytes = 3072 dwords
+    mov ecx, (4096 * 6) / 4            ; 24 KB / 4 bytes
     rep stosd
 
-    ; PML4[0] → PDPT
+    ; 2. Configurar PML4[0] → PDPT
     mov eax, PAGE_TABLE_ADDR + 0x1000   ; Dirección de PDPT
     or eax, 0x03                        ; Present + Writable
     mov [PAGE_TABLE_ADDR], eax
 
-    ; PDPT[0] → PD
-    mov eax, PAGE_TABLE_ADDR + 0x2000   ; Dirección de PD
-    or eax, 0x03                        ; Present + Writable
-    mov [PAGE_TABLE_ADDR + 0x1000], eax
+    ; 3. Configurar PDPT[0..3] → PD0..PD3 (Mapear 4GB)
+    mov edi, PAGE_TABLE_ADDR + 0x1000   ; PDPT Base
+    mov eax, PAGE_TABLE_ADDR + 0x2000   ; Base del primer PD
+    or eax, 0x03                        ; Present + RW
+    mov ecx, 4                          ; 4 PDs para cubrir 4GB
+.loop_pdpt:
+    mov [edi], eax
+    add edi, 8                          ; Siguiente entrada en PDPT (8 bytes)
+    add eax, 0x1000                     ; Siguiente dirección de tabla PD
+    loop .loop_pdpt
 
-    ; PD[0] → 0x000000 - 0x1FFFFF (2 MB) - Identity mapped
-    mov dword [PAGE_TABLE_ADDR + 0x2000], 0x00000083  ; Present + Write + Huge
-
-    ; PD[1] → 0x200000 - 0x3FFFFF (2 MB)
-    mov dword [PAGE_TABLE_ADDR + 0x2008], 0x00200083
-
-    ; PD[2] → 0x400000 - 0x5FFFFF (2 MB)
-    mov dword [PAGE_TABLE_ADDR + 0x2010], 0x00400083
-
-    ; PD[3] → 0x600000 - 0x7FFFFF (2 MB)
-    mov dword [PAGE_TABLE_ADDR + 0x2018], 0x00600083
+    ; 4. Llenar los 4 PDs con entradas de 2MB (Identity Mapping completo)
+    mov edi, PAGE_TABLE_ADDR + 0x2000   ; Inicio de PD0
+    mov eax, 0x00000083                 ; Phys 0 + Present + RW + Huge (2MB)
+    mov ecx, 512 * 4                    ; 2048 entradas (4GB / 2MB)
+    
+.loop_pds:
+    mov [edi], eax                      ; Escribir entrada
+    add edi, 8                          ; Siguiente entrada en la tabla
+    add eax, 0x200000                   ; Siguiente dirección física (+2MB)
+    loop .loop_pds
 
     ret
 

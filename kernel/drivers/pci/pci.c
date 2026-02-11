@@ -43,7 +43,6 @@ uint16_t pci_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) 
 
 void pci_write_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint16_t value) {
     uint32_t address;
-    uint16_t tmp = 0;
     
     address = (uint32_t)((bus << 16) | (slot << 11) | (func << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
     outl(PCI_CONFIG_ADDRESS, address);
@@ -122,7 +121,6 @@ static void scan_function(uint8_t bus, uint8_t slot, uint8_t func) {
     uint16_t class_code = pci_read_word(bus, slot, func, PCI_OFFSET_SUBCLASS); // Returns Class (high) & Subclass (low)
     
     uint8_t class_id = (class_code >> 8) & 0xFF;
-    uint8_t subclass_id = class_code & 0xFF;
     
     /* Imprimir en consola estilo lspci */
     char buffer[64];
@@ -180,4 +178,40 @@ void pci_scan_bus(void) {
 void pci_init(void) {
     /* Por ahora solo escaneamos bajo demanda */
     // pci_scan_bus();
+}
+
+int pci_find_device(uint16_t vendor_id, uint16_t device_id, pci_device_t* dev) {
+    for (uint16_t bus = 0; bus < 256; bus++) {
+        for (uint8_t slot = 0; slot < 32; slot++) {
+            for (uint8_t func = 0; func < 8; func++) {
+                uint16_t vendor = pci_read_word((uint8_t)bus, slot, func, PCI_OFFSET_VENDOR_ID);
+                if (vendor == 0xFFFF) continue;
+                
+                uint16_t device = pci_read_word((uint8_t)bus, slot, func, PCI_OFFSET_DEVICE_ID);
+                if (vendor == vendor_id && device == device_id) {
+                    /* ¡Encontrado! Llenar estructura */
+                    if (dev) {
+                        dev->bus = (uint8_t)bus;
+                        dev->slot = slot;
+                        dev->function = func;
+                        dev->vendor_id = vendor;
+                        dev->device_id = device;
+                        
+                        uint16_t class_code = pci_read_word((uint8_t)bus, slot, func, PCI_OFFSET_SUBCLASS);
+                        dev->class_id = (class_code >> 8) & 0xFF;
+                        dev->subclass_id = (uint8_t)(class_code & 0xFF);
+                        dev->header_type = (uint8_t)(pci_read_word((uint8_t)bus, slot, func, PCI_OFFSET_HEADER_TYPE) & 0x7F);
+                    }
+                    return 1;
+                }
+                
+                /* Si es función 0 y no es multi-function, saltar al siguiente device */
+                if (func == 0) {
+                    uint16_t header_type = pci_read_word((uint8_t)bus, slot, func, PCI_OFFSET_HEADER_TYPE);
+                    if (!(header_type & 0x80)) break;
+                }
+            }
+        }
+    }
+    return 0;
 }

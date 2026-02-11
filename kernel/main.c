@@ -27,6 +27,8 @@
 #include "../include/keyboard.h"
 #include "../include/shell.h"
 #include "../include/timer.h"
+#include "../include/mm.h"
+#include "../include/net/e1000.h"
 
 /* ========================================================================= */
 /* Constantes del Sistema                                                    */
@@ -59,6 +61,14 @@ void kmain(void) {
 
     /* ---- 2. Inicializar el puerto serie para depuración ---- */
     int serial_status = serial_init();
+
+    /* ---- 2.5. Inicializar Memory Manager (Heap) ---- */
+    mm_init();
+    
+    /* ---- 2.6. Inicializar Red ---- */
+    /* Intentar inicializar E1000 si está presente */
+    terminal_write_string("\n");
+    e1000_init(NULL);
 
     /* ---- 3. Mostrar banner de éterOS ---- */
     kernel_print_banner();

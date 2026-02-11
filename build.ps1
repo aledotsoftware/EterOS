@@ -180,6 +180,9 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\drivers\input\keyboard.c",
     "$KERNEL_DIR\drivers\timer\pit.c",
     "$KERNEL_DIR\drivers\pci\pci.c",
+    "$KERNEL_DIR\drivers\net\e1000.c",
+    "$KERNEL_DIR\net\dhcp.c",
+    "$KERNEL_DIR\mm\heap.c",
     "$KERNEL_DIR\libgcc.c",
     "$KERNEL_DIR\apps\santitravel.c",
     "$KERNEL_DIR\apps\sysmon.c"
@@ -223,6 +226,9 @@ function Initialize-BuildDirs {
         "$BUILD_DIR\$KERNEL_DIR\arch\$Arch",
         "$BUILD_DIR\$KERNEL_DIR\drivers\timer",
         "$BUILD_DIR\$KERNEL_DIR\drivers\pci",
+        "$BUILD_DIR\$KERNEL_DIR\drivers\net",
+        "$BUILD_DIR\$KERNEL_DIR\net",
+        "$BUILD_DIR\$KERNEL_DIR\mm",
         "$BUILD_DIR\$KERNEL_DIR\apps"
     )
     foreach ($d in $dirs) {
@@ -243,6 +249,21 @@ function Invoke-BootBuild {
 
 function Invoke-KernelBuild {
     $objFiles = @()
+
+    # Compilar ASM stubs si existen
+    $asmSrc = "$KERNEL_DIR\arch\$Arch\interrupts.asm"
+    if (Test-Path $asmSrc) {
+        $asmObj = "$BUILD_DIR\$($asmSrc -replace '\.asm$', '.o')"
+        $objFiles += $asmObj
+
+        Write-Step "ASM" $asmSrc
+        $asmFormat = if ($Arch -eq "x86_64") { "elf64" } else { "elf32" }
+        & $AS -f $asmFormat $asmSrc -o $asmObj
+        if ($LASTEXITCODE -ne 0) {
+            Write-Step "ERR" "Fallo al ensamblar stubs"
+            exit 1
+        }
+    }
 
     foreach ($src in $KERNEL_SRCS) {
         $obj = "$BUILD_DIR\$($src -replace '\.c$', '.o')"
@@ -355,6 +376,9 @@ function Invoke-VBoxRun {
         # Desmontar disco anterior
         & $VBOXMANAGE storageattach $vmName --storagectl "SATA" --port 0 --device 0 --medium none 2>&1 | Out-Null
 
+        # Asegurar tipo de red E1000
+        & $VBOXMANAGE modifyvm $vmName --nic1 nat --nictype1 82540EM 2>&1 | Out-Null
+
         # Cerrar medio anterior si existe  
         & $VBOXMANAGE closemedium disk $vdiPath 2>&1 | Out-Null
         $ErrorActionPreference = "Stop"
@@ -394,6 +418,8 @@ function Invoke-VBoxRun {
             --firmware bios `
             --long-mode $longMode `
             --graphicscontroller VBoxVGA `
+            --nic1 nat `
+            --nictype1 82540EM `
             --audio-driver none `
             --uart1 0x3F8 4 `
             --uartmode1 file "$((Get-Location).Path)\build\$Arch\serial.log" 2>&1 | Out-Null

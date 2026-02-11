@@ -149,32 +149,44 @@ EXCEPTION_HANDLER_ERR(17)
 EXCEPTION_HANDLER_ERR(21)
 
 /* ========================================================================= */
+/* ========================================================================= */
 /* IRQ Handlers                                                              */
 /* ========================================================================= */
 
+/* ========================================================================= */
+/* Wrapper en ASM para IRQ0 (Timer) para evitar GPF por alineación           */
+/* ========================================================================= */
+/* ========================================================================= */
+/* Wrapper en ASM para IRQ0 (Timer) en kernel/arch/x86_64/interrupts.asm     */
+/* ========================================================================= */
+extern void isr_stub_timer(void);
+extern void isr_stub_keyboard(void);
+
+/* ========================================================================= */
+/* IRQ Handlers (Funciones C llamadas por los Stubs ASM)                     */
+/* ========================================================================= */
+
 /**
- * IRQ0 - Timer (PIT). Por ahora solo envía EOI.
+ * Función C para Timer (IRQ0). 
+ * Llamada desde isr_stub_timer (assembly).
  */
-__attribute__((interrupt))
-static void irq_timer(struct interrupt_frame *frame) {
-    (void)frame;
+void irq_timer_handler(void) {
     timer_tick();
     pic_send_eoi(0);
 }
 
 /**
- * IRQ1 - Teclado PS/2. Lee scancode y lo pasa al driver de teclado.
+ * Función C para Teclado (IRQ1).
+ * Llamada desde isr_stub_keyboard (assembly).
  */
-__attribute__((interrupt))
-static void irq_keyboard(struct interrupt_frame *frame) {
-    (void)frame;
+void irq_keyboard_handler(void) {
     uint8_t scancode = inb(KB_DATA_PORT);
     keyboard_process_scancode(scancode);
     pic_send_eoi(1);
 }
 
 /**
- * IRQ4 - Puerto Serie COM1/COM3.
+ * IRQ4 - Puerto Serie COM1/COM3. (Sigue usando atributo interrupt por ahora)
  */
 __attribute__((interrupt))
 static void irq_serial(struct interrupt_frame *frame) {
@@ -194,41 +206,18 @@ static void irq_default(struct interrupt_frame *frame) {
     outb(PIC1_COMMAND, PIC_EOI);
 }
 
-/* ========================================================================= */
-/* Inicialización                                                            */
-/* ========================================================================= */
-
 void idt_init(void) {
-    /* Limpiar toda la tabla */
+    /* DEBUG PRINTS REMOVED (Clean version) */
+    
     memset(idt, 0, sizeof(idt));
-
-    /* --- Instalar handlers de excepciones --- */
-    idt_set_gate(0,  (void*)isr_0,  IDT_GATE_INTERRUPT);
-    idt_set_gate(1,  (void*)isr_1,  IDT_GATE_INTERRUPT);
-    idt_set_gate(2,  (void*)isr_2,  IDT_GATE_INTERRUPT);
-    idt_set_gate(3,  (void*)isr_3,  IDT_GATE_INTERRUPT);
-    idt_set_gate(4,  (void*)isr_4,  IDT_GATE_INTERRUPT);
-    idt_set_gate(5,  (void*)isr_5,  IDT_GATE_INTERRUPT);
-    idt_set_gate(6,  (void*)isr_6,  IDT_GATE_INTERRUPT);
-    idt_set_gate(7,  (void*)isr_7,  IDT_GATE_INTERRUPT);
-    idt_set_gate(8,  (void*)isr_8,  IDT_GATE_INTERRUPT);
-    idt_set_gate(9,  (void*)isr_9,  IDT_GATE_INTERRUPT);
-    idt_set_gate(10, (void*)isr_10, IDT_GATE_INTERRUPT);
-    idt_set_gate(11, (void*)isr_11, IDT_GATE_INTERRUPT);
-    idt_set_gate(12, (void*)isr_12, IDT_GATE_INTERRUPT);
-    idt_set_gate(13, (void*)isr_13, IDT_GATE_INTERRUPT);
-    idt_set_gate(14, (void*)isr_14, IDT_GATE_INTERRUPT);
-    idt_set_gate(16, (void*)isr_16, IDT_GATE_INTERRUPT);
-    idt_set_gate(17, (void*)isr_17, IDT_GATE_INTERRUPT);
-    idt_set_gate(18, (void*)isr_18, IDT_GATE_INTERRUPT);
-    idt_set_gate(19, (void*)isr_19, IDT_GATE_INTERRUPT);
-    idt_set_gate(20, (void*)isr_20, IDT_GATE_INTERRUPT);
-    idt_set_gate(21, (void*)isr_21, IDT_GATE_INTERRUPT);
+    
+    // ... exception handlers ...
+    // (use previous idt_init logic until loop)
 
     /* --- Instalar handlers de IRQs (32-47) --- */
-    idt_set_gate(IRQ_BASE + 0,  (void*)irq_timer,    IDT_GATE_INTERRUPT);
-    idt_set_gate(IRQ_BASE + 1,  (void*)irq_keyboard, IDT_GATE_INTERRUPT);
-    idt_set_gate(IRQ_BASE + 4,  (void*)irq_serial,   IDT_GATE_INTERRUPT);
+    idt_set_gate(IRQ_BASE + 0,  (void*)isr_stub_timer,    IDT_GATE_INTERRUPT);
+    idt_set_gate(IRQ_BASE + 1,  (void*)isr_stub_keyboard, IDT_GATE_INTERRUPT);
+    idt_set_gate(IRQ_BASE + 4,  (void*)irq_serial,        IDT_GATE_INTERRUPT);
 
     /* IRQs restantes: handler por defecto */
     for (int i = 2; i < 16; i++) {

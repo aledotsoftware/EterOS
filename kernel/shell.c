@@ -22,6 +22,9 @@
 #include "../include/sysmon.h"
 #include "../include/idt.h"
 #include "../include/pci.h"
+#include "../include/mm.h"
+#include "../include/net/e1000.h"
+#include "../include/net/dhcp.h"
 
 /* ========================================================================= */
 /* Constantes del sistema                                                    */
@@ -56,6 +59,8 @@ static void cmd_reboot(const char* args);
 static void cmd_halt(const char* args);
 static void cmd_mem(const char* args);
 static void cmd_lspci(const char* args);
+static void cmd_net(const char* args);
+static void cmd_dhcp(const char* args);
 
 /* ========================================================================= */
 /* Tabla de comandos (extensible — solo agregar entradas)                    */
@@ -69,6 +74,8 @@ static const shell_command_t commands[] = {
     { "about",    "Acerca de eterOS",                            cmd_about   },
     { "mem",      "Informacion basica de memoria",               cmd_mem     },
     { "lspci",    "Lista dispositivos PCI",                      cmd_lspci   },
+    { "net",      "Informacion de red (MAC)",                    cmd_net     },
+    { "dhcp",     "Obtener IP via DHCP",                         cmd_dhcp    },
     { "reboot",   "Reinicia el sistema",                         cmd_reboot  },
     { "halt",     "Detiene la CPU",                              cmd_halt    },
 };
@@ -240,14 +247,74 @@ static void cmd_about(const char* args) {
 static void cmd_mem(const char* args) {
     (void)args;
     terminal_write_string("\n");
-    terminal_write_colored("  Mapa de memoria:\n\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+    terminal_write_colored("  Mapa de Memoria del Sistema:\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
     terminal_write_string("    0x00000 - 0x07BFF  IVT / BDA\n");
     terminal_write_string("    0x07C00 - 0x07DFF  Stage 1 (MBR)\n");
     terminal_write_string("    0x07E00 - 0x09DFF  Stage 2\n");
     terminal_write_string("    0x10000 - 0x1FFFF  Ether-Core (Kernel)\n");
-    terminal_write_string("    0x70000 - 0x72FFF  Page Tables (12 KB)\n");
+    terminal_write_string("    0x70000 - 0x72FFF  Page Tables\n");
     terminal_write_string("    0x90000            Stack Top\n");
     terminal_write_string("    0xB8000 - 0xBFFFF  VGA Buffer\n");
+    terminal_write_string("    0x400000 - 0xC00000 Kernel Heap (8 MB)\n");
+
+    terminal_write_string("\n");
+    terminal_write_colored("  Estado del Heap (Kernel):\n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
+    
+    char buffer[32];
+    size_t total = mm_get_total_memory();
+    size_t used = mm_get_used_memory();
+    
+    terminal_write_string("    Total:  ");
+    itoa_s((int64_t)total, buffer, sizeof(buffer), 10);
+    terminal_write_colored(buffer, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_string(" bytes\n");
+
+    terminal_write_string("    Usado:  ");
+    itoa_s((int64_t)used, buffer, sizeof(buffer), 10);
+    terminal_write_colored(buffer, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_string(" bytes\n");
+    
+    terminal_write_string("    Libre:  ");
+    itoa_s((int64_t)(total - used), buffer, sizeof(buffer), 10);
+    terminal_write_colored(buffer, VGA_COLOR_GREEN, VGA_COLOR_BLACK);
+    terminal_write_string(" bytes\n");
+    
+    terminal_write_string("\n");
+}
+
+static void cmd_net(const char* args) {
+    (void)args;
+    terminal_write_string("\n");
+    terminal_write_colored("  [Interfaz eth0]\n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
+    terminal_write_string("    Driver:  ");
+    terminal_write_colored("Intel PRO/1000 (e1000)\n", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    
+    char buf[16];
+    uint8_t* mac = e1000_get_mac();
+    
+    terminal_write_string("    MAC:     ");
+    for (int i = 0; i < 6; i++) {
+        uint8_t val = mac[i];
+        char hex[3];
+        
+        char h = (val >> 4) & 0xF;
+        char l = val & 0xF;
+        
+        hex[0] = (h < 10) ? '0' + h : 'A' + (h - 10);
+        hex[1] = (l < 10) ? '0' + l : 'A' + (l - 10);
+        hex[2] = 0;
+        
+        terminal_write_string(hex);
+        if (i < 5) terminal_write_string(":");
+    }
+    terminal_write_string("\n\n");
+}
+
+static void cmd_dhcp(const char* args) {
+    (void)args;
+    terminal_write_string("\n");
+    terminal_write_colored("  [DHCP Client]\n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
+    dhcp_discover();
     terminal_write_string("\n");
 }
 

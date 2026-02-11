@@ -82,4 +82,10 @@ void pci_write_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uin
  */
 void pci_scan_bus(void);
 
+/**
+ * Busca un dispositivo específico por VendorID y DeviceID.
+ * Retorna 1 si lo encuentra (y llena 'dev'), 0 si no.
+ */
+int pci_find_device(uint16_t vendor_id, uint16_t device_id, pci_device_t* dev);
+
 #endif /* ETEROS_PCI_H */
