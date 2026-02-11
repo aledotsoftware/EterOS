@@ -38,6 +38,9 @@ CFLAGS  = -ffreestanding       \
           -nostdlib             \
           -nostdinc             \
           -mno-red-zone        \
+          -mno-sse             \
+          -mno-sse2            \
+          -mno-mmx             \
           -Wall                \
           -Wextra              \
           -O2                  \
