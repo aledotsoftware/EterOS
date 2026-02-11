@@ -22,7 +22,7 @@
 # =============================================================================
 
 param(
-    [ValidateSet("all", "boot", "kernel", "image", "vdi", "run", "debug", "clean", "info")]
+    [ValidateSet("all", "boot", "kernel", "image", "vdi", "vbox", "run", "debug", "clean", "info")]
     [string]$Target = "all"
 )
 
@@ -259,15 +259,105 @@ function Invoke-VdiBuild {
     }
 
     Write-Step "VDI" "Convirtiendo $OS_IMAGE -> $OS_VDI"
+    $ErrorActionPreference = "Continue"
     & $VBOXMANAGE convertfromraw $imgPath $vdiPath --format VDI 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
 
-    if ($LASTEXITCODE -ne 0) {
+    if (!(Test-Path $vdiPath)) {
         Write-Step "ERR" "Fallo al convertir a VDI"
         return
     }
 
     $vdiSize = (Get-Item $vdiPath).Length
     Write-Step "OK" "VDI: $vdiPath ($vdiSize bytes)"
+}
+
+function Invoke-VBoxRun {
+    if (!$VBOXMANAGE) {
+        Write-Step "ERR" "VBoxManage no encontrado. Instalar VirtualBox."
+        return
+    }
+
+    $vmName = "eterOS"
+    $vdiPath = (Join-Path (Get-Location) $OS_VDI).Replace('/', '\')
+
+    # Verificar si la VM ya existe
+    $ErrorActionPreference = "Continue"
+    $vmExists = & $VBOXMANAGE showvminfo $vmName 2>&1
+    $ErrorActionPreference = "Stop"
+
+    if ($vmExists -match "Name:") {
+        Write-Step "VBOX" "VM '$vmName' ya existe. Actualizando disco..."
+
+        # Apagar si está corriendo
+        $ErrorActionPreference = "Continue"
+        & $VBOXMANAGE controlvm $vmName poweroff 2>&1 | Out-Null
+        Start-Sleep -Seconds 2
+
+        # Desmontar disco anterior
+        & $VBOXMANAGE storageattach $vmName --storagectl "SATA" --port 0 --device 0 --medium none 2>&1 | Out-Null
+
+        # Cerrar medio anterior si existe  
+        & $VBOXMANAGE closemedium disk $vdiPath 2>&1 | Out-Null
+        $ErrorActionPreference = "Stop"
+
+        # Regenerar VDI fresco
+        Invoke-VdiBuild
+
+        # Remontar disco nuevo
+        $ErrorActionPreference = "Continue"
+        & $VBOXMANAGE storageattach $vmName --storagectl "SATA" --port 0 --device 0 --type hdd --medium $vdiPath 2>&1 | Out-Null
+        $ErrorActionPreference = "Stop"
+    }
+    else {
+        Write-Step "VBOX" "Creando VM '$vmName'..."
+
+        # Generar VDI
+        Invoke-VdiBuild
+
+        $ErrorActionPreference = "Continue"
+
+        # Limpiar restos de VMs anteriores (archivos huérfanos)
+        $vboxVmDir = Join-Path $env:USERPROFILE "VirtualBox VMs\$vmName"
+        if (Test-Path $vboxVmDir) {
+            Remove-Item -Recurse -Force $vboxVmDir
+            Write-Step "VBOX" "Limpiando restos de VM anterior..."
+        }
+
+        # Crear VM
+        & $VBOXMANAGE createvm --name $vmName --ostype Other_64 --register 2>&1 | Out-Null
+
+        # Configurar: BIOS (NO EFI), 128MB RAM, 1 CPU, Long Mode ON
+        & $VBOXMANAGE modifyvm $vmName `
+            --memory 128 `
+            --cpus 1 `
+            --firmware bios `
+            --long-mode on `
+            --graphicscontroller VBoxVGA `
+            --audio-driver none `
+            --uart1 0x3F8 4 `
+            --uartmode1 file "$((Get-Location).Path)\build\serial.log" 2>&1 | Out-Null
+
+        # Crear controladora SATA
+        & $VBOXMANAGE storagectl $vmName --name "SATA" --add sata --controller IntelAhci --portcount 1 2>&1 | Out-Null
+
+        # Conectar VDI
+        & $VBOXMANAGE storageattach $vmName --storagectl "SATA" --port 0 --device 0 --type hdd --medium $vdiPath 2>&1 | Out-Null
+
+        # Orden de arranque: disco duro primero
+        & $VBOXMANAGE modifyvm $vmName --boot1 disk --boot2 none --boot3 none --boot4 none 2>&1 | Out-Null
+
+        $ErrorActionPreference = "Stop"
+
+        Write-Step "OK" "VM '$vmName' creada (BIOS, 128MB, disco: $OS_VDI)"
+    }
+
+    # Iniciar la VM
+    Write-Step "VBOX" "Iniciando $vmName en VirtualBox..."
+    $ErrorActionPreference = "Continue"
+    & $VBOXMANAGE startvm $vmName --type gui 2>&1 | Out-Null
+    $ErrorActionPreference = "Stop"
+    Write-Step "OK" "VM iniciada. Serial log: build\serial.log"
 }
 
 function Invoke-QemuRun {
@@ -396,6 +486,13 @@ switch ($Target) {
         Invoke-KernelBuild
         Invoke-ImageBuild
         Invoke-VdiBuild
+    }
+    "vbox" {
+        Initialize-BuildDirs
+        Invoke-BootBuild
+        Invoke-KernelBuild
+        Invoke-ImageBuild
+        Invoke-VBoxRun
     }
     "clean" {
         Invoke-BuildClean

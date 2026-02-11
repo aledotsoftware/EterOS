@@ -1,19 +1,15 @@
 /**
  * =============================================================================
- * éterOS - SantiTravel v1.0
+ * éterOS - SantiTravel v1.1
  * Copyright (c) 2026 Tudex Networks. All rights reserved.
  * =============================================================================
  *
- * 🌍 Primera aplicación nativa del ecosistema éterOS.
+ * Primera aplicación nativa del ecosistema éterOS.
  *
  * Registro de viajes y aventuras con Santi.
- * Corre directamente sobre el kernel en modo VGA texto (80x25).
+ * Interfaz basada en menú (80x25 VGA, sin scroll).
  *
- * Características:
- *   - Animación ASCII de avión despegando
- *   - Lista de destinos visitados (con colores)
- *   - Lista de destinos por visitar
- *   - Estadísticas de viaje
+ * v1.1 — Menú interactivo con pantallas separadas.
  *
  * =============================================================================
  */
@@ -25,13 +21,12 @@
 #include "../include/io.h"
 
 /* ========================================================================= */
-/* Delay simple (busy-wait calibrado por I/O)                                */
+/* Delay calibrado por I/O port (port 0x80 ~ 1µs por read)                  */
 /* ========================================================================= */
 static void delay_ms(uint32_t ms) {
-    /* ~1ms por iteración usando I/O port read (cada inb ~1µs) */
     for (uint32_t i = 0; i < ms; i++) {
-        for (uint32_t j = 0; j < 1000; j++) {
-            inb(0x80);  /* Port 0x80 read como delay */
+        for (uint32_t j = 0; j < 800; j++) {
+            inb(0x80);
         }
     }
 }
@@ -43,210 +38,290 @@ static void delay_ms(uint32_t ms) {
 typedef struct {
     const char* city;
     const char* country;
-    const char* flag;       /* Emoji/símbolo corto */
-    uint8_t     visited;    /* 1 = visitado, 0 = pendiente */
+    const char* code;
+    uint8_t     visited;
 } destination_t;
 
 static const destination_t destinations[] = {
     /* ===== VISITADOS ===== */
-    { "Posadas",          "Argentina",  "[MIS]", 1 },
-    { "Cataratas Iguazu", "Argentina",  "[IGU]", 1 },
-    { "Ciudad del Este",  "Paraguay",   "[PY ]", 1 },
-    { "Foz de Iguazu",    "Brasil",     "[BR ]", 1 },
-    { "Buenos Aires",     "Argentina",  "[BUE]", 1 },
-    { "Ushuaia",          "Argentina",  "[USH]", 1 },
-    { "Tolhuin",          "Argentina",  "[TDF]", 1 },
-    { "Rio Grande",       "Argentina",  "[TDF]", 1 },
-    { "Mendoza",          "Argentina",  "[MDZ]", 1 },
-    { "Santiago",         "Chile",      "[SCL]", 1 },
-    { "Vina del Mar",     "Chile",      "[VNA]", 1 },
+    { "Posadas",          "Argentina",  "MIS", 1 },
+    { "Cataratas Iguazu", "Argentina",  "IGU", 1 },
+    { "Ciudad del Este",  "Paraguay",   "PY ", 1 },
+    { "Foz de Iguazu",    "Brasil",     "BR ", 1 },
+    { "Buenos Aires",     "Argentina",  "BUE", 1 },
+    { "Ushuaia",          "Argentina",  "USH", 1 },
+    { "Tolhuin",          "Argentina",  "TDF", 1 },
+    { "Rio Grande",       "Argentina",  "TDF", 1 },
+    { "Mendoza",          "Argentina",  "MDZ", 1 },
+    { "Santiago",         "Chile",      "SCL", 1 },
+    { "Vina del Mar",     "Chile",      "VNA", 1 },
 
     /* ===== POR VISITAR ===== */
-    { "Bariloche",        "Argentina",  "[BRC]", 0 },
-    { "El Calafate",      "Argentina",  "[FTE]", 0 },
-    { "Salta",            "Argentina",  "[SLA]", 0 },
-    { "Rio de Janeiro",   "Brasil",     "[GIG]", 0 },
-    { "Cusco",            "Peru",       "[CUZ]", 0 },
-    { "Cancun",           "Mexico",     "[CUN]", 0 },
-    { "Bogota",           "Colombia",   "[BOG]", 0 },
-    { "Cartagena",        "Colombia",   "[CTG]", 0 },
-    { "Lima",             "Peru",       "[LIM]", 0 },
-    { "Montevideo",       "Uruguay",    "[MVD]", 0 },
-    { "Nueva York",       "EEUU",       "[JFK]", 0 },
-    { "Tokyo",            "Japon",      "[NRT]", 0 },
-    { "Barcelona",        "Espana",     "[BCN]", 0 },
-    { "Roma",             "Italia",     "[FCO]", 0 },
+    { "Bariloche",        "Argentina",  "BRC", 0 },
+    { "El Calafate",      "Argentina",  "FTE", 0 },
+    { "Salta",            "Argentina",  "SLA", 0 },
+    { "Rio de Janeiro",   "Brasil",     "GIG", 0 },
+    { "Cusco",            "Peru",       "CUZ", 0 },
+    { "Cancun",           "Mexico",     "CUN", 0 },
+    { "Bogota",           "Colombia",   "BOG", 0 },
+    { "Cartagena",        "Colombia",   "CTG", 0 },
+    { "Lima",             "Peru",       "LIM", 0 },
+    { "Montevideo",       "Uruguay",    "MVD", 0 },
+    { "Nueva York",       "EEUU",       "JFK", 0 },
+    { "Tokyo",            "Japon",      "NRT", 0 },
+    { "Barcelona",        "Espana",     "BCN", 0 },
+    { "Roma",             "Italia",     "FCO", 0 },
 };
 
 #define NUM_DESTINATIONS  (sizeof(destinations) / sizeof(destinations[0]))
 
 /* ========================================================================= */
-/* Animación del avión ASCII                                                 */
+/* Helpers de pantalla                                                       */
 /* ========================================================================= */
 
-static void draw_plane_frame_0(void) {
-    terminal_write_colored("                                                  \n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
-    terminal_write_colored("                       |                          \n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    terminal_write_colored("                  _____|_____                     \n", VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("                 /     |     \\                   \n", VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("            ====", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("| SANTI |", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
-    terminal_write_colored("====>>>              \n", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("                 \\_________/                     \n", VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("               ___|_________|___                  \n", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("  ~~~~~~~~~~~~", VGA_COLOR_CYAN, VGA_COLOR_BLACK);
-    terminal_write_colored("|___|___|___|___|", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("~~~~~~~~~~~~~~\n", VGA_COLOR_CYAN, VGA_COLOR_BLACK);
+/** Dibuja una línea horizontal decorativa */
+static void draw_separator(void) {
+    terminal_write_colored(
+        "  --------------------------------------------------------\n",
+        VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
 }
 
-static void draw_plane_frame_1(void) {
-    terminal_write_colored("                                                  \n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
-    terminal_write_colored("                        /                         \n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    terminal_write_colored("                  _____|_____                     \n", VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("                 /     |     \\                   \n", VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("            ====", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("| SANTI |", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
-    terminal_write_colored("====>>>              \n", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("                 \\_________/                     \n", VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("                   |     |                        \n", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", VGA_COLOR_CYAN, VGA_COLOR_BLACK);
-}
-
-static void draw_plane_frame_2(void) {
-    terminal_write_colored("                                                  \n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
-    terminal_write_colored("                                                  \n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
-    terminal_write_colored("                  ___________                     \n", VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("                 /     |     \\                   \n", VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("            ====", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("|TRAVEL!|", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
-    terminal_write_colored("====>>>              \n", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("                 \\_________/                     \n", VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("                                                  \n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
-    terminal_write_colored("  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", VGA_COLOR_BLUE, VGA_COLOR_BLACK);
-}
-
-static void draw_plane_frame_3(void) {
-    terminal_write_colored("              *         .    *                    \n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
-    terminal_write_colored("          .        *             .                \n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
-    terminal_write_colored("                  ___________       *             \n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    terminal_write_colored("                 /     |     \\                   \n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    terminal_write_colored("            ====", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("|TRAVEL!|", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
-    terminal_write_colored("====>>>   ", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("VAMOS!\n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
-    terminal_write_colored("                 \\_________/                     \n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    terminal_write_colored("      .                             *             \n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
-    terminal_write_colored("  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", VGA_COLOR_BLUE, VGA_COLOR_BLACK);
-}
-
-static void run_airplane_animation(void) {
-    /* Frame 0: En tierra */
+/** Dibuja el mini-título para pantallas internas */
+static void draw_header(const char* title) {
     terminal_initialize();
     terminal_write_string("\n");
-    draw_plane_frame_0();
-    delay_ms(700);
-
-    /* Frame 1: Despegando */
-    terminal_initialize();
+    terminal_write_colored("  SantiTravel", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
+    terminal_write_colored(" > ", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+    terminal_write_colored(title, VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
     terminal_write_string("\n");
-    draw_plane_frame_1();
+    draw_separator();
+}
+
+/** Dibuja el footer universal */
+static void draw_footer(const char* hint) {
+    terminal_write_string("\n");
+    draw_separator();
+    terminal_write_colored("  ", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+    terminal_write_colored(hint, VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+    terminal_write_string("\n");
+}
+
+/* ========================================================================= */
+/* Animación del avión                                                       */
+/* ========================================================================= */
+
+static void anim_frame(const char* line1, const char* line2,
+                       const char* line3, const char* line4,
+                       const char* line5, uint32_t wait) {
+    terminal_initialize();
+    /* Centrado vertical: empezar en fila ~8 */
+    terminal_write_string("\n\n\n\n\n\n\n\n");
+    terminal_write_colored(line1, VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
+    terminal_write_colored(line2, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored(line3, VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+    terminal_write_colored(line4, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored(line5, VGA_COLOR_CYAN, VGA_COLOR_BLACK);
+    delay_ms(wait);
+}
+
+static void run_animation(void) {
+    /* Frame 1: En tierra */
+    anim_frame(
+        "                    __|__\n",
+        "             --o--o--(  )--o--o--\n",
+        "               SANTI TRAVEL\n",
+        "             __|____________|__\n",
+        "   ========================================\n",
+        500
+    );
+
+    /* Frame 2: Motores encendidos */
+    anim_frame(
+        "                    __|__\n",
+        "          >>>--o--o--(  )--o--o-->>>\n",
+        "               SANTI TRAVEL\n",
+        "             __|____________|__\n",
+        "   ====*=====*======*======*=====*====\n",
+        400
+    );
+
+    /* Frame 3: Despegando */
+    terminal_initialize();
+    terminal_write_string("\n\n\n\n\n\n");
+    terminal_write_colored("                    __|__\n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored("          >>>--o--o--(  )--o--o-->>>\n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored("               SANTI TRAVEL\n", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    terminal_write_colored("                  |    |\n", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+    terminal_write_string("\n");
+    terminal_write_colored("   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", VGA_COLOR_BLUE, VGA_COLOR_BLACK);
+    delay_ms(400);
+
+    /* Frame 4: En el aire */
+    terminal_initialize();
+    terminal_write_string("\n\n\n");
+    terminal_write_colored("          .    *         .       *\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+    terminal_write_colored("     *            .                  .\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+    terminal_write_colored("                    __|__\n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored("          >>>--o--o--(  )--o--o-->>>\n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored("               SANTI TRAVEL", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    terminal_write_colored("        VAMOS!\n", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
+    terminal_write_string("\n");
+    terminal_write_colored("      .         *              .       *\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+    terminal_write_string("\n\n\n\n\n\n");
+    terminal_write_colored("   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", VGA_COLOR_BLUE, VGA_COLOR_BLACK);
     delay_ms(600);
 
-    /* Frame 2: En el aire */
+    /* Frame 5: Volando alto */
     terminal_initialize();
-    terminal_write_string("\n");
-    draw_plane_frame_2();
-    delay_ms(600);
-
-    /* Frame 3: Volando */
-    terminal_initialize();
-    terminal_write_string("\n");
-    draw_plane_frame_3();
-    delay_ms(900);
+    terminal_write_colored("\n", VGA_COLOR_BLACK, VGA_COLOR_BLACK);
+    terminal_write_colored("          .    *         .       *\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+    terminal_write_colored("                    __|__\n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored("          >>>--o--o--(  )--o--o-->>>\n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored("               SANTI TRAVEL\n", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    terminal_write_colored("      .         *              .       *\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+    terminal_write_string("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+    terminal_write_colored("   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n", VGA_COLOR_BLUE, VGA_COLOR_BLACK);
+    delay_ms(800);
 }
 
 /* ========================================================================= */
-/* Pantalla principal                                                        */
+/* Pantalla: Menú principal                                                  */
 /* ========================================================================= */
 
-static void show_destinations(void) {
-    terminal_initialize();
+static void count_stats(uint32_t* visited, uint32_t* pending) {
+    *visited = 0;
+    *pending = 0;
+    for (size_t i = 0; i < NUM_DESTINATIONS; i++) {
+        if (destinations[i].visited) (*visited)++;
+        else (*pending)++;
+    }
+}
 
-    /* ---- Título ---- */
+static void show_menu(void) {
+    uint32_t visited, pending;
+    count_stats(&visited, &pending);
+
+    char buf[8];
+
+    terminal_initialize();
+    terminal_write_string("\n");
+
+    /* ---- Título ASCII ---- */
     terminal_write_colored(
-        "  ___           _   _ _____                   _  \n",
+        "     ___           _   _ _____                    _ \n",
         VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
     terminal_write_colored(
-        " / __| __ _ _ _| |_(_)_   _| _ __ ___ _____| | \n",
+        "    / __| __ _ _ _| |_(_)_   _| _ __ ___ _  _____| |\n",
         VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
     terminal_write_colored(
-        " \\__ \\/ _` | ' \\  _| | | || '_/ _` \\ V / -_) | \n",
+        "    \\__ \\/ _` | ' \\  _| | | || '_/ _` \\ V / -_) |\n",
         VGA_COLOR_CYAN, VGA_COLOR_BLACK);
     terminal_write_colored(
-        " |___/\\__,_|_||_\\__|_| |_||_| \\__,_|\\_/\\___|_| \n",
+        "    |___/\\__,_|_||_\\__|_| |_||_| \\__,_|\\_/\\___|_|\n",
         VGA_COLOR_BLUE, VGA_COLOR_BLACK);
 
-    terminal_write_colored(
-        "  ========= Aventuras con Santi =========       \n",
-        VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+    terminal_write_string("\n");
+    draw_separator();
 
     /* ---- Estadísticas ---- */
-    uint32_t visited = 0, pending = 0;
-    for (size_t i = 0; i < NUM_DESTINATIONS; i++) {
-        if (destinations[i].visited) visited++;
-        else pending++;
-    }
-
     terminal_write_colored("  Visitados: ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
-    char buf[8];
     itoa_s(visited, buf, sizeof(buf), 10);
     terminal_write_colored(buf, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
 
-    terminal_write_colored("  |  Por ir: ", VGA_COLOR_LIGHT_MAGENTA, VGA_COLOR_BLACK);
+    terminal_write_colored("   Por visitar: ", VGA_COLOR_LIGHT_MAGENTA, VGA_COLOR_BLACK);
     itoa_s(pending, buf, sizeof(buf), 10);
     terminal_write_colored(buf, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
 
-    terminal_write_colored("  |  Total: ", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+    terminal_write_colored("   Total: ", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
     itoa_s(visited + pending, buf, sizeof(buf), 10);
     terminal_write_colored(buf, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_string("\n");
+
+    draw_separator();
+    terminal_write_string("\n");
+
+    /* ---- Opciones del menú ---- */
+    terminal_write_colored("   [1] ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    terminal_write_string("Lugares conocidos\n\n");
+
+    terminal_write_colored("   [2] ", VGA_COLOR_LIGHT_MAGENTA, VGA_COLOR_BLACK);
+    terminal_write_string("Lugares por conocer\n\n");
+
+    terminal_write_colored("   [0] ", VGA_COLOR_RED, VGA_COLOR_BLACK);
+    terminal_write_string("Volver al shell\n");
+
     terminal_write_string("\n\n");
+    draw_separator();
+    terminal_write_colored("  Presiona 1, 2 o 0: ",
+                          VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+}
 
-    /* ---- Destinos visitados ---- */
-    terminal_write_colored("  [+] VISITADOS:\n", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+/* ========================================================================= */
+/* Pantalla: Lugares visitados                                               */
+/* ========================================================================= */
 
+static void show_visited(void) {
+    draw_header("Lugares Conocidos");
+    terminal_write_string("\n");
+
+    uint32_t n = 0;
     for (size_t i = 0; i < NUM_DESTINATIONS; i++) {
         if (!destinations[i].visited) continue;
+        n++;
 
         terminal_write_colored("   * ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
-        terminal_write_colored(destinations[i].flag, VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-        terminal_write_string(" ");
+        terminal_write_colored("[", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+        terminal_write_colored(destinations[i].code, VGA_COLOR_CYAN, VGA_COLOR_BLACK);
+        terminal_write_colored("] ", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
         terminal_write_colored(destinations[i].city, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
         terminal_write_colored(", ", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
         terminal_write_colored(destinations[i].country, VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
         terminal_write_string("\n");
     }
 
+    char buf[8];
+    terminal_write_string("\n");
+    terminal_write_colored("  Total: ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    itoa_s(n, buf, sizeof(buf), 10);
+    terminal_write_colored(buf, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored(" destinos visitados\n", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+
+    draw_footer("Presiona cualquier tecla para volver al menu...");
+    keyboard_getchar();
+}
+
+/* ========================================================================= */
+/* Pantalla: Lugares por visitar                                             */
+/* ========================================================================= */
+
+static void show_pending(void) {
+    draw_header("Lugares por Conocer");
     terminal_write_string("\n");
 
-    /* ---- Destinos por visitar ---- */
-    terminal_write_colored("  [ ] POR VISITAR:\n", VGA_COLOR_LIGHT_MAGENTA, VGA_COLOR_BLACK);
-
+    uint32_t n = 0;
     for (size_t i = 0; i < NUM_DESTINATIONS; i++) {
         if (destinations[i].visited) continue;
+        n++;
 
         terminal_write_colored("   o ", VGA_COLOR_LIGHT_MAGENTA, VGA_COLOR_BLACK);
-        terminal_write_colored(destinations[i].flag, VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-        terminal_write_string(" ");
+        terminal_write_colored("[", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+        terminal_write_colored(destinations[i].code, VGA_COLOR_CYAN, VGA_COLOR_BLACK);
+        terminal_write_colored("] ", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
         terminal_write_string(destinations[i].city);
         terminal_write_colored(", ", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
         terminal_write_colored(destinations[i].country, VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
         terminal_write_string("\n");
     }
 
-    /* ---- Footer ---- */
+    char buf[8];
     terminal_write_string("\n");
-    terminal_write_colored("  (c) 2026 Tudex Networks", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
-    terminal_write_colored("  |  Presiona cualquier tecla...\n", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
+    terminal_write_colored("  Faltan: ", VGA_COLOR_LIGHT_MAGENTA, VGA_COLOR_BLACK);
+    itoa_s(n, buf, sizeof(buf), 10);
+    terminal_write_colored(buf, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_colored(" destinos por descubrir!\n", VGA_COLOR_LIGHT_MAGENTA, VGA_COLOR_BLACK);
+
+    draw_footer("Presiona cualquier tecla para volver al menu...");
+    keyboard_getchar();
 }
 
 /* ========================================================================= */
@@ -254,12 +329,27 @@ static void show_destinations(void) {
 /* ========================================================================= */
 
 void santitravel_run(void) {
-    /* Animación de despegue */
-    run_airplane_animation();
+    /* ---- Animación de despegue ---- */
+    run_animation();
 
-    /* Mostrar destinos */
-    show_destinations();
+    /* ---- Loop del menú ---- */
+    for (;;) {
+        show_menu();
 
-    /* Esperar tecla para volver al shell */
-    keyboard_getchar();
+        char c = keyboard_getchar();
+
+        switch (c) {
+            case '1':
+                show_visited();
+                break;
+            case '2':
+                show_pending();
+                break;
+            case '0':
+            case 27:   /* ESC */
+                return;  /* Volver al shell */
+            default:
+                break;
+        }
+    }
 }
