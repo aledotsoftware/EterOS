@@ -1,0 +1,80 @@
+/**
+ * éterOS - Funciones de E/S de Puertos
+ * 
+ * Funciones inline para acceso directo a puertos de E/S
+ * del hardware x86_64.
+ */
+
+#ifndef ETEROS_IO_H
+#define ETEROS_IO_H
+
+#include "types.h"
+
+/* ========================================================================= */
+/* Escritura en puerto                                                       */
+/* ========================================================================= */
+
+/**
+ * Escribe un byte en un puerto de E/S.
+ */
+static inline void outb(uint16_t port, uint8_t value) {
+    __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
+}
+
+/**
+ * Escribe una palabra (16 bits) en un puerto de E/S.
+ */
+static inline void outw(uint16_t port, uint16_t value) {
+    __asm__ volatile ("outw %0, %1" : : "a"(value), "Nd"(port));
+}
+
+/**
+ * Escribe una doble palabra (32 bits) en un puerto de E/S.
+ */
+static inline void outl(uint16_t port, uint32_t value) {
+    __asm__ volatile ("outl %0, %1" : : "a"(value), "Nd"(port));
+}
+
+/* ========================================================================= */
+/* Lectura de puerto                                                         */
+/* ========================================================================= */
+
+/**
+ * Lee un byte de un puerto de E/S.
+ */
+static inline uint8_t inb(uint16_t port) {
+    uint8_t result;
+    __asm__ volatile ("inb %1, %0" : "=a"(result) : "Nd"(port));
+    return result;
+}
+
+/**
+ * Lee una palabra (16 bits) de un puerto de E/S.
+ */
+static inline uint16_t inw(uint16_t port) {
+    uint16_t result;
+    __asm__ volatile ("inw %1, %0" : "=a"(result) : "Nd"(port));
+    return result;
+}
+
+/**
+ * Lee una doble palabra (32 bits) de un puerto de E/S.
+ */
+static inline uint32_t inl(uint16_t port) {
+    uint32_t result;
+    __asm__ volatile ("inl %1, %0" : "=a"(result) : "Nd"(port));
+    return result;
+}
+
+/* ========================================================================= */
+/* Utilidades                                                                */
+/* ========================================================================= */
+
+/**
+ * Espera un ciclo de E/S (usado para dar tiempo al hardware).
+ */
+static inline void io_wait(void) {
+    outb(0x80, 0);
+}
+
+#endif /* ETEROS_IO_H */

@@ -1,0 +1,150 @@
+/**
+ * éterOS - Implementación de Funciones de Cadena y Memoria
+ * 
+ * Implementaciones freestanding de funciones estándar de
+ * manipulación de memoria y cadenas.
+ */
+
+#include "../include/string.h"
+
+/* ========================================================================= */
+/* Funciones de Memoria                                                      */
+/* ========================================================================= */
+
+void* memcpy(void* dest, const void* src, size_t n) {
+    uint8_t* d = (uint8_t*)dest;
+    const uint8_t* s = (const uint8_t*)src;
+    
+    while (n--) {
+        *d++ = *s++;
+    }
+    
+    return dest;
+}
+
+void* memset(void* dest, int c, size_t n) {
+    uint8_t* d = (uint8_t*)dest;
+    
+    while (n--) {
+        *d++ = (uint8_t)c;
+    }
+    
+    return dest;
+}
+
+void* memmove(void* dest, const void* src, size_t n) {
+    uint8_t* d = (uint8_t*)dest;
+    const uint8_t* s = (const uint8_t*)src;
+    
+    if (d < s) {
+        /* Copiar hacia adelante */
+        while (n--) {
+            *d++ = *s++;
+        }
+    } else if (d > s) {
+        /* Copiar hacia atrás para manejar solapamiento */
+        d += n;
+        s += n;
+        while (n--) {
+            *--d = *--s;
+        }
+    }
+    
+    return dest;
+}
+
+int memcmp(const void* s1, const void* s2, size_t n) {
+    const uint8_t* a = (const uint8_t*)s1;
+    const uint8_t* b = (const uint8_t*)s2;
+    
+    while (n--) {
+        if (*a != *b) {
+            return *a - *b;
+        }
+        a++;
+        b++;
+    }
+    
+    return 0;
+}
+
+/* ========================================================================= */
+/* Funciones de Cadena                                                       */
+/* ========================================================================= */
+
+size_t strlen(const char* str) {
+    size_t len = 0;
+    while (str[len]) {
+        len++;
+    }
+    return len;
+}
+
+char* strcpy(char* dest, const char* src) {
+    char* d = dest;
+    while ((*d++ = *src++));
+    return dest;
+}
+
+int strcmp(const char* s1, const char* s2) {
+    while (*s1 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
+/* ========================================================================= */
+/* Funciones de Conversión                                                   */
+/* ========================================================================= */
+
+void itoa(int64_t value, char* buffer, int base) {
+    char temp[65];
+    int i = 0;
+    int is_negative = 0;
+
+    if (value == 0) {
+        buffer[0] = '0';
+        buffer[1] = '\0';
+        return;
+    }
+
+    /* Manejar números negativos solo en base 10 */
+    if (value < 0 && base == 10) {
+        is_negative = 1;
+        value = -value;
+    }
+
+    uint64_t uvalue = (uint64_t)value;
+    
+    while (uvalue != 0) {
+        int remainder = (int)(uvalue % base);
+        temp[i++] = (remainder > 9) ? (remainder - 10 + 'A') : (remainder + '0');
+        uvalue /= base;
+    }
+
+    /* Agregar signo negativo si es necesario */
+    if (is_negative) {
+        temp[i++] = '-';
+    }
+
+    /* Invertir la cadena */
+    int j = 0;
+    while (i > 0) {
+        buffer[j++] = temp[--i];
+    }
+    buffer[j] = '\0';
+}
+
+void utoa_hex(uint64_t value, char* buffer) {
+    const char hex_chars[] = "0123456789ABCDEF";
+    
+    buffer[0] = '0';
+    buffer[1] = 'x';
+    
+    for (int i = 15; i >= 0; i--) {
+        buffer[2 + (15 - i)] = hex_chars[(value >> (i * 4)) & 0xF];
+    }
+    
+    buffer[18] = '\0';
+}
