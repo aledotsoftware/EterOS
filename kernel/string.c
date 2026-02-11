@@ -13,27 +13,20 @@
 
 void* memcpy(void* dest, const void* src, size_t n) {
     void* original_dest = dest;
-    void* d = dest;
-    const void* s = src;
     
     /* Copiar bloques de 8 bytes (64 bits) usando rep movsq */
     size_t qwords = n / 8;
     size_t remainder = n % 8;
-    uint8_t* d = (uint8_t*)dest;
-    const uint8_t* s = (const uint8_t*)src;
 
-    void* d = dest;
-    const void* s = src;
-
-    asm volatile (
-        "rep movsq"
+    __asm__ volatile (
+        "cld; rep movsq"
         : "+D"(dest), "+S"(src), "+c"(qwords)
         :
         : "memory"
     );
 
     /* Copiar los bytes restantes */
-    asm volatile (
+    __asm__ volatile (
         "rep movsb"
         : "+D"(dest), "+S"(src), "+c"(remainder)
         :
