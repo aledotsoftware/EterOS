@@ -62,7 +62,11 @@ KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/arch/x86_64/pic.c     \
               $(KERNEL_DIR)/drivers/timer/pit.c    \
               $(KERNEL_DIR)/apps/santitravel.c     \
-              $(KERNEL_DIR)/apps/sysmon.c
+              $(KERNEL_DIR)/apps/sysmon.c          \
+              $(KERNEL_DIR)/drivers/net/e1000.c    \
+              $(KERNEL_DIR)/net/dhcp.c             \
+              $(KERNEL_DIR)/drivers/pci/pci.c      \
+              $(KERNEL_DIR)/mm/heap.c
 
 # ---- Archivos objeto ----
 KERNEL_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(KERNEL_SRCS))
@@ -103,6 +107,10 @@ dirs:
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/arch/x86_64
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/drivers/timer
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/apps
+	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/drivers/net
+	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/net
+	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/drivers/pci
+	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/mm
 
 # ---- Bootloader (binario plano, incluye Stage 1 + Stage 2) ----
 boot: dirs $(BOOT_BIN)
