@@ -12,6 +12,7 @@
 #include "../../../include/mm.h"
 #include "../../../include/string.h"
 #include "../../../include/io.h"
+#include "../../../include/timer.h"
 
 #define E1000_VENDOR_ID     0x8086
 #define E1000_DEVICE_ID     0x100E  
@@ -200,8 +201,8 @@ uint8_t* e1000_get_mac(void) {
     return mac_address;
 }
 
-void e1000_send_packet(const void* data, uint16_t len) {
-    if (!e1000_active) return;
+int e1000_send_packet(const void* data, uint16_t len) {
+    if (!e1000_active) return -1;
     
     tx_descs[tx_cur].addr = (uint64_t)(uintptr_t)data;
     tx_descs[tx_cur].length = len;
@@ -214,11 +215,19 @@ void e1000_send_packet(const void* data, uint16_t len) {
     e1000_write_reg(E1000_TDT, tx_cur);
     
     /* Esperar a que se envíe (bloqueante por ahora, polling status DD) */
+    /* Timeout de 2 segundos aprox */
+    uint64_t start_ticks = timer_get_ticks();
+    uint64_t timeout_ticks = TIMER_HZ * 2;
+
     while (!(tx_descs[old_cur].status & 0xFF)) {
-        // Spin
+        if (timer_get_ticks() - start_ticks > timeout_ticks) {
+            serial_write_string("[NET] Error: Timeout enviando paquete.\n");
+            return -1;
+        }
     }
     
     serial_write_string("[NET] Paquete enviado.\n");
+    return 0;
 }
 
 /* Polling de recepción (deberá ser llamado periódicamente o tras IRQ) */

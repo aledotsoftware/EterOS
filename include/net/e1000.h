@@ -109,8 +109,8 @@ struct e1000_tx_desc {
 /* Inicializa el controlador E1000 */
 int e1000_init(pci_device_t* pci_dev);
 
-/* Envía un paquete (Raw Ethernet Frame) */
-void e1000_send_packet(const void* data, uint16_t len);
+/* Envía un paquete (Raw Ethernet Frame). Retorna 0 en éxito, -1 en error. */
+int e1000_send_packet(const void* data, uint16_t len);
 
 /* Recibe un paquete (Polling). Retorna longitud o 0 si no hay paq. */
 int e1000_receive(void* buffer, uint16_t max_len);
