@@ -2,7 +2,7 @@
  * éterOS - Simple Memory Allocator (First-Fit + Coalescing)
  * 
  * Implementación de un gestor de memoria dinámica simple.
- * Usa una lista enlazada de bloques libres y ocupados.
+ * Usa una lista doblemente enlazada de bloques libres y ocupados.
  * El heap vive en la región identity-mapped del bootloader (0-4GB).
  */
 
@@ -34,6 +34,7 @@ typedef struct block_header {
     uint32_t magic;
     uint8_t is_free;
     struct block_header* next;
+    struct block_header* prev;
 } block_header_t;
 
 static block_header_t* heap_start = NULL;
@@ -46,18 +47,6 @@ static size_t memory_total = 0;
 
 static size_t align(size_t n) {
     return (n + HEAP_ALIGNMENT - 1) & ~(HEAP_ALIGNMENT - 1);
-}
-
-static void coalesce(void) {
-    block_header_t* curr = heap_start;
-    while (curr && curr->next) {
-        if (curr->is_free && curr->next->is_free) {
-            curr->size += sizeof(block_header_t) + curr->next->size;
-            curr->next = curr->next->next;
-        } else {
-            curr = curr->next;
-        }
-    }
 }
 
 /* ========================================================================= */
@@ -138,6 +127,7 @@ void mm_init(boot_info_t* boot_info) {
     heap_start->is_free = 1;
     heap_start->magic = HEAP_MAGIC;
     heap_start->next = NULL;
+    heap_start->prev = NULL;
     memory_used = 0;
 
     /* Log */
@@ -168,6 +158,12 @@ void* kmalloc(size_t size) {
                 new_block->is_free = 1;
                 new_block->magic = HEAP_MAGIC;
                 new_block->next = curr->next;
+                new_block->prev = curr;
+
+                if (new_block->next) {
+                    new_block->next->prev = new_block;
+                }
+
                 curr->size = aligned_size;
                 curr->next = new_block;
             }
@@ -208,7 +204,28 @@ void kfree(void* ptr) {
     
     block->is_free = 1;
     memory_used -= (block->size + sizeof(block_header_t));
-    coalesce();
+
+    /* Coalesce O(1) */
+
+    /* Merge with next block if free */
+    if (block->next && block->next->is_free) {
+        block->size += sizeof(block_header_t) + block->next->size;
+        block->next = block->next->next;
+        if (block->next) {
+            block->next->prev = block;
+        }
+    }
+
+    /* Merge with prev block if free */
+    if (block->prev && block->prev->is_free) {
+        block->prev->size += sizeof(block_header_t) + block->size;
+        block->prev->next = block->next;
+        if (block->next) {
+            block->next->prev = block->prev;
+        }
+        /* block is now merged into prev, so we don't need to update block pointer
+           for subsequent operations as we are done. */
+    }
 }
 
 void* kcalloc(size_t num, size_t size) {
