@@ -36,27 +36,45 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 éterOS/
 ├── boot/                       # El despertar del metal (Bootloader)
 │   └── x86_64/
-│       ├── boot.asm            # MBR Legacy (BIOS) - *UEFI Loader en roadmap*
+│       ├── boot.asm            # MBR Legacy (BIOS) - Stage 1 + Stage 2
 │       └── linker.ld           # Script de enlace para el kernel
 ├── kernel/                     # Ether-Core: El corazón del sistema
 │   ├── main.c                  # Punto de entrada (kmain)
 │   ├── string.c                # Utilidades de cadena y memoria
-│   ├── shell.c                 # Terminal interactiva de comandos
+│   ├── shell.c                 # Terminal interactiva (historial, teclas extendidas)
 │   ├── arch/                   # HAL — Una carpeta por arquitectura
 │   │   ├── x86_64/             # ✅ Implementado (PC / servidores)
+│   │   │   ├── idt.c           # IDT + ISRs (256 vectores)
+│   │   │   ├── gdt.c           # GDT + TSS (64-bit)
+│   │   │   ├── pic.c           # PIC 8259 remapeado
+│   │   │   └── interrupts.asm  # Stubs de interrupción ASM
 │   │   ├── aarch64/            # 🔜 Planificado (RPi, phones, satélites)
 │   │   ├── arm-cortex-m/       # 🔜 Planificado (STM32, Pico, IoT)
 │   │   ├── riscv64/            # 🔜 Planificado (SiFive, StarFive)
 │   │   └── xtensa/             # 🔜 Planificado (ESP32)
-│   └── drivers/                # El sistema sensorial
-│       ├── video/vga.c         # AetherGraphics (VGA → GOP en futuro)
-│       ├── serial/serial.c     # UART 16550 para depuración
-│       └── input/keyboard.c    # Teclado PS/2 (IRQ-driven)
+│   ├── mm/                     # Gestión de Memoria
+│   │   ├── pmm.c               # Physical Memory Manager (bitmap, E820)
+│   │   ├── vmm.c               # Virtual Memory Manager (4-Level Paging)
+│   │   └── heap.c              # Heap dinámico (kmalloc/kfree/kcalloc)
+│   ├── drivers/                # El sistema sensorial
+│   │   ├── video/vga.c         # AetherGraphics (VGA → GOP en futuro)
+│   │   ├── serial/serial.c     # UART 16550 para depuración
+│   │   ├── input/keyboard.c    # Teclado PS/2 (Set 1 + Extended, IRQ1)
+│   │   ├── timer/pit.c         # PIT 8254 @ 100 Hz (uptime, delays)
+│   │   └── net/e1000.c         # Intel PRO/1000 NIC driver
+│   ├── net/                    # Stack de Red
+│   │   └── dhcp.c              # Cliente DHCP (Discover/Offer)
+│   └── apps/                   # Aplicaciones del kernel
+│       ├── santitravel.c       # Juego de texto (aventuras)
+│       └── sysmon.c            # Monitor del sistema
 ├── include/                    # API del sistema
 │   ├── hal.h                   # 🌍 HAL universal (interfaz multi-arch)
 │   ├── types.h                 # Tipos freestanding
-│   ├── idt.h / pic.h           # Interrupciones (x86_64)
+│   ├── idt.h / gdt.h / pic.h   # Interrupciones y segmentación (x86_64)
+│   ├── pmm.h / vmm.h / mm.h    # Memoria (física, virtual, heap)
 │   ├── keyboard.h / shell.h    # Input y terminal
+│   ├── timer.h                 # API del PIT timer
+│   ├── pci.h                   # Escaneo de bus PCI
 │   ├── vga.h / serial.h        # Video y debug
 │   └── io.h / string.h         # I/O y utilidades
 ├── scripts/                    # Herramientas de despliegue
@@ -79,9 +97,10 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 
 El arranque de éterOS configura directamente un entorno de **64 bits puro**:
 
-- **Legacy Boot (BIOS):** MBR carga Stage 2, que configura GDT y Paginación.
+- **Legacy Boot (BIOS):** MBR (Stage 1) carga Stage 2 (16 sectores) + Kernel (128 sectores). Stage 2 detecta memoria E820, configura GDT y Paginación.
 - **Modern Boot (UEFI):** *[En desarrollo]* Carga directa de binario PE/COFF.
-- **Identity Mapping:** 8 MB de huge pages (2 MB cada una) para acceso directo al hardware (Lower Half por simplicidad inicial, migración a Upper Half en roadmap).
+- **Identity Mapping:** 4 GB con huge pages (2 MB cada una) para acceso directo al hardware. El kernel y heap residen dentro de esta región.
+- **E820 Memory Detection:** El bootloader detecta la memoria disponible via BIOS INT 0x15, E820 y la pasa al kernel en 0x5000.
 
 ### 2. AetherGraphics (Video)
 
@@ -104,38 +123,49 @@ Dirección       | Contenido
 ----------------|----------------------------------
 0x00000-0x003FF | IVT (Interrupt Vector Table)
 0x00400-0x004FF | BIOS Data Area (BDA)
+0x05000-0x05FFF | Mapa de Memoria E820 (del bootloader)
 0x07C00-0x07DFF | Stage 1 - MBR (512 bytes)
-0x07E00-0x09DFF | Stage 2 - Bootloader extendido
-0x10000-0x1FFFF | Ether-Core (Kernel de éterOS)
-0x70000-0x72FFF | Tablas de paginación (12 KB)
+0x07E00-0x0BDFF | Stage 2 - Bootloader extendido (16 sectores)
+0x10000-0x1FFFF | Ether-Core (Kernel de éterOS, ~38 KB)
+0x1A000-0x1BFFF | PMM Bitmap (~4 KB para 128 MB)
+0x70000-0x76FFF | Tablas de paginación bootloader (28 KB)
 0x90000         | Tope del Stack
 0xB8000-0xBFFFF | Buffer de video VGA
+0x00400000      | Heap del kernel (8 MB, identity-mapped)
 ```
 
 ## 🚀 Hoja de Ruta (Roadmap hacia la GUI)
 
-### Fase 1: Estabilización del Núcleo (Base)
-- [ ] **GDT & TSS:** Segmentación de 64 bits y Task State Segment para manejo de stacks de interrupción
-- [ ] **IDT & ISRs:** Gestión de excepciones (Page Fault, Double Fault, GPF)
-- [ ] **PMM (Gestor de Memoria Física):** Mapa de bits para páginas de 4 KB, soporte para Huge Pages (2 MB)
-- [ ] **VMM (Gestor de Memoria Virtual):** Mapeo dinámico de páginas y protección de memoria
+### Fase 1: Estabilización del Núcleo (Base) ✅
+- [x] **GDT & TSS:** Segmentación de 64 bits y Task State Segment para manejo de stacks de interrupción
+- [x] **IDT & ISRs:** Gestión de excepciones (Page Fault, Double Fault, GPF) y remapeo del PIC (256 vectores)
+- [x] **PMM (Gestor de Memoria Física):** Mapa de bits para páginas de 4 KB, soporte E820, detección automática de RAM
+- [x] **VMM (Gestor de Memoria Virtual):** Mapeo dinámico de páginas (4-Level Paging), detección de Huge Pages
+- [x] **Heap Dinámico:** `kmalloc()`, `kfree()`, `kcalloc()` con first-fit y coalescing (8 MB)
+- [x] **Estabilidad:** Bootloader corregido (Stage 2 expandido a 8 KB), PMM underflow fix, layout de imagen alineado
 
-### Fase 2: Drivers y E/S Esencial
-- [ ] **Driver de Video GOP:** Framebuffer de alta resolución vía UEFI
-- [ ] **Terminal de Emergencia:** Logger en pantalla usando Framebuffer para debug gráfico
-- [ ] **Teclado PS/2:** Captura de scancodes y traducción a caracteres
+### Fase 2: Drivers y E/S Esencial (En progreso)
+- [x] **Teclado PS/2 Mejorado:** Scancodes Set 1 + Extended (0xE0), flechas, Home/End/Delete/PgUp/PgDown
+- [x] **Shell con Historial:** Flecha ⬆️/⬇️ para navegar comandos anteriores (8 entradas)
+- [x] **Temporizador PIT:** 100 Hz, API de `uptime`, `timer_wait()` para delays
+- [x] **Comando `uptime`:** Muestra horas/minutos/segundos desde boot
+- [x] **Comando `sysinfo` mejorado:** RAM real (PMM), timer, uptime dinámico
+- [x] **Driver NIC (e1000):** Intel PRO/1000 con dirección MAC y escaneo PCI
+- [x] **Cliente DHCP:** Discover/Offer básico para obtener IP
+- [ ] **Driver de Video VBE/GOP:** Framebuffer de alta resolución
+- [ ] **Terminal Gráfica:** Logger en pantalla usando Framebuffer
 - [ ] **Mouse PS/2:** Soporte para puntero en pantalla
-- [ ] **Temporizador (PIT/APIC):** Control de tiempo para procesos
 
 ### Fase 3: Kernel Moderno y Multitarea
-- [ ] **Heap Manager:** `kmalloc()` y `kfree()` para el kernel
+- [x] **Heap Manager:** `kmalloc()`, `kfree()`, `kcalloc()` para el kernel (completado en Fase 1)
 - [ ] **Scheduler Round-Robin:** Multitarea preemptiva
 - [ ] **VFS (Virtual File System):** Abstracción de sistemas de archivos
 - [ ] **Initrd:** Sistema de archivos en RAM (sin drivers de disco complejos)
 
 ### Fase 3.5: Networking & Storage
-- [ ] **Driver NIC:** Primer contacto con la red (Intel e1000)
-- [ ] **Integración lwIP:** Stack TCP/IP ligero para networking
+- [x] **Driver NIC:** Intel PRO/1000 (e1000) con detección PCI y MAC
+- [x] **Cliente DHCP:** Discover/Offer para obtención de IP
+- [ ] **Integración lwIP:** Stack TCP/IP ligero para networking completo
 - [ ] **Soporte FAT32:** Lectura básica de archivos
 
 ### Fase 4: Espacio de Usuario (Userland)
@@ -238,25 +268,30 @@ make info           # Ver información del toolchain
 ## 🛣️ Secuencia de Arranque
 
 ```
-┌──────────────────────────────────────────────────┐
-│ 1. BIOS carga el MBR (sector 0) en 0x7C00       │
-│    └─▶ Stage 1 ejecuta                           │
-│                                                  │
-│ 2. Stage 1: Habilita A20, carga Stage 2 + Kernel │
-│    └─▶ Salta a Stage 2 (0x7E00)                  │
-│                                                  │
-│ 3. Stage 2: Verifica Long Mode, configura GDT    │
-│    └─▶ Entra en Modo Protegido (32-bit)          │
-│                                                  │
-│ 4. Stage 2: Configura paginación (PML4/PDPT/PD)  │
-│    └─▶ Activa PAE + EFER LME                     │
-│                                                  │
-│ 5. Stage 2: Activa paginación, carga GDT64       │
-│    └─▶ Entra en Long Mode (64-bit)               │
-│                                                  │
-│ 6. Long Mode: Salta a kmain() en 0x10000         │
-│    └─▶ ¡Ether-Core de éterOS ejecutándose!       │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ 1. BIOS carga el MBR (sector 1) en 0x7C00               │
+│    └─▶ Stage 1 ejecuta                                   │
+│                                                          │
+│ 2. Stage 1: Habilita A20, carga Stage 2 (16 sect)       │
+│    + Kernel (128 sect) desde disco                       │
+│    └─▶ Salta a Stage 2 (0x7E00)                          │
+│                                                          │
+│ 3. Stage 2: Verifica Long Mode                           │
+│    └─▶ Detecta memoria via E820 BIOS                     │
+│                                                          │
+│ 4. Stage 2: Configura GDT32                              │
+│    └─▶ Entra en Modo Protegido (32-bit)                  │
+│                                                          │
+│ 5. Stage 2: Configura paginación (PML4/PDPT/PD, 4GB)    │
+│    └─▶ Activa PAE + EFER.LME + CR0.PG                   │
+│                                                          │
+│ 6. Stage 2: Carga GDT64, salta a Long Mode               │
+│    └─▶ Entra en Long Mode (64-bit)                       │
+│                                                          │
+│ 7. Long Mode: Salta a kmain() en 0x10000                 │
+│    └─▶ GDT/TSS → IDT → PIC → Timer → PMM → VMM → Heap  │
+│    └─▶ Shell interactivo con historial y teclas extendidas│
+└──────────────────────────────────────────────────────────┘
 ```
 
 ## 🤖 Desarrollo con Jules

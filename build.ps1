@@ -183,6 +183,8 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\drivers\net\e1000.c",
     "$KERNEL_DIR\net\dhcp.c",
     "$KERNEL_DIR\mm\heap.c",
+    "$KERNEL_DIR\mm\pmm.c",
+    "$KERNEL_DIR\mm\vmm.c",
     "$KERNEL_DIR\libgcc.c",
     "$KERNEL_DIR\apps\santitravel.c",
     "$KERNEL_DIR\apps\sysmon.c"
@@ -313,10 +315,11 @@ function Invoke-ImageBuild {
     $bootData = [System.IO.File]::ReadAllBytes($bootPath)
     [System.Array]::Copy($bootData, 0, $imageData, 0, $bootData.Length)
 
-    # Leer el kernel y copiarlo a partir del sector 9 (offset 4608)
+    # Leer el kernel y copiarlo después de MBR + Stage2
+    # Stage 2 = 16 sectores, así que el kernel va en sector 17 (offset = 17 * 512)
     $kernelPath = Join-Path (Get-Location) $KERNEL_BIN
     $kernelData = [System.IO.File]::ReadAllBytes($kernelPath)
-    $kernelOffset = 9 * 512
+    $kernelOffset = 17 * 512
     [System.Array]::Copy($kernelData, 0, $imageData, $kernelOffset, $kernelData.Length)
 
     # Escribir imagen final

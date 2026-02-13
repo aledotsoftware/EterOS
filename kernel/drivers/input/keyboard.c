@@ -73,7 +73,37 @@ static const char scancode_to_ascii_shift[128] = {
 /* Procesamiento de Scancodes                                                */
 /* ========================================================================= */
 
+/* Estado para scancodes extendidos (prefijo 0xE0) */
+static volatile bool extended_scancode = false;
+
 void keyboard_process_scancode(uint8_t scancode) {
+    /* Detectar prefijo de scancode extendido */
+    if (scancode == 0xE0) {
+        extended_scancode = true;
+        return;
+    }
+
+    /* Procesar scancode extendido (teclas especiales) */
+    if (extended_scancode) {
+        extended_scancode = false;
+
+        /* Solo press, no release (bit 7) */
+        if (scancode & 0x80) return;
+
+        switch (scancode) {
+            case 0x48: kb_buffer_put((char)KEY_UP);     return;
+            case 0x50: kb_buffer_put((char)KEY_DOWN);   return;
+            case 0x4B: kb_buffer_put((char)KEY_LEFT);   return;
+            case 0x4D: kb_buffer_put((char)KEY_RIGHT);  return;
+            case 0x47: kb_buffer_put((char)KEY_HOME);   return;
+            case 0x4F: kb_buffer_put((char)KEY_END);    return;
+            case 0x53: kb_buffer_put((char)KEY_DELETE); return;
+            case 0x49: kb_buffer_put((char)KEY_PGUP);   return;
+            case 0x51: kb_buffer_put((char)KEY_PGDOWN); return;
+        }
+        return;
+    }
+
     /* --- Key Release (bit 7 = 1) --- */
     if (scancode & 0x80) {
         uint8_t released = scancode & 0x7F;
@@ -119,19 +149,19 @@ void keyboard_process_scancode(uint8_t scancode) {
 
     /* Aplicar Caps Lock solo a letras */
     if (caps_lock && c >= 'a' && c <= 'z') {
-        c -= 32;  /* Convertir a mayúscula */
+        c -= 32;
     } else if (caps_lock && c >= 'A' && c <= 'Z' && !shift_pressed) {
-        /* Caps + Shift = minúscula (comportamiento estándar) */
+        /* Caps + Shift = minúscula */
     }
 
     /* Ctrl+C → carácter especial */
     if (ctrl_pressed && (c == 'c' || c == 'C')) {
-        c = 3;  /* ETX (End of Text) */
+        c = 3;
     }
 
-    /* Ctrl+L → clear screen shortcut */
+    /* Ctrl+L → clear screen */
     if (ctrl_pressed && (c == 'l' || c == 'L')) {
-        c = 12; /* Form Feed */
+        c = 12;
     }
 
     if (c != 0) {

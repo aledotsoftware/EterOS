@@ -24,6 +24,17 @@
 #define KEY_TAB         '\t'
 #define KEY_ESCAPE      27
 
+/* Teclas extendidas (valores > 127 para no confundir con ASCII) */
+#define KEY_UP          128
+#define KEY_DOWN        129
+#define KEY_LEFT        130
+#define KEY_RIGHT       131
+#define KEY_HOME        132
+#define KEY_END         133
+#define KEY_DELETE      134
+#define KEY_PGUP        135
+#define KEY_PGDOWN      136
+
 /* ========================================================================= */
 /* API                                                                       */
 /* ========================================================================= */

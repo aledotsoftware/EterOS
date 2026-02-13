@@ -68,15 +68,6 @@ static void idt_set_gate(uint8_t vector, void* handler, uint8_t type_attr) {
 
     /* Reserved (96-127) */
     *(uint32_t*)&p[12] = 0;
-    
-    /* Debug specific vector to see what we are writing */
-    if (vector == 32) {
-        char buf[32];
-        terminal_write_string("[DEBUG] Setting IDT[32] to type: 0x");
-        utoa_hex_s(type_attr, buf, sizeof(buf));
-        terminal_write_string(buf);
-        terminal_write_string("\n");
-    }
 }
 
 /* ========================================================================= */
@@ -290,27 +281,6 @@ void idt_init(void) {
     /* Usamos isr_stub_timer (assembly) -> irq_timer_handler (C) */
     idt_set_gate(IRQ_BASE + 0,  (void*)isr_stub_timer,    IDT_GATE_INTERRUPT);
     
-    /* Debug: Full Hex Dump of Timer Entry (Vector 32) */
-    /* Debug: Full Hex Dump of Timer Entry (Vector 32) */
-    terminal_write_string("[DEBUG] IDT[32] Raw: ");
-    uint8_t* ptr = (uint8_t*)&idt[IRQ_BASE + 0];
-    char hexbuf[4];
-    for (int k = 0; k < 16; k++) {
-        const char hex[] = "0123456789ABCDEF";
-        hexbuf[0] = hex[(ptr[k] >> 4) & 0xF];
-        hexbuf[1] = hex[ptr[k] & 0xF];
-        hexbuf[2] = ' ';
-        hexbuf[3] = 0;
-        terminal_write_string(hexbuf);
-    }
-    terminal_write_string("\n");
-    
-    char size_buf[16];
-    itoa_s(sizeof(struct idt_entry), size_buf, sizeof(size_buf), 10);
-    terminal_write_string("[DEBUG] sizeof(idt_entry) = ");
-    terminal_write_string(size_buf);
-    terminal_write_string("\n");
-
     idt_set_gate(IRQ_BASE + 1,  (void*)isr_stub_keyboard, IDT_GATE_INTERRUPT);
     idt_set_gate(IRQ_BASE + 4,  (void*)irq_serial,        IDT_GATE_INTERRUPT);
 

@@ -21,9 +21,9 @@
 
 ; ---- Constantes ----
 STAGE2_LOAD_ADDR    equ 0x7E00          ; Dirección donde se carga Stage 2
-STAGE2_SECTORS      equ 8              ; Sectores de Stage 2 (4 KB)
+STAGE2_SECTORS      equ 16             ; Sectores de Stage 2 (8 KB)
 KERNEL_LOAD_ADDR    equ 0x10000         ; Dirección donde se carga el kernel
-KERNEL_SECTORS      equ 64             ; Sectores del kernel (32 KB)
+KERNEL_SECTORS      equ 128            ; Sectores del kernel (64 KB)
 STACK_TOP           equ 0x7C00          ; El stack crece hacia abajo
 
 ; =============================================================================
@@ -159,6 +159,9 @@ stage2_start:
     ; ---- Verificar soporte para Long Mode ----
     call check_long_mode
 
+    ; ---- Detectar Mapa de Memoria (E820) ----
+    call detect_memory
+
     ; ---- Información de video ----
     ; Obtener modo de video actual (para referencia)
     mov ah, 0x0F
@@ -204,11 +207,79 @@ check_long_mode:
     cli
     hlt
 
+; -----------------------------------------------------------------------------
+; detect_memory: BIOS INT 0x15, EAX=0xE820
+;   Guarda el mapa de memoria en la dirección 0x5000 (MEM_MAP_ADDR)
+;   Formato:
+;     offset 0: count (uint32) - número de entradas
+;     offset 4: entry 0 (24 bytes)
+;     offset 28: entry 1 ...
+; -----------------------------------------------------------------------------
+MEM_MAP_ADDR equ 0x5000
+
+detect_memory:
+    mov di, MEM_MAP_ADDR + 4    ; Destino para la primera entrada (dejamos 4 bytes para count)
+    xor ebx, ebx                ; ebx = 0 para empezar
+    xor bp, bp                  ; bp = contador de entradas
+    
+    mov edx, 0x534D4150         ; 'SMAP' signature
+    mov eax, 0xE820
+    mov ecx, 24                 ; Tamaño de entrada deseado (ACPI 3.x)
+    int 0x15
+    jc .error                   ; Si carry flag set, error (o función no soportada)
+
+    cmp eax, 0x534D4150         ; Verificar firma 'SMAP'
+    jne .error
+
+    test ebx, ebx               ; Si ebx=0 y fue la primera llamada, lista vacía/error
+    jz .error
+    
+    jmp .check_entry
+
+.loop:
+    mov edx, 0x534D4150         ; 'SMAP' (algunas BIOS corrompen registros)
+    mov eax, 0xE820
+    mov ecx, 24
+    int 0x15
+    jc .done                    ; Carry set = fin de lista
+
+.check_entry:
+    jcxz .skip_entry            ; Si length es 0, ignorar
+
+    ; BIOS devuelve 20 bytes a veces, si es así, llenar el resto con 1 (ACPI 3.X attr)
+    cmp cl, 20
+    jbe .write_entry            ; Es <= 20 bytes, ok
+    test byte [es:di + 20], 1   ; Valid bit for ACPI 3.X
+    jz .skip_entry
+
+.write_entry:
+    inc bp                      ; Incrementar contador de entradas validas
+    add di, 24                  ; Avanzar puntero destino
+    
+.skip_entry:
+    test ebx, ebx               ; Si ebx vuelve a 0, fin
+    jz .done
+    
+    jmp .loop
+
+.done:
+    mov [MEM_MAP_ADDR], bp      ; Guardar número de entradas al inicio (uint32) (16-bit write es seguro aqui)
+    mov si, s2_msg_mem_ok
+    call print_16
+    ret
+
+.error:
+    mov si, s2_msg_mem_err
+    call print_16
+    ret
+
 ; ---- Mensajes de Stage 2 (16-bit) ----
 s2_msg_start:   db '[eterOS] Stage 2 activo', 13, 10, 0
 s2_msg_lm_ok:   db '  Long Mode: Soportado', 13, 10, 0
 s2_msg_no_lm:   db '  ERROR: CPU sin Long Mode!', 13, 10, 0
 s2_msg_pmode:   db '  Entrando en Modo Protegido...', 13, 10, 0
+s2_msg_mem_ok:  db '  Memoria detectada (E820)', 13, 10, 0
+s2_msg_mem_err: db '  ERROR: Fallo al detectar memoria!', 13, 10, 0
 
 video_mode:     db 0
 

@@ -23,6 +23,8 @@
 #include "../include/idt.h"
 #include "../include/pci.h"
 #include "../include/mm.h"
+#include "../include/pmm.h"
+#include "../include/timer.h"
 #include "../include/net/e1000.h"
 #include "../include/net/dhcp.h"
 
@@ -61,6 +63,7 @@ static void cmd_mem(const char* args);
 static void cmd_lspci(const char* args);
 static void cmd_net(const char* args);
 static void cmd_dhcp(const char* args);
+static void cmd_uptime(const char* args);
 
 /* ========================================================================= */
 /* Tabla de comandos (extensible — solo agregar entradas)                    */
@@ -76,6 +79,7 @@ static const shell_command_t commands[] = {
     { "lspci",    "Lista dispositivos PCI",                      cmd_lspci   },
     { "net",      "Informacion de red (MAC)",                    cmd_net     },
     { "dhcp",     "Obtener IP via DHCP",                         cmd_dhcp    },
+    { "uptime",   "Tiempo desde el arranque",                    cmd_uptime  },
     { "reboot",   "Reinicia el sistema",                         cmd_reboot  },
     { "halt",     "Detiene la CPU",                              cmd_halt    },
 };
@@ -194,19 +198,34 @@ static void cmd_version(const char* args) {
 
 static void cmd_sysinfo(const char* args) {
     (void)args;
+    char buf[32];
     terminal_write_string("\n");
     terminal_write_colored("  Arquitectura: ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
     terminal_write_string("x86_64 (Long Mode)\n");
     terminal_write_colored("  Video:        ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
     terminal_write_string("VGA Texto 80x25\n");
+    terminal_write_colored("  RAM Total:    ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    itoa_s(pmm_get_total_ram() / (1024*1024), buf, sizeof(buf), 10);
+    terminal_write_string(buf);
+    terminal_write_string(" MB\n");
+    terminal_write_colored("  RAM Libre:    ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    itoa_s(pmm_get_free_ram() / (1024*1024), buf, sizeof(buf), 10);
+    terminal_write_string(buf);
+    terminal_write_string(" MB\n");
+    terminal_write_colored("  Teclado:      ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    terminal_write_string("PS/2 (IRQ1, Set 1, Extended)\n");
+    terminal_write_colored("  Timer:        ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    terminal_write_string("PIT @ 100 Hz\n");
     terminal_write_colored("  Serial:       ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
     terminal_write_string("COM1 @ 38400 baud\n");
-    terminal_write_colored("  Teclado:      ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
-    terminal_write_string("PS/2 (IRQ1)\n");
-    terminal_write_colored("  Paginacion:   ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
-    terminal_write_string("Identity mapped 8 MB\n");
-    terminal_write_colored("  Kernel size:  ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
-    terminal_write_string("< 10 KB\n");
+    terminal_write_colored("  Uptime:       ", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    uint32_t secs = timer_get_uptime_seconds();
+    itoa_s(secs / 60, buf, sizeof(buf), 10);
+    terminal_write_string(buf);
+    terminal_write_string("m ");
+    itoa_s(secs % 60, buf, sizeof(buf), 10);
+    terminal_write_string(buf);
+    terminal_write_string("s\n");
     terminal_write_string("\n");
 }
 
@@ -289,7 +308,6 @@ static void cmd_net(const char* args) {
     terminal_write_string("    Driver:  ");
     terminal_write_colored("Intel PRO/1000 (e1000)\n", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
     
-    char buf[16];
     uint8_t* mac = e1000_get_mac();
     
     terminal_write_string("    MAC:     ");
@@ -348,9 +366,61 @@ static void cmd_lspci(const char* args) {
     pci_scan_bus();
 }
 
+static void cmd_uptime(const char* args) {
+    (void)args;
+    char buf[32];
+    uint32_t total_secs = timer_get_uptime_seconds();
+    uint32_t hours = total_secs / 3600;
+    uint32_t mins  = (total_secs % 3600) / 60;
+    uint32_t secs  = total_secs % 60;
+    
+    terminal_write_string("\n  Sistema activo: ");
+    if (hours > 0) {
+        itoa_s(hours, buf, sizeof(buf), 10);
+        terminal_write_colored(buf, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+        terminal_write_string("h ");
+    }
+    itoa_s(mins, buf, sizeof(buf), 10);
+    terminal_write_colored(buf, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_string("m ");
+    itoa_s(secs, buf, sizeof(buf), 10);
+    terminal_write_colored(buf, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
+    terminal_write_string("s\n\n");
+}
+
 /* ========================================================================= */
 /* Loop principal del Shell                                                  */
 /* ========================================================================= */
+
+#define HISTORY_SIZE    8
+#define HISTORY_LEN     SHELL_MAX_INPUT
+
+static char history[HISTORY_SIZE][HISTORY_LEN];
+static int  history_count = 0;
+static int  history_idx   = 0;
+
+static void history_add(const char* cmd) {
+    if (cmd[0] == '\0') return;
+    /* No duplicar si es igual al último */
+    if (history_count > 0) {
+        int last = (history_count - 1) % HISTORY_SIZE;
+        if (strcmp(history[last], cmd) == 0) return;
+    }
+    strlcpy(history[history_count % HISTORY_SIZE], cmd, HISTORY_LEN);
+    history_count++;
+}
+
+static void shell_replace_line(char* input, size_t* pos, const char* new_text) {
+    /* Borrar línea actual en pantalla */
+    while (*pos > 0) {
+        terminal_putchar('\b');
+        (*pos)--;
+    }
+    /* Escribir nueva línea */
+    strlcpy(input, new_text, SHELL_MAX_INPUT);
+    *pos = strlen(input);
+    terminal_write_string(input);
+}
 
 void shell_run(void) {
     char input[SHELL_MAX_INPUT];
@@ -374,12 +444,13 @@ void shell_run(void) {
             input[pos] = '\0';
 
             if (pos > 0) {
-                /* Log al serial */
+                history_add(input);
+                history_idx = history_count;
+
                 serial_write_string("[shell] > ");
                 serial_write_string(input);
                 serial_write_string("\n");
 
-                /* Buscar comando en la tabla */
                 bool found = false;
                 for (size_t i = 0; i < NUM_COMMANDS; i++) {
                     const char* args = match_command(input, commands[i].name);
@@ -391,7 +462,6 @@ void shell_run(void) {
                 }
 
                 if (!found) {
-                    /* Buscar en registro de aplicaciones */
                     for (size_t i = 0; i < NUM_APPS; i++) {
                         if (match_command(input, apps[i].name)) {
                             serial_write_string("[eterOS] Ejecutando app: ");
@@ -426,10 +496,30 @@ void shell_run(void) {
                 terminal_putchar('\b');
             }
 
+        } else if ((unsigned char)c == KEY_UP) {
+            /* ---- Flecha Arriba: historial anterior ---- */
+            if (history_count > 0 && history_idx > 0) {
+                history_idx--;
+                int idx = history_idx % HISTORY_SIZE;
+                shell_replace_line(input, &pos, history[idx]);
+            }
+
+        } else if ((unsigned char)c == KEY_DOWN) {
+            /* ---- Flecha Abajo: historial siguiente ---- */
+            if (history_idx < history_count - 1) {
+                history_idx++;
+                int idx = history_idx % HISTORY_SIZE;
+                shell_replace_line(input, &pos, history[idx]);
+            } else if (history_idx < history_count) {
+                history_idx = history_count;
+                shell_replace_line(input, &pos, "");
+            }
+
         } else if (c == 3) {
             /* ---- Ctrl+C: cancelar línea ---- */
             terminal_write_colored("^C\n", VGA_COLOR_RED, VGA_COLOR_BLACK);
             pos = 0;
+            history_idx = history_count;
             shell_print_prompt();
 
         } else if (c == 12) {
@@ -445,6 +535,6 @@ void shell_run(void) {
                 terminal_putchar(c);
             }
         }
-        /* Caracteres especiales no manejados se ignoran */
+        /* Otras teclas especiales (LEFT, RIGHT, etc.) se ignoran por ahora */
     }
 }

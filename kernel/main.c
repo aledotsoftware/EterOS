@@ -27,6 +27,8 @@
 #include "../include/keyboard.h"
 #include "../include/shell.h"
 #include "../include/timer.h"
+#include "../include/pmm.h"
+#include "../include/vmm.h"
 #include "../include/mm.h"
 #include "../include/net/e1000.h"
 #include "../include/gdt.h"
@@ -63,8 +65,10 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* ---- 2. Inicializar el puerto serie para depuración ---- */
     int serial_status = serial_init();
 
-    /* ---- 2.5. Inicializar Memory Manager (Heap) ---- */
-    mm_init();
+    /* ---- 2.5. Inicializar Memory Managers ---- */
+    pmm_init(); /* Físico */
+    vmm_init(); /* Virtual (Paginación) */
+    mm_init();  /* Heap simple (4MB, identity-mapped) */
     
     /* ---- 2.6. Inicializar Red ---- */
     terminal_write_string("\n");
