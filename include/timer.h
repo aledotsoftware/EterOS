@@ -49,4 +49,10 @@ uint32_t timer_get_uptime_minutes(void);
  */
 void timer_wait(uint32_t ms);
 
+/**
+ * Duerme la tarea actual durante el tiempo indicado en milisegundos.
+ * Cede el CPU a otras tareas (no bloqueante / yield).
+ */
+void timer_sleep(uint32_t ms);
+
 #endif /* ETEROS_TIMER_H */

@@ -26,6 +26,7 @@ typedef enum {
     TASK_READY,
     TASK_RUNNING,
     TASK_BLOCKED,
+    TASK_SLEEPING,
     TASK_DEAD
 } task_state_t;
 
@@ -37,6 +38,7 @@ typedef struct task {
     uint8_t*       stack_base;              /* Base del stack alocado */
     uint32_t       id;                      /* Task ID único */
     task_state_t   state;                   /* Estado actual */
+    uint64_t       wake_tick;               /* Tick para despertar si duerme */
     char           name[32];                /* Nombre descriptivo */
 } task_t;
 
@@ -68,6 +70,18 @@ void schedule(void);
  * Cede voluntariamente el CPU a otra tarea (cooperative yield).
  */
 void task_yield(void);
+
+/**
+ * Pone la tarea actual a dormir durante ms milisegundos.
+ * Cede el CPU a otras tareas.
+ */
+void task_sleep(uint64_t ms);
+
+/**
+ * Verifica si hay tareas dormidas que deban despertar.
+ * Llamado desde el timer interrupt.
+ */
+void task_wake_expired(uint64_t current_tick);
 
 /**
  * Termina la tarea actual.

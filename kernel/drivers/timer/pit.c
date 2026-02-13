@@ -9,6 +9,7 @@
 #include "../../../include/timer.h"
 #include "../../../include/io.h"
 #include "../../../include/serial.h"
+#include "../../../include/task.h"
 
 /* Contador global de ticks (volatile — modificado desde ISR) */
 static volatile uint64_t tick_count = 0;
@@ -33,6 +34,8 @@ void timer_init(void) {
 
 void timer_tick(void) {
     tick_count++;
+    /* Despertar tareas dormidas cuyo tiempo ha expirado */
+    task_wake_expired(tick_count);
 }
 
 uint64_t timer_get_ticks(void) {
@@ -61,4 +64,9 @@ void timer_wait(uint32_t ms) {
         /* Poner la CPU en bajo consumo hasta la próxima interrupción (timer tick) */
         __asm__ volatile("hlt");
     }
+}
+
+/* API de sueño no bloqueante (cede el CPU) */
+void timer_sleep(uint32_t ms) {
+    task_sleep((uint64_t)ms);
 }

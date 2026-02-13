@@ -194,7 +194,7 @@ void dhcp_discover(void) {
         }
         
         /* Yield CPU until next interrupt (timer or packet) */
-        __asm__ volatile("hlt");
+        timer_sleep(10);
     }
     
     terminal_write_colored("[DHCP] Timeout. Sin respuesta.\n", VGA_COLOR_RED, VGA_COLOR_BLACK);
