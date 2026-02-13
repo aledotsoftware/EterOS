@@ -191,7 +191,7 @@ static void cmd_help(const char* args) {
 
 static void cmd_clear(const char* args) {
     (void)args;
-    terminal_initialize();
+    terminal_initialize(NULL);
 }
 
 static void cmd_version(const char* args) {
@@ -578,7 +578,7 @@ void shell_run(void) {
                             serial_write_string(apps[i].name);
                             serial_write_string("\n");
                             apps[i].run();
-                            terminal_initialize();
+                            terminal_initialize(NULL);
                             found = true;
                             break;
                         }
@@ -634,7 +634,7 @@ void shell_run(void) {
 
         } else if (c == 12) {
             /* ---- Ctrl+L: clear screen ---- */
-            terminal_initialize();
+            terminal_initialize(NULL);
             pos = 0;
             shell_print_prompt();
 

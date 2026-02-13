@@ -78,7 +78,7 @@ static void draw_separator(void) {
 
 /** Dibuja el mini-título para pantallas internas */
 static void draw_header(const char* title) {
-    terminal_initialize();
+    terminal_initialize(NULL);
     terminal_write_string("\n");
     terminal_write_colored("  SantiTravel", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
     terminal_write_colored(" > ", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
@@ -103,7 +103,7 @@ static void draw_footer(const char* hint) {
 static void anim_frame(const char* line1, const char* line2,
                        const char* line3, const char* line4,
                        const char* line5, uint32_t wait) {
-    terminal_initialize();
+    terminal_initialize(NULL);
     /* Centrado vertical: empezar en fila ~8 */
     terminal_write_string("\n\n\n\n\n\n\n\n");
     terminal_write_colored(line1, VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
@@ -136,7 +136,7 @@ static void run_animation(void) {
     );
 
     /* Frame 3: Despegando */
-    terminal_initialize();
+    terminal_initialize(NULL);
     terminal_write_string("\n\n\n\n\n\n");
     terminal_write_colored("                    __|__\n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
     terminal_write_colored("          >>>--o--o--(  )--o--o-->>>\n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
@@ -147,7 +147,7 @@ static void run_animation(void) {
     timer_wait(400);
 
     /* Frame 4: En el aire */
-    terminal_initialize();
+    terminal_initialize(NULL);
     terminal_write_string("\n\n\n");
     terminal_write_colored("          .    *         .       *\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
     terminal_write_colored("     *            .                  .\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
@@ -162,7 +162,7 @@ static void run_animation(void) {
     timer_wait(600);
 
     /* Frame 5: Volando alto */
-    terminal_initialize();
+    terminal_initialize(NULL);
     terminal_write_colored("\n", VGA_COLOR_BLACK, VGA_COLOR_BLACK);
     terminal_write_colored("          .    *         .       *\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
     terminal_write_colored("                    __|__\n", VGA_COLOR_WHITE, VGA_COLOR_BLACK);
@@ -193,7 +193,7 @@ static void show_menu(void) {
 
     char buf[8];
 
-    terminal_initialize();
+    terminal_initialize(NULL);
     terminal_write_string("\n");
 
     /* ---- Título ASCII ---- */

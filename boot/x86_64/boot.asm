@@ -162,7 +162,10 @@ stage2_start:
     ; ---- Detectar Mapa de Memoria (E820) ----
     call detect_memory
 
-    ; ---- Información de video ----
+    ; ---- Configurar Video (VBE) ----
+    call setup_vbe
+
+    ; ---- Información de video (Legacy - ya no se usa pero mantenemos por debug si falla VBE) ----
     ; Obtener modo de video actual (para referencia)
     mov ah, 0x0F
     int 0x10
@@ -273,6 +276,95 @@ detect_memory:
     call print_16
     ret
 
+; -----------------------------------------------------------------------------
+; setup_vbe: Configura el modo de video VESA (1024x768x32)
+;   Usa 0xA000 para BootInfo struct
+;   Usa 0xB000 para buffers temporales de VBE Mode Info Block
+; -----------------------------------------------------------------------------
+BOOT_INFO_ADDR      equ 0xA000
+VBE_MODE_INFO_ADDR  equ 0xB000
+VBE_MODE            equ 0x118 | 0x4000  ; 1024x768x32 + Linear Framebuffer (bit 14)
+
+setup_vbe:
+    mov si, s2_msg_vbe_init
+    call print_16
+
+    ; 1. Obtener información del modo VBE
+    mov ax, 0x4F01
+    mov cx, 0x118                       ; Modo deseado (sin bit LFB para info)
+    mov di, VBE_MODE_INFO_ADDR          ; Buffer destino (ES:DI)
+    int 0x10
+    
+    cmp ax, 0x004F                      ; Verificar éxito (AL=4F, AH=00)
+    jne .vbe_fail
+
+    ; 2. Establecer modo VBE con Linear Framebuffer
+    mov ax, 0x4F02
+    mov bx, VBE_MODE
+    int 0x10
+    
+    cmp ax, 0x004F
+    jne .vbe_fail
+
+    ; 3. Llenar estructura BootInfo en 0x9000 para el kernel
+    ; Estructura BootInfo (matching include/boot.h):
+    ;   0x00: Signature ("KBOT")
+    ;   0x04: Mem Map Count
+    ;   0x08: Mem Map Addr
+    ;   0x10: FB Addr (64-bit)
+    ;   0x18: Width
+    ;   0x1C: Height
+    ;   0x20: Pitch
+    ;   0x24: BPP
+
+    mov di, BOOT_INFO_ADDR
+    mov dword [di], 0x544F424B          ; Signature "KBOT"
+    
+    ; Memoria (E820)
+    mov eax, [MEM_MAP_ADDR]             ; Count guardado por detect_memory
+    mov [di + 4], eax
+    mov dword [di + 8], MEM_MAP_ADDR    ; Address low
+    mov dword [di + 12], 0              ; Address high
+
+    ; Video (VBE)
+    mov eax, [VBE_MODE_INFO_ADDR + 40]  ; PhysBasePtr (Framebuffer address)
+    mov [di + 16], eax                  ; addr low
+    mov dword [di + 20], 0              ; addr high (32-bit addr for VBE 2.0)
+
+    mov ax, [VBE_MODE_INFO_ADDR + 18]   ; XResolution
+    movzx eax, ax
+    mov [di + 24], eax                  ; Width
+
+    mov ax, [VBE_MODE_INFO_ADDR + 20]   ; YResolution
+    movzx eax, ax
+    mov [di + 28], eax                  ; Height
+
+    mov ax, [VBE_MODE_INFO_ADDR + 16]   ; BytesPerScanLine
+    movzx eax, ax
+    mov [di + 32], eax                  ; Pitch
+
+    mov al, [VBE_MODE_INFO_ADDR + 25]   ; BitsPerPixel
+    movzx eax, al
+    mov [di + 36], eax                  ; BPP
+
+    ret
+
+.vbe_fail:
+    mov si, s2_msg_vbe_err
+    call print_16
+    ; Si falla, continuamos en modo texto VGA estándar (ya activo)
+    ; Pero marcamos BootInfo como inválido (Signature 0) para que el kernel sepa
+    mov dword [BOOT_INFO_ADDR], 0
+    ret
+
+.done:
+    ret
+
+.error:
+    mov si, s2_msg_mem_err
+    call print_16
+    ret
+
 ; ---- Mensajes de Stage 2 (16-bit) ----
 s2_msg_start:   db '[eterOS] Stage 2 activo', 13, 10, 0
 s2_msg_lm_ok:   db '  Long Mode: Soportado', 13, 10, 0
@@ -280,6 +372,8 @@ s2_msg_no_lm:   db '  ERROR: CPU sin Long Mode!', 13, 10, 0
 s2_msg_pmode:   db '  Entrando en Modo Protegido...', 13, 10, 0
 s2_msg_mem_ok:  db '  Memoria detectada (E820)', 13, 10, 0
 s2_msg_mem_err: db '  ERROR: Fallo al detectar memoria!', 13, 10, 0
+s2_msg_vbe_init:db '  Configurando VBE 1024x768...', 13, 10, 0
+s2_msg_vbe_err: db '  ERROR: VBE Init Failed!', 13, 10, 0
 
 video_mode:     db 0
 

@@ -53,6 +53,8 @@ static void kernel_halt(void);
 /* Punto de entrada del kernel                                               */
 /* ========================================================================= */
 
+#include <boot.h>
+
 /**
  * kmain - Función principal del kernel de éterOS
  * 
@@ -60,8 +62,11 @@ static void kernel_halt(void);
  * Inicializa los subsistemas principales y entra en el loop del kernel.
  */
 void __attribute__((section(".text.boot"))) kmain(void) {
-    /* ---- 1. Inicializar el terminal VGA ---- */
-    terminal_initialize();
+    /* ---- 0. Obtener Info del Bootloader (0xA000) ---- */
+    boot_info_t* boot_info = (boot_info_t*)BOOT_INFO_ADDR;
+
+    /* ---- 1. Inicializar el terminal (VGA o Framebuffer) ---- */
+    terminal_initialize(boot_info);
 
     /* ---- 2. Inicializar el puerto serie para depuración ---- */
     int serial_status = serial_init();

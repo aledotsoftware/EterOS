@@ -9,6 +9,7 @@
 #define ETEROS_VGA_H
 
 #include "types.h"
+#include "boot.h"
 
 /* ========================================================================= */
 /* Constantes VGA                                                            */
@@ -66,8 +67,9 @@ static inline uint16_t vga_entry(unsigned char c, uint8_t color) {
 
 /**
  * Inicializa el terminal VGA (limpia la pantalla y posiciona el cursor).
+ * Recibe informacion de arranque para configurar framebuffer si esta disponible.
  */
-void terminal_initialize(void);
+void terminal_initialize(boot_info_t* boot_info);
 
 /**
  * Establece el color actual del terminal.

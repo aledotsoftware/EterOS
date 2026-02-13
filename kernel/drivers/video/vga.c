@@ -9,6 +9,7 @@
 #include <vga.h>
 #include <io.h>
 #include <string.h>
+#include <framebuffer.h>
 
 /* ========================================================================= */
 /* Estado interno del terminal                                               */
@@ -17,147 +18,187 @@ static size_t   terminal_row;
 static size_t   terminal_col;
 static uint8_t  terminal_color;
 static volatile uint16_t* terminal_buffer;
+static bool     use_framebuffer = false;
+static uint32_t fb_fg = 0xFFFFFFFF; // Blanco por defecto
+static uint32_t fb_bg = 0xFF000000; // Negro por defecto
 
 /* ========================================================================= */
-/* Funciones de cursor hardware VGA                                          */
+/* Funciones VGA Legacy (Privadas)                                           */
 /* ========================================================================= */
 
-/**
- * Actualiza la posición del cursor hardware VGA.
- * Usa los puertos 0x3D4 (índice) y 0x3D5 (datos) del controlador CRT.
- */
-static void terminal_update_cursor(void) {
+static void vga_update_cursor(void) {
+    if (use_framebuffer) return; 
     uint16_t pos = (uint16_t)(terminal_row * VGA_WIDTH + terminal_col);
-
-    outb(0x3D4, 0x0F);                 /* Byte bajo de la posición */
+    outb(0x3D4, 0x0F);
     outb(0x3D5, (uint8_t)(pos & 0xFF));
-    outb(0x3D4, 0x0E);                 /* Byte alto de la posición */
+    outb(0x3D4, 0x0E);
     outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
 
-/**
- * Habilita el cursor hardware VGA con forma de bloque.
- */
-static void terminal_enable_cursor(void) {
+static void vga_enable_cursor(void) {
     outb(0x3D4, 0x0A);
-    outb(0x3D5, (inb(0x3D5) & 0xC0) | 0);     /* Scanline inicio = 0 */
+    outb(0x3D5, (inb(0x3D5) & 0xC0) | 0);
     outb(0x3D4, 0x0B);
-    outb(0x3D5, (inb(0x3D5) & 0xE0) | 15);     /* Scanline fin = 15 */
+    outb(0x3D5, (inb(0x3D5) & 0xE0) | 15);
 }
+
+static void vga_scroll(void) {
+    /* Move all lines one position up */
+    memmove((void*)terminal_buffer, (const void*)(terminal_buffer + VGA_WIDTH), (VGA_SIZE - VGA_WIDTH) * sizeof(uint16_t));
+    /* Clear the last line */
+    const size_t last_line_offset = VGA_SIZE - VGA_WIDTH;
+    memset16((uint16_t*)(terminal_buffer + last_line_offset), vga_entry(' ', terminal_color), VGA_WIDTH);
+}
+
+/* ========================================================================= */
+/* Funciones Framebuffer (Privadas - Scroll simple)                          */
+/* ========================================================================= */
+// TODO: Implementar scroll real en framebuffer. Por ahora, si llegamos al final, volvemos arriba (wrap).
+// Scroll de 3MB es pesado sin optimización.
 
 /* ========================================================================= */
 /* Implementación de la API pública                                          */
 /* ========================================================================= */
 
-void terminal_initialize(void) {
+void terminal_initialize(boot_info_t* info) {
     terminal_row    = 0;
     terminal_col    = 0;
     terminal_color  = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     terminal_buffer = (volatile uint16_t*)VGA_BUFFER_ADDR;
 
-    /* Limpiar toda la pantalla */
-    memset16((uint16_t*)terminal_buffer, vga_entry(' ', terminal_color), VGA_SIZE);
-
-    terminal_enable_cursor();
-    terminal_update_cursor();
+    /* Solo reconfigurar si se pasa nueva info de booteo */
+    if (info) {
+        if (info->signature == 0x544F424B && info->fb_addr != 0) {
+            use_framebuffer = true;
+            framebuffer_init(info);
+        } else {
+            use_framebuffer = false;
+        }
+    }
+    
+    /* Inicializar/Limpiar backend activo */
+    if (use_framebuffer) {
+        framebuffer_clear(fb_bg);
+    } else {
+        /* Limpiar toda la pantalla VGA */
+        memset16((uint16_t*)terminal_buffer, vga_entry(' ', terminal_color), VGA_SIZE);
+        vga_enable_cursor();
+        vga_update_cursor();
+    }
 }
 
 void terminal_set_color(uint8_t color) {
     terminal_color = color;
+    if (use_framebuffer) {
+        // Convertir color VGA 4-bit a 32-bit (aproximado)
+        static const uint32_t palette[] = {
+            0xFF000000, 0xFF0000AA, 0xFF00AA00, 0xFF00AAAA,
+            0xFFAA0000, 0xFFAA00AA, 0xFFAA5500, 0xFFAAAAAA,
+            0xFF555555, 0xFF5555FF, 0xFF55FF55, 0xFF55FFFF,
+            0xFFFF5555, 0xFFFF55FF, 0xFFFFFF55, 0xFFFFFFFF
+        };
+        fb_fg = palette[color & 0x0F];
+        fb_bg = palette[(color >> 4) & 0x0F];
+    }
 }
 
 void terminal_scroll(void) {
-    /* Move all lines one position up */
-    memmove((void*)terminal_buffer, (const void*)(terminal_buffer + VGA_WIDTH), (VGA_SIZE - VGA_WIDTH) * sizeof(uint16_t));
-
-    /* Clear the last line */
-    const size_t last_line_offset = VGA_SIZE - VGA_WIDTH;
-    memset16((uint16_t*)(terminal_buffer + last_line_offset), vga_entry(' ', terminal_color), VGA_WIDTH);
-
-    terminal_row = VGA_HEIGHT - 1;
+    if (use_framebuffer) {
+        terminal_row = 0; // Wrap simple por ahora
+        framebuffer_clear(fb_bg);
+    } else {
+        vga_scroll();
+        terminal_row = VGA_HEIGHT - 1;
+    }
 }
 
 static void _terminal_putchar(char c) {
+    size_t width = use_framebuffer ? (1024/8) : VGA_WIDTH;
+    size_t height = use_framebuffer ? (768/16) : VGA_HEIGHT;
+
     switch (c) {
         case '\n':
-            /* Nueva línea */
             terminal_col = 0;
             terminal_row++;
             break;
-        
         case '\r':
-            /* Retorno de carro */
             terminal_col = 0;
             break;
-        
         case '\t':
-            /* Tabulación (4 espacios) */
             terminal_col = (terminal_col + 4) & ~3;
-            if (terminal_col >= VGA_WIDTH) {
+            if (terminal_col >= width) {
                 terminal_col = 0;
                 terminal_row++;
             }
             break;
-        
         case '\b':
-            /* Retroceso */
             if (terminal_col > 0) {
                 terminal_col--;
-                size_t index = terminal_row * VGA_WIDTH + terminal_col;
-                terminal_buffer[index] = vga_entry(' ', terminal_color);
+                if (use_framebuffer) {
+                     framebuffer_putchar(' ', terminal_col * 8, terminal_row * 16, fb_fg, fb_bg);
+                } else {
+                    size_t index = terminal_row * VGA_WIDTH + terminal_col;
+                    terminal_buffer[index] = vga_entry(' ', terminal_color);
+                }
             }
             break;
-        
         default:
-            /* Carácter normal */
-            {
+            if (use_framebuffer) {
+                framebuffer_putchar(c, terminal_col * 8, terminal_row * 16, fb_fg, fb_bg);
+            } else {
                 size_t index = terminal_row * VGA_WIDTH + terminal_col;
                 terminal_buffer[index] = vga_entry(c, terminal_color);
-                terminal_col++;
-                if (terminal_col >= VGA_WIDTH) {
-                    terminal_col = 0;
-                    terminal_row++;
-                }
+            }
+            terminal_col++;
+            if (terminal_col >= width) {
+                terminal_col = 0;
+                terminal_row++;
             }
             break;
     }
 
-    /* Scroll si llegamos al final de la pantalla */
-    if (terminal_row >= VGA_HEIGHT) {
+    if (terminal_row >= height) {
         terminal_scroll();
     }
 }
 
 void terminal_putchar(char c) {
     _terminal_putchar(c);
-    terminal_update_cursor();
+    if (!use_framebuffer) vga_update_cursor();
 }
 
 void terminal_write_string(const char* str) {
     while (*str) {
         _terminal_putchar(*str++);
     }
-    terminal_update_cursor();
+    if (!use_framebuffer) vga_update_cursor();
 }
 
 void terminal_write_colored(const char* str, vga_color_t fg, vga_color_t bg) {
     uint8_t saved_color = terminal_color;
-    terminal_color = vga_entry_color(fg, bg);
+    terminal_set_color(vga_entry_color(fg, bg)); // Actualiza fb_fg/bg también
     terminal_write_string(str);
-    terminal_color = saved_color;
+    terminal_set_color(saved_color);
 }
 
 void terminal_clear(void) {
-    memset16((uint16_t*)terminal_buffer, vga_entry(' ', terminal_color), VGA_SIZE);
+    if (use_framebuffer) {
+        framebuffer_clear(fb_bg);
+    } else {
+        memset16((uint16_t*)terminal_buffer, vga_entry(' ', terminal_color), VGA_SIZE);
+    }
     terminal_row = 0;
     terminal_col = 0;
-    terminal_update_cursor();
+    if (!use_framebuffer) vga_update_cursor();
 }
 
 void terminal_set_cursor(size_t x, size_t y) {
-    if (x < VGA_WIDTH && y < VGA_HEIGHT) {
+    size_t width = use_framebuffer ? (1024/8) : VGA_WIDTH;
+    size_t height = use_framebuffer ? (768/16) : VGA_HEIGHT;
+
+    if (x < width && y < height) {
         terminal_col = x;
         terminal_row = y;
-        terminal_update_cursor();
+        if (!use_framebuffer) vga_update_cursor();
     }
 }

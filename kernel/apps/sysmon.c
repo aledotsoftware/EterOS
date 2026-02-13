@@ -139,7 +139,7 @@ static void draw_separator(void) {
 }
 
 static void draw_header(const char* subtitle) {
-    terminal_initialize();
+    terminal_initialize(NULL);
     terminal_write_string("\n");
     terminal_write_colored("  EterMon", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
     terminal_write_colored(" > ", VGA_COLOR_DARK_GREY, VGA_COLOR_BLACK);
@@ -354,7 +354,7 @@ static void show_memory_map(void) {
 /* ========================================================================= */
 
 static void show_menu(void) {
-    terminal_initialize();
+    terminal_initialize(NULL);
     terminal_write_string("\n");
 
     terminal_write_colored(
