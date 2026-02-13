@@ -91,7 +91,7 @@ if ($Arch -eq "x86_64") {
     $LD = Find-Tool "x86_64-elf-ld" $crossSearchPaths
     $OBJCOPY = Find-Tool "x86_64-elf-objcopy" $crossSearchPaths
     $BOOT_DIR = "boot\x86_64"
-    $CARCHFLAGS = @("-m64", "-mcmodel=large", "-mno-red-zone", "-mno-sse", "-mno-sse2", "-mno-mmx", "-D__x86_64__")
+    $CARCHFLAGS = @("-m64", "-mcmodel=large", "-mno-red-zone", "-mno-sse", "-mno-sse2", "-mno-mmx", "-D__x86_64__", "-DARCH_X86_64")
     $LDFLAGS_ARCH = @("-m", "elf_x86_64")
     $VBOX_OSTYPE = "Other_64"
 }
@@ -186,6 +186,7 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\drivers\pci\pci.c",
     "$KERNEL_DIR\drivers\net\e1000.c",
     "$KERNEL_DIR\net\dhcp.c",
+    "$KERNEL_DIR\net\dhcp_parser.c",
     "$KERNEL_DIR\mm\heap.c",
     "$KERNEL_DIR\mm\pmm.c",
     "$KERNEL_DIR\mm\vmm.c",
@@ -201,6 +202,7 @@ if ($Arch -eq "x86_64") {
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\idt.c"
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\pic.c"
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\gdt.c"
+    $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\hal_impl.c"
 }
 else {
     $KERNEL_SRCS += "$KERNEL_DIR\arch\i386\idt.c"

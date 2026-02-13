@@ -165,11 +165,13 @@ static void print_kv(const char* key, const char* value) {
 }
 
 /** Imprime un número como string */
+/*
 static void print_kv_num(const char* key, uint32_t value) {
     char buf[12];
     itoa_s(value, buf, sizeof(buf), 10);
     print_kv(key, buf);
 }
+*/
 
 /** Imprime una feature flag como tag coloreado */
 static void print_feature(const char* name, uint8_t supported) {

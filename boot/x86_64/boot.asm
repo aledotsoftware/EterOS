@@ -556,11 +556,11 @@ long_mode_start:
     mov cr4, rax
 
     ; Indicador visual en VGA: "64" en verde brillante
-    mov word [0xB8004], 0x2F36          ; '6'
-    mov word [0xB8006], 0x2F34          ; '4'
-    mov word [0xB8008], 0x2F20          ; ' '
-    mov word [0xB800A], 0x2F4F          ; 'O'
-    mov word [0xB800C], 0x2F4B          ; 'K'
+    mov word [abs 0xB8004], 0x2F36          ; '6'
+    mov word [abs 0xB8006], 0x2F34          ; '4'
+    mov word [abs 0xB8008], 0x2F20          ; ' '
+    mov word [abs 0xB800A], 0x2F4F          ; 'O'
+    mov word [abs 0xB800C], 0x2F4B          ; 'K'
 
     ; ---- Saltar al kernel de éterOS ----
     ; El kernel fue cargado en 0x10000 por Stage 1

@@ -56,17 +56,25 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │   │   ├── pmm.c               # Physical Memory Manager (bitmap, E820)
 │   │   ├── vmm.c               # Virtual Memory Manager (4-Level Paging)
 │   │   └── heap.c              # Heap dinámico (kmalloc/kfree/kcalloc)
+│   ├── task.c                  # Scheduler Round-Robin (Multitarea)
 │   ├── drivers/                # El sistema sensorial
-│   │   ├── video/vga.c         # AetherGraphics (VGA → GOP en futuro)
+│   │   ├── video/              # Drivers de Video
+│   │   │   ├── vga.c           # Modo Texto Legacy
+│   │   │   ├── framebuffer.c   # Linear Framebuffer (GOP/VBE)
+│   │   │   └── font.c          # Fuente Bitmap 8x16
 │   │   ├── serial/serial.c     # UART 16550 para depuración
 │   │   ├── input/keyboard.c    # Teclado PS/2 (Set 1 + Extended, IRQ1)
 │   │   ├── timer/pit.c         # PIT 8254 @ 100 Hz (uptime, delays)
 │   │   └── net/e1000.c         # Intel PRO/1000 NIC driver
+│   ├── ui/                     # AetherGraphics (GUI System)
+│   │   ├── window.c            # Window Manager & Compositor
+│   │   └── primitives.c        # Primitivas de dibujo 2D
 │   ├── net/                    # Stack de Red
 │   │   └── dhcp.c              # Cliente DHCP (Discover/Offer)
 │   └── apps/                   # Aplicaciones del kernel
 │       ├── santitravel.c       # Juego de texto (aventuras)
-│       └── sysmon.c            # Monitor del sistema
+│       ├── sysmon.c            # Monitor del sistema
+│       └── gui_demo.c          # Flux UI Demo (Multitarea gráfica)
 ├── include/                    # API del sistema
 │   ├── hal.h                   # 🌍 HAL universal (interfaz multi-arch)
 │   ├── types.h                 # Tipos freestanding
@@ -153,13 +161,13 @@ Dirección       | Contenido
 - [x] **Comando `sysinfo` mejorado:** RAM real (PMM), timer, uptime dinámico
 - [x] **Driver NIC (e1000):** Intel PRO/1000 con dirección MAC y escaneo PCI
 - [x] **Cliente DHCP:** Discover/Offer básico para obtener IP
-- [ ] **Driver de Video VBE/GOP:** Framebuffer de alta resolución
+- [x] **Driver de Video VBE/GOP:** Framebuffer de alta resolución (Linear Framebuffer)
 - [ ] **Terminal Gráfica:** Logger en pantalla usando Framebuffer
 - [ ] **Mouse PS/2:** Soporte para puntero en pantalla
 
 ### Fase 3: Kernel Moderno y Multitarea
 - [x] **Heap Manager:** `kmalloc()`, `kfree()`, `kcalloc()` para el kernel (completado en Fase 1)
-- [x] **Scheduler Round-Robin:** Multitarea preemptiva (comandos `ps`, `kill`, `demo`)
+- [x] **Scheduler Round-Robin:** Multitarea preemptiva (comandos `ps`, `kill`, `demo`) - `kernel/task.c`
 - [ ] **VFS (Virtual File System):** Abstracción de sistemas de archivos
 - [ ] **Initrd:** Sistema de archivos en RAM (sin drivers de disco complejos)
 
@@ -183,11 +191,11 @@ Dirección       | Contenido
 - [ ] **Estructura `/dev`, `/proc`:** Nodos de dispositivos virtuales
 
 ### Fase 5: Entorno Gráfico (AetherGraphics)
-- [ ] **Motor de Dibujo 2D:** Primitivas: píxeles, líneas, rectángulos, fuentes bitmap
-- [ ] **Double Buffering:** Renderizado sin parpadeo
+- [x] **Motor de Dibujo 2D:** Primitivas: píxeles, líneas, rectángulos, fuentes bitmap (`kernel/ui/primitives.c`)
+- [x] **Double Buffering:** Renderizado sin parpadeo (Backbuffer en RAM)
 - [ ] **Event Loop:** Sistema de mensajes (mouse, teclado → ventanas)
-- [ ] **Gestor de Ventanas (Compositor):** Superposición de ventanas con foco
-- [ ] **Primera App:** Calculadora o Monitor de Sistema con GUI nativa y soporte touch nativo
+- [x] **Gestor de Ventanas (Compositor):** Superposición de ventanas con foco (Flux UI - `kernel/ui/window.c`)
+- [x] **Primera App:** Flux UI Demo (gui_demo.c) con multitarea visual
 
 ### Fase 5.5: Subsistema de Compatibilidad Linux (Aether-Linux-Subsystem)
 *Objetivo: Ejecutar binarios ELF de Linux sin máquinas virtuales.*

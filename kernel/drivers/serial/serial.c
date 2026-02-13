@@ -91,9 +91,11 @@ int serial_init(void) {
     return 0;
 }
 
+/*
 static int serial_is_transmit_empty(void) {
     return inb(COM1_PORT + UART_LINE_STATUS) & LSR_TX_EMPTY;
 }
+*/
 
 void serial_irq_handler(void) {
     /* Leer registro de identificación de interrupción */
