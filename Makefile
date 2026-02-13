@@ -21,94 +21,47 @@ KERNEL_DIR  = kernel
 INCLUDE_DIR = include
 BUILD_DIR   = build
 
-# =============================================================================
-# Configuración específica por Arquitectura
-# =============================================================================
+# ---- Flags de compilación ----
+ASFLAGS = -f elf64
 
-ifeq ($(ARCH), xtensa)
-    # ---- Xtensa (ESP32) ----
-    AS      = xtensa-esp32-elf-as
-    CC      = xtensa-esp32-elf-gcc
-    LD      = xtensa-esp32-elf-ld
-    OBJCOPY = xtensa-esp32-elf-objcopy
+CFLAGS  = -ffreestanding       \
+          -fno-exceptions      \
+          -fno-stack-protector \
+          -nostdlib             \
+          -nostdinc             \
+          -mno-red-zone        \
+          -mno-sse             \
+          -mno-sse2            \
+          -mno-mmx             \
+          -Wall                \
+          -Wextra              \
+          -O2                  \
+          -I$(INCLUDE_DIR)
 
-    # Flags específicos para Xtensa (ESP32)
-    # -mlongcalls: Necesario porque el código puede estar lejos en flash
-    # -mauto-litpools: Generar literales automáticamente
-    CFLAGS  = -ffreestanding       \
-              -fno-exceptions      \
-              -nostdlib             \
-              -nostdinc             \
-              -Wall                \
-              -Wextra              \
-              -O2                  \
-              -I$(INCLUDE_DIR)     \
-              -mlongcalls          \
-              -mauto-litpools      \
-              -DARCH_XTENSA
+LDFLAGS = -T $(BOOT_DIR)/linker.ld \
+          -nostdlib
 
-    # Archivos fuente para Xtensa
-    # Solo incluimos el HAL, el main específico y utilidades básicas
-    KERNEL_SRCS = $(KERNEL_DIR)/arch/xtensa/main.c      \
-                  $(KERNEL_DIR)/arch/xtensa/hal_impl.c  \
-                  $(KERNEL_DIR)/string.c
+# ---- Archivos fuente ----
+BOOT_SRC    = $(BOOT_DIR)/boot.asm
 
-    # Linker script (placeholder, usar default o definir uno básico)
-    # LDFLAGS = -nostdlib
-    # Nota: Para un link real se necesitaría un archivo .ld de ESP32
-    LDFLAGS = -nostdlib
-
-else
-    # ---- x86_64 (Default) ----
-    AS      = nasm
-    CC      = x86_64-elf-gcc
-    LD      = x86_64-elf-ld
-    OBJCOPY = x86_64-elf-objcopy
-    QEMU    = qemu-system-x86_64
-
-    BOOT_DIR    = boot/x86_64
-
-    ASFLAGS = -f elf64
-
-    CFLAGS  = -ffreestanding       \
-              -fno-exceptions      \
-              -fno-stack-protector \
-              -nostdlib             \
-              -nostdinc             \
-              -mno-red-zone        \
-              -mno-sse             \
-              -mno-sse2            \
-              -mno-mmx             \
-              -Wall                \
-              -Wextra              \
-              -O2                  \
-              -I$(INCLUDE_DIR)     \
-              -DARCH_X86_64
-
-    LDFLAGS = -T $(BOOT_DIR)/linker.ld \
-              -nostdlib
-
-    # Archivos fuente para x86_64
-    KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
-                  $(KERNEL_DIR)/string.c             \
-                  $(KERNEL_DIR)/shell.c              \
-                  $(KERNEL_DIR)/drivers/video/vga.c  \
-                  $(KERNEL_DIR)/drivers/serial/serial.c \
-                  $(KERNEL_DIR)/drivers/input/keyboard.c \
-                  $(KERNEL_DIR)/arch/x86_64/idt.c    \
-                  $(KERNEL_DIR)/arch/x86_64/pic.c     \
-                  $(KERNEL_DIR)/drivers/timer/pit.c    \
-                  $(KERNEL_DIR)/mm/heap.c             \
-                  $(KERNEL_DIR)/apps/santitravel.c     \
-                  $(KERNEL_DIR)/apps/sysmon.c          \
-                  $(KERNEL_DIR)/drivers/net/e1000.c    \
-                  $(KERNEL_DIR)/net/dhcp.c             \
-                  $(KERNEL_DIR)/drivers/pci/pci.c      \
-                  $(KERNEL_DIR)/mm/heap.c
-
-    BOOT_SRC = $(BOOT_DIR)/boot.asm
-    BOOT_BIN = $(BUILD_DIR)/boot.bin
-endif
+KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
+              $(KERNEL_DIR)/string.c             \
+              $(KERNEL_DIR)/shell.c              \
+              $(KERNEL_DIR)/drivers/video/vga.c  \
+              $(KERNEL_DIR)/drivers/serial/serial.c \
+              $(KERNEL_DIR)/drivers/input/keyboard.c \
+              $(KERNEL_DIR)/arch/x86_64/hal_impl.c \
+              $(KERNEL_DIR)/arch/x86_64/idt.c    \
+              $(KERNEL_DIR)/arch/x86_64/pic.c     \
+              $(KERNEL_DIR)/drivers/timer/pit.c    \
+              $(KERNEL_DIR)/mm/heap.c             \
+              $(KERNEL_DIR)/apps/santitravel.c     \
+              $(KERNEL_DIR)/apps/sysmon.c          \
+              $(KERNEL_DIR)/drivers/net/e1000.c    \
+              $(KERNEL_DIR)/net/dhcp.c             \
+              $(KERNEL_DIR)/net/dhcp_parser.c      \
+              $(KERNEL_DIR)/drivers/pci/pci.c      \
+              $(KERNEL_DIR)/mm/heap.c
 
 # ---- Archivos objeto ----
 # Mapear .c -> .o en el directorio de build
