@@ -17,6 +17,7 @@
 #include "../include/string.h"
 #include "../include/serial.h"
 #include "../include/vga.h"
+#include "../include/timer.h"
 
 /* ========================================================================= */
 /* Estado Global del Scheduler                                               */
@@ -166,12 +167,18 @@ static int find_next_task(void) {
             return next;
         }
     }
-    return current_task; /* No hay otra tarea, seguir con la actual */
+
+    /* Si la tarea actual también está durmiendo/bloqueada, no podemos retornarla */
+    if (tasks[current_task].state == TASK_READY || tasks[current_task].state == TASK_RUNNING) {
+        return current_task;
+    }
+
+    return -1; /* No hay tareas ejecutables */
 }
 
 void schedule(void) {
     if (!scheduler_active) return;
-    if (task_count <= 1) return;
+    if (task_count <= 1) return; /* Unica tarea no necesita switch */
 
     /* Solo switchear cada SCHEDULER_HZ ticks */
     sched_ticks++;
@@ -179,7 +186,8 @@ void schedule(void) {
     sched_ticks = 0;
 
     int next = find_next_task();
-    if (next == current_task) return;
+
+    if (next == -1 || next == current_task) return;
 
     /* Cambiar estado */
     int old = current_task;
@@ -187,6 +195,7 @@ void schedule(void) {
     if (tasks[old].state == TASK_RUNNING) {
         tasks[old].state = TASK_READY;
     }
+    /* Si era TASK_SLEEPING, se queda en SLEEPING */
     
     tasks[next].state = TASK_RUNNING;
     current_task = next;
@@ -201,6 +210,47 @@ void task_yield(void) {
     /* Forzar un switch inmediato */
     sched_ticks = SCHEDULER_HZ;
     schedule();
+}
+
+void task_sleep(uint64_t ms) {
+    if (!scheduler_active) {
+        /* Si no hay scheduler, usar busy-wait */
+        timer_wait((uint32_t)ms);
+        return;
+    }
+
+    /* Convertir ms a ticks */
+    uint64_t ticks = ((uint64_t)ms * TIMER_HZ) / 1000;
+    if (ms > 0 && ticks == 0) ticks = 1; /* Minimo 1 tick */
+
+    task_t* current = task_get_current();
+    current->wake_tick = timer_get_ticks() + ticks;
+    current->state = TASK_SLEEPING;
+
+    /* Ceder CPU */
+    task_yield();
+
+    /* Si somos la única tarea o el scheduler no encontró a nadie más,
+       volveremos aquí inmediatamente pero seguiremos en estado SLEEPING.
+       Debemos esperar (wait for interrupt) hasta que el timer nos despierte. */
+    while (current->state == TASK_SLEEPING) {
+        __asm__ volatile("hlt");
+    }
+
+    /* Restaurar estado a RUNNING si nos despertamos */
+    current->state = TASK_RUNNING;
+}
+
+void task_wake_expired(uint64_t current_tick) {
+    if (!scheduler_active) return;
+
+    for (int i = 0; i < task_count; i++) {
+        if (tasks[i].state == TASK_SLEEPING) {
+            if (current_tick >= tasks[i].wake_tick) {
+                tasks[i].state = TASK_READY;
+            }
+        }
+    }
 }
 
 void task_exit(void) {
