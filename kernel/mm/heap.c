@@ -25,9 +25,13 @@ extern uint8_t _kernel_end;
 /* Constante de seguridad: Mínimo 1MB para evitar la zona baja reservada */
 #define ARCH_RESERVED_MEM_END  0x100000
 
+/* Magic Number para validación de heap */
+#define HEAP_MAGIC 0x48454150 /* "HEAP" */
+
 /* Estructura de cabecera de bloque */
 typedef struct block_header {
     size_t size;
+    uint32_t magic;
     uint8_t is_free;
     struct block_header* next;
 } block_header_t;
@@ -132,6 +136,7 @@ void mm_init(boot_info_t* boot_info) {
     /* Configurar bloque inicial */
     heap_start->size = memory_total - sizeof(block_header_t);
     heap_start->is_free = 1;
+    heap_start->magic = HEAP_MAGIC;
     heap_start->next = NULL;
     memory_used = 0;
 
@@ -161,6 +166,7 @@ void* kmalloc(size_t size) {
                                             sizeof(block_header_t) + aligned_size);
                 new_block->size = curr->size - aligned_size - sizeof(block_header_t);
                 new_block->is_free = 1;
+                new_block->magic = HEAP_MAGIC;
                 new_block->next = curr->next;
                 curr->size = aligned_size;
                 curr->next = new_block;
@@ -186,6 +192,12 @@ void kfree(void* ptr) {
     /* Validación dinámica de rango */
     if ((void*)block < (void*)heap_start || (void*)block >= (void*)((uintptr_t)heap_start + memory_total)) {
         serial_write_string("[MM] Error: kfree of invalid address\n");
+        return;
+    }
+
+    /* Verificar Magic Number */
+    if (block->magic != HEAP_MAGIC) {
+        serial_write_string("[MM] Error: kfree of invalid address (bad magic)\n");
         return;
     }
 
