@@ -18,33 +18,36 @@
 /* ========================================================================= */
 
 void pic_init(void) {
-    /* ICW1: Iniciar secuencia de inicialización (modo cascada + ICW4 needed) */
+    /* Guardar máscaras actuales (aunque las vamos a sobrescribir) */
+    /* ... */
+
+    /* ICW1: Iniciar convite de inicialización */
     outb(PIC1_COMMAND, 0x11);
     io_wait();
     outb(PIC2_COMMAND, 0x11);
     io_wait();
 
-    /* ICW2: Definir vectores base de interrupción */
-    outb(PIC1_DATA, 0x20);     /* Master PIC: IRQ 0-7  -> INT 32-39 */
+    /* ICW2: Vector offset */
+    outb(PIC1_DATA, 0x20);     /* Master: INT 32+ */
     io_wait();
-    outb(PIC2_DATA, 0x28);     /* Slave PIC:  IRQ 8-15 -> INT 40-47 */
-    io_wait();
-
-    /* ICW3: Configurar cascada (slave en IRQ2 del master) */
-    outb(PIC1_DATA, 0x04);     /* Master: slave en pin 2 */
-    io_wait();
-    outb(PIC2_DATA, 0x02);     /* Slave: cascade identity 2 */
+    outb(PIC2_DATA, 0x28);     /* Slave: INT 40+ */
     io_wait();
 
-    /* ICW4: Modo 8086/88 */
-    outb(PIC1_DATA, 0x01);
+    /* ICW3: Cascading */
+    outb(PIC1_DATA, 0x04);     /* Master: Slave at IRQ2 */
+    io_wait();
+    outb(PIC2_DATA, 0x02);     /* Slave: Connected to IRQ2 */
+    io_wait();
+
+    /* ICW4: Environment info */
+    outb(PIC1_DATA, 0x01);     /* 8086/88 mode */
     io_wait();
     outb(PIC2_DATA, 0x01);
     io_wait();
 
-    /* Restaurar máscaras (enmascarar todo por defecto) */
-    outb(PIC1_DATA, 0xFF);     /* Enmascarar todas las IRQs del master */
-    outb(PIC2_DATA, 0xFF);     /* Enmascarar todas las IRQs del slave  */
+    /* Máscaras: Deshabilitar todo excepto lo que habiliten los drivers */
+    outb(PIC1_DATA, 0xFF);
+    outb(PIC2_DATA, 0xFF);
 }
 
 void pic_send_eoi(uint8_t irq) {

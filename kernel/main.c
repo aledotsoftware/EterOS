@@ -14,6 +14,7 @@
 #include <string.h>
 #include <io.h>
 #include <boot.h>
+#include <mouse.h>
 #include <shell.h>
 #include <mm.h>
 
@@ -107,6 +108,10 @@ void __attribute__((section(".text.boot"))) kmain(void) {
 
     /* ---- 6. Información del sistema ---- */
     kernel_print_sysinfo();
+
+    /* ---- 6.5 Inicializar Mouse (PS/2) ---- */
+    /* Nota: Se inicializa después de la IDT/PIC pero antes de la GUI */
+    mouse_init();
 
     /* ---- 7. Inicializar Scheduler ---- */
     hal_console_write("  [INIT] Scheduler Round-Robin\n");

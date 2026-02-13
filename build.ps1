@@ -182,6 +182,7 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\ui\window.c",
     "$KERNEL_DIR\drivers\serial\serial.c",
     "$KERNEL_DIR\drivers\input\keyboard.c",
+    "$KERNEL_DIR\drivers\input\mouse.c",
     "$KERNEL_DIR\drivers\timer\pit.c",
     "$KERNEL_DIR\drivers\pci\pci.c",
     "$KERNEL_DIR\drivers\net\e1000.c",

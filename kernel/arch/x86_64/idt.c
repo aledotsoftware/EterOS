@@ -15,6 +15,7 @@
 #include "../../../include/idt.h"
 #include "../../../include/pic.h"
 #include "../../../include/keyboard.h"
+#include "../../../include/mouse.h"
 #include "../../../include/vga.h"
 #include "../../../include/serial.h"
 #include "../../../include/io.h"
@@ -207,6 +208,7 @@ EXCEPTION_HANDLER_ERR(21)
 extern void isr_stub_timer(void);
 extern void isr_stub_keyboard(void);
 extern void isr_stub_serial(void);
+extern void isr_stub_mouse(void);
 
 /* ========================================================================= */
 /* IRQ Handlers (Funciones C llamadas por los Stubs ASM)                     */
@@ -239,6 +241,16 @@ void irq_keyboard_handler(void) {
 void irq_serial_handler(void) {
     serial_irq_handler();
     pic_send_eoi(4);
+}
+
+/**
+ * IRQ12 - Mouse PS/2.
+ * Llamada desde isr_stub_mouse (assembly).
+ */
+void irq_mouse_handler(void) {
+    uint8_t byte = inb(0x60);
+    mouse_process_byte(byte);
+    pic_send_eoi(12);
 }
 
 /**
@@ -285,10 +297,11 @@ void idt_init(void) {
     
     idt_set_gate(IRQ_BASE + 1,  (void*)isr_stub_keyboard, IDT_GATE_INTERRUPT);
     idt_set_gate(IRQ_BASE + 4,  (void*)isr_stub_serial,   IDT_GATE_INTERRUPT);
+    idt_set_gate(IRQ_BASE + 12, (void*)isr_stub_mouse,    IDT_GATE_INTERRUPT);
 
     /* IRQs restantes: handler por defecto */
     for (int i = 2; i < 16; i++) {
-        if (i == 4) continue;
+        if (i == 4 || i == 12) continue;
         idt_set_gate(IRQ_BASE + i, (void*)irq_default, IDT_GATE_INTERRUPT);
     }
 
