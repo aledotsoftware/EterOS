@@ -119,6 +119,14 @@ void dhcp_discover(void) {
                  itoa_s(ip[3], numbuf, sizeof(numbuf), 10); terminal_write_string(numbuf);
                  terminal_write_string("\n");
 
+                 /* Store in Global Stack */
+                 extern uint32_t my_ip, gateway_ip, dns_ip;
+                 extern int network_ready;
+                 my_ip = r_dhcp->yiaddr;
+                 gateway_ip = (my_ip & 0x00FFFFFF) | 0x01000000; 
+                 dns_ip = 0x08080808; 
+                 network_ready = 1;
+
                  return;
             }
         }
