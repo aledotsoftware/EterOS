@@ -66,6 +66,7 @@ typedef enum {
     NODE_MATRIX,
     NODE_SETTINGS,
     NODE_FILES,
+    NODE_SANTITRAVEL,
     NODE_COUNT
 } flux_node_id_t;
 
@@ -293,73 +294,78 @@ static void draw_progress_bar(window_t* win, int x, int y, int w, int h, float p
 }
 
 static void draw_sysinfo_content(void) {
-    wm_fill_rect(win_sysinfo, (rect_t){0, 0, 300, 400}, UI_COLOR_DARK);
-    wm_print_at(win_sysinfo, 10, 10, "eterOS Genesis - Monitor");
-    wm_print_at(win_sysinfo, 10, 30, "CPU: x86_64 (1 Core)");
+    int w = win_sysinfo->bounds.w;
+    int h = win_sysinfo->bounds.h;
+    wm_fill_rect(win_sysinfo, (rect_t){0, 0, w, h}, 0x1A1A1A);
+    
+    /* Header Bar */
+    wm_fill_rect(win_sysinfo, (rect_t){0, 0, w, 40}, 0x252525);
+    wm_print_at(win_sysinfo, 20, 12, "ETER-MONITOR v2.0 (Live Kernel Context)");
+    
+    /* Stats Layout */
+    int card_w = (w / 2) - 30;
+    
+    /* RAM CARD */
+    rect_t ram_card = {20, 60, card_w, 100};
+    wm_fill_rect(win_sysinfo, ram_card, 0x2A2A2A);
+    wm_fill_rect(win_sysinfo, (rect_t){20, 60, 4, 100}, FLUX_ACCENT_AMBER);
     
     uint64_t total = pmm_get_total_ram();
     uint64_t free  = pmm_get_free_ram();
     uint64_t used  = total - free;
-    
-    char buf[64];
-    itoa_s(used / (1024*1024), buf, sizeof(buf), 10);
-    char line[64] = "RAM: ";
-    strlcpy(line + 5, buf, 64);
-    strlcpy(line + strlen(line), " MB / ", 64);
-    itoa_s(total / (1024*1024), buf, sizeof(buf), 10);
-    strlcpy(line + strlen(line), buf, 64);
-    strlcpy(line + strlen(line), " MB", 64); 
-    wm_print_at(win_sysinfo, 10, 50, line);
-    
     float usage_pct = (float)used / (float)total;
-    uint32_t bar_color = (usage_pct > 0.8f) ? UI_COLOR_RED : UI_COLOR_GREEN;
-    draw_progress_bar(win_sysinfo, 10, 65, 180, 10, usage_pct, bar_color);
+    
+    char ram_buf[64] = "RAM: ";
+    char num[16];
+    itoa_s(used / (1024*1024), num, 16, 10); strlcat(ram_buf, num, 64); strlcat(ram_buf, " MB / ", 64);
+    itoa_s(total / (1024*1024), num, 16, 10); strlcat(ram_buf, num, 64); strlcat(ram_buf, " MB", 64);
+    wm_print_at(win_sysinfo, 40, 75, ram_buf);
+    draw_progress_bar(win_sysinfo, 40, 100, card_w - 40, 12, usage_pct, FLUX_ACCENT_AMBER);
 
-    /* Uptime */
-    uint32_t uptime = timer_get_uptime_seconds();
-    int min = uptime / 60; int sec = uptime % 60;
-    char time_str[32];
-    itoa_s(min, buf, sizeof(buf), 10);
-    strlcpy(time_str, "Uptime: ", 32);
-    strlcpy(time_str + strlen(time_str), buf, 32);
-    strlcpy(time_str + strlen(time_str), "m ", 32);
-    itoa_s(sec, buf, sizeof(buf), 10);
-    strlcpy(time_str + strlen(time_str), buf, 32);
-    strlcpy(time_str + strlen(time_str), "s", 32);
-    wm_print_at(win_sysinfo, 10, 85, time_str);
+    /* CPU CARD with Live Graph */
+    rect_t cpu_card = {w/2 + 10, 60, card_w, 100};
+    wm_fill_rect(win_sysinfo, cpu_card, 0x2A2A2A);
+    wm_fill_rect(win_sysinfo, (rect_t){w/2 + 10, 60, 4, 100}, FLUX_ACCENT_CYAN);
+    wm_print_at(win_sysinfo, w/2 + 30, 75, "CPU Load: Real-time");
+    
+    /* Visual activity graph */
+    int gx = w/2 + 30;
+    int gy = 100;
+    int gw = card_w - 40;
+    int gh = 40;
+    wm_fill_rect(win_sysinfo, (rect_t){gx, gy, gw, gh}, 0x151515);
+    for (int i=0; i<gw; i+=4) {
+        int v = (timer_get_ticks() + i) % 30;
+        int bh = (v * gh) / 30;
+        wm_fill_rect(win_sysinfo, (rect_t){gx + i, gy + gh - bh, 2, bh}, 0x008080);
+    }
 
-    /* Process List */
-    int list_y = 110;
-    wm_print_at(win_sysinfo, 10, list_y, "Active Processes:");
-    wm_fill_rect(win_sysinfo, (rect_t){10, list_y + 12, 200, 1}, 0x606060);
-    wm_print_at(win_sysinfo, 10, list_y + 18, "PID   State   Name");
+    /* Process List (Lower Section) */
+    int list_y = 180;
+    wm_fill_rect(win_sysinfo, (rect_t){20, list_y, w - 40, h - list_y - 20}, 0x222222);
+    wm_print_at(win_sysinfo, 40, list_y + 10, "PID   State   Name                 CPUID");
+    wm_fill_rect(win_sysinfo, (rect_t){40, list_y + 26, w - 80, 1}, 0x444444);
     
     int row = 0;
     int max_slots = task_get_max();
     for (int i = 0; i < max_slots; i++) {
         task_t* t = task_get_at(i);
-        /* Check valid task: name not empty */
         if (t && t->name[0] != '\0' && t->state != TASK_DEAD) {
-             char row_buf[64] = "";
+             char row_buf[80] = "";
              char pid_s[8];
              itoa_s(t->id, pid_s, 8, 10);
-             
-             /* PAD PID (3 chars) */
-             strlcpy(row_buf, pid_s, 64);
+             strlcpy(row_buf, pid_s, 80);
              int pad = 6 - strlen(pid_s);
-             while(pad-- > 0) strlcat(row_buf, " ", 64);
+             while(pad-- > 0) strlcat(row_buf, " ", 80);
              
-             /* State */
-             const char* st = (t->state == TASK_RUNNING) ? "RUN " : 
-                              (t->state == TASK_READY) ? "RDY " : 
-                              (t->state == TASK_SLEEPING) ? "SLP " : "BLK ";
-             strlcat(row_buf, st, 64);
-             strlcat(row_buf, "    ", 64);
-             strlcat(row_buf, t->name, 64);
+             const char* st = (t->state == TASK_RUNNING) ? "RUN " : "RDY ";
+             strlcat(row_buf, st, 80);
+             strlcat(row_buf, "    ", 80);
+             strlcat(row_buf, t->name, 80);
              
-             wm_print_at(win_sysinfo, 10, list_y + 32 + (row * 12), row_buf);
+             wm_print_at(win_sysinfo, 40, list_y + 35 + (row * 16), row_buf);
              row++;
-             if (row > 8) break; /* Limit list size */
+             if (row > 10) break;
         }
     }
 }
@@ -422,6 +428,7 @@ typedef enum {
 static window_t* win_settings = NULL;
 static settings_tab_t settings_tab = TAB_HUB; /* Default to Hub */
 static int settings_lang = 0; /* 0=Español, 1=English */
+static int settings_brightness = 80; /* 0-100 */
 
 static void draw_settings_content(void) {
     if (!win_settings) return;
@@ -474,6 +481,21 @@ static void draw_settings_content(void) {
             wm_fill_rect(win_settings, (rect_t){cx, cy, 200, 30}, 0x303030);
             wm_print_at(win_settings, cx + 10, cy + 8, "1024 x 768");
             
+            cy += 60;
+            wm_print_at(win_settings, cx, cy, "Brillo");
+            cy += 30;
+            /* Slider Track */
+            wm_fill_rect(win_settings, (rect_t){cx, cy, 300, 10}, 0x333333);
+            /* Handle */
+            int hx = cx + (settings_brightness * 3);
+            wm_fill_rect(win_settings, (rect_t){hx - 5, cy - 5, 10, 20}, FLUX_ACCENT_AMBER);
+            
+            cy += 40;
+            char b_buf[16];
+            itoa_s(settings_brightness, b_buf, 16, 10);
+            strlcat(b_buf, "%", 16);
+            wm_print_at(win_settings, cx, cy, b_buf);
+            
         } else if (settings_tab == TAB_NETWORK) {
             wm_print_at(win_settings, cx, cy, "Estado de Red");
             cy += 40;
@@ -481,7 +503,9 @@ static void draw_settings_content(void) {
             
             cy += 40;
             wm_fill_rect(win_settings, (rect_t){cx, cy, 140, 30}, 0x006000);
-            wm_print_at(win_settings, cx + 20, cy + 8, "Renovar DHCP");
+            wm_print_at(win_settings, cx + 20, cy + 8, "Conectar...");
+            cy += 40;
+            ui_draw_string(NULL, cx, cy, "Ethernet: Link Up (1 Gbps)", 0x00FF00, 0x151515);
             
         } else if (settings_tab == TAB_REGION) {
             wm_print_at(win_settings, cx, cy, "Idioma del Sistema");
@@ -499,56 +523,84 @@ static void draw_settings_content(void) {
     }
 }
 
-/* ========================================================================= */
-/* Files App (Mock VFS)                                                      */
-/* ========================================================================= */
-
 static window_t* win_files = NULL;
 static char current_path[64] = "/";
 
 static void draw_files_content(void) {
     if (!win_files) return;
-    
     int w = win_files->bounds.w;
     int h = win_files->bounds.h;
-    
-    /* Background */
     wm_fill_rect(win_files, (rect_t){0, 0, w, h}, 0x202020);
-    
-    /* Header Bar */
     wm_fill_rect(win_files, (rect_t){0, 0, w, 40}, 0x303030);
     wm_print_at(win_files, 20, 12, "Archivos");
-    
-    /* Path Bar */
     wm_fill_rect(win_files, (rect_t){0, 40, w, 30}, 0x252525);
     wm_print_at(win_files, 20, 48, current_path);
-    
-    /* File List */
     int start_y = 90;
     int item_h = 30;
-    
     #define DRAW_ITEM(y, icon, name) \
         wm_print_at(win_files, 20, y, icon); \
         wm_print_at(win_files, 50, y, name); \
-        /* Divider */ \
         wm_fill_rect(win_files, (rect_t){20, y + 25, w - 40, 1}, 0x404040);
 
     if (strcmp(current_path, "/") == 0) {
         DRAW_ITEM(start_y, "[DIR]", "home");
         DRAW_ITEM(start_y + item_h, "[DIR]", "etc");
-        DRAW_ITEM(start_y + item_h*2, "[DIR]", "var");
-        DRAW_ITEM(start_y + item_h*3, "[DIR]", "bin");
-    } else if (strcmp(current_path, "/home") == 0) {
-        DRAW_ITEM(start_y, "[..]", "..");
-        DRAW_ITEM(start_y + item_h, "[DIR]", "user");
-        DRAW_ITEM(start_y + item_h*2, "[FILE]", "notes.txt");
     } else {
         DRAW_ITEM(start_y, "[..]", "..");
         DRAW_ITEM(start_y + item_h, "[FILE]", "config.sys");
     }
 }
 
+/* ========================================================================= */
+/* SantiTravel App (Graphical)                                               */
+/* ========================================================================= */
+
+static window_t* win_santitravel = NULL;
+
+static void draw_santitravel_content(void) {
+    if (!win_santitravel) return;
+    int w = win_santitravel->bounds.w;
+    int h = win_santitravel->bounds.h;
+
+    /* Background: Deep Blue (Travel vibe) */
+    wm_fill_rect(win_santitravel, (rect_t){0, 0, w, h}, 0x101525);
+    
+    /* Header */
+    wm_fill_rect(win_santitravel, (rect_t){0, 0, w, 50}, 0x1A2535);
+    wm_print_at(win_santitravel, 20, 15, "SantiTravel - Explorador de Aventuras");
+    
+    /* Destinations List */
+    int start_y = 70;
+    const char* places[] = {"Ushuaia, AR", "Kyoto, JP", "Reykjavik, IS", "Cataratas del Iguazu, AR", "New York, US"};
+    uint32_t colors[] = {FLUX_ACCENT_CYAN, FLUX_ACCENT_AMBER, FLUX_ACCENT_VIOLET, 0x00FF00, 0xFF5500};
+
+    for (int i = 0; i < 5; i++) {
+        int ry = start_y + (i * 60);
+        wm_fill_rect(win_santitravel, (rect_t){20, ry, w - 40, 50}, 0x2A3545);
+        wm_fill_rect(win_santitravel, (rect_t){20, ry, 4, 50}, colors[i]);
+        wm_print_at(win_santitravel, 40, ry + 15, places[i]);
+        wm_print_at(win_santitravel, w - 100, ry + 15, "[ VISITAR ]");
+    }
+
+    /* Airplane Decoration */
+    int tick = (timer_get_ticks() / 2) % (w + 100);
+    wm_print_at(win_santitravel, tick - 100, h - 30, ">---(  )---o");
+}
+
+static void handle_santitravel_click(int win_local_x, int win_local_y) {
+    (void)win_local_x;
+    int start_y = 70;
+    int item_h = 60;
+    if (win_local_y >= start_y && win_local_y <= start_y + (5 * item_h)) {
+        int index = (win_local_y - start_y) / item_h;
+        if (index >= 0 && index < 5) {
+             flux_notify("Reserva", "Viaje reservado con Santi!", 0x55AAFF);
+        }
+    }
+}
+
 static void handle_files_click(int win_local_x, int win_local_y) {
+    (void)win_local_x;
     int start_y = 90;
     int item_h = 30;
     
@@ -597,7 +649,16 @@ static void handle_settings_click(int win_local_x, int win_local_y) {
         int cx = 40;
         int cy = 70; 
         
-        if (settings_tab == TAB_NETWORK) {
+        if (settings_tab == TAB_DISPLAY) {
+             int slider_y = cy + 40 + 60 + 30;
+             if (win_local_y >= slider_y - 10 && win_local_y <= slider_y + 20) {
+                 if (win_local_x >= cx && win_local_x <= cx + 300) {
+                     settings_brightness = (win_local_x - cx) / 3;
+                     if (settings_brightness < 0) settings_brightness = 0;
+                     if (settings_brightness > 100) settings_brightness = 100;
+                 }
+             }
+        } else if (settings_tab == TAB_NETWORK) {
             int btn_y = cy + 40 + 40; /* 150 approx */
             if (win_local_y >= btn_y && win_local_y <= btn_y + 30 && win_local_x >= cx && win_local_x <= cx + 140) {
                  flux_notify("Network", "Solicitando DHCP...", FLUX_ACCENT_CYAN);
@@ -741,11 +802,21 @@ static void draw_settings_preview(int x, int y, int w, int h) {
 }
 
 static void draw_files_preview(int x, int y, int w, int h) {
-    (void)w;
+    (void)w; (void)h;
     int start_y = y + 50;
     ui_draw_string(NULL, x + 20, start_y, "/home", FLUX_ACCENT_AMBER, FLUX_CARD_BG);
     ui_draw_string(NULL, x + 20, start_y + 20, "/etc", FLUX_TEXT_SECONDARY, FLUX_CARD_BG);
     ui_draw_string(NULL, x + 20, start_y + 40, "/var", FLUX_TEXT_SECONDARY, FLUX_CARD_BG);
+}
+
+static void draw_santitravel_preview(int x, int y, int w, int h) {
+    (void)w; (void)h;
+    int start_y = y + 60;
+    ui_draw_string(NULL, x + 20, start_y, "SantiTravel", 0x55AAFF, FLUX_CARD_BG);
+    
+    /* Small Airplane animation */
+    int tick = (timer_get_ticks() / 5) % 30;
+    ui_draw_string(NULL, x + 20 + tick, start_y + 30, ">-o-o", 0xFFFFFF, FLUX_CARD_BG);
 }
 
 /* ========================================================================= */
@@ -808,27 +879,23 @@ static void draw_global_status_bar(void) {
 }
 
 static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32_t accent, flux_node_id_t node) {
-    /* Physics: Magnetic Influence Field (DISABLED FOR STABILITY TEST) */
-    /*
+    /* Physics: Magnetic Influence Field (Enabled for Investor WOW) */
     int center_x = x + (w / 2);
     int center_y = y + (h / 2);
     int dx = mouse_x - center_x;
     int dy = mouse_y - center_y;
     int dist_sq = (dx*dx) + (dy*dy);
-    int radius = 160; 
+    int radius = 250; 
     int radius_sq = radius * radius;
     
     int shift_x = 0;
     int shift_y = 0;
     
     if (dist_sq < radius_sq) {
-        float strength = 0.15f; 
+        float strength = 0.12f; 
         shift_x = (int)(dx * strength);
         shift_y = (int)(dy * strength);
     }
-    */
-    int shift_x = 0;
-    int shift_y = 0;
     
     int draw_x = x + shift_x;
     int draw_y = y + shift_y;
@@ -859,6 +926,8 @@ static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32
         draw_settings_preview(draw_x, draw_y, w, h);
     } else if (node == NODE_FILES) {
         draw_files_preview(draw_x, draw_y, w, h);
+    } else if (node == NODE_SANTITRAVEL) {
+        draw_santitravel_preview(draw_x, draw_y, w, h);
     }
     
     /* Active Border */
@@ -904,6 +973,11 @@ static void flux_launch_space(flux_node_id_t node) {
          if (!win_files) win_files = wm_create_window(0, 0, 800, 600, "Archivos");
          win_files->active = true;
          focused_space = win_files;
+    } else if (node == NODE_SANTITRAVEL) {
+         flux_notify("SantiTravel", "Preparando motores...", 0x55AAFF);
+         if (!win_santitravel) win_santitravel = wm_create_window(0, 0, 800, 600, "SantiTravel");
+         win_santitravel->active = true;
+         focused_space = win_santitravel;
     }
 }
 
@@ -944,13 +1018,11 @@ static void draw_constellation(void) {
     flux_draw_card(start_x + card_w + gap, start_y, card_w, card_h, "SYSTEM", FLUX_ACCENT_AMBER, NODE_SYSMON);
     flux_draw_card(start_x + (card_w + gap)*2, start_y, card_w, card_h, "FILES", FLUX_ACCENT_AMBER, NODE_FILES);
     
-    /* Row 2: Matrix, Settings (Centered) */
+    /* Row 2: Matrix, Settings, SantiTravel */
     int row2_y = start_y + card_h + gap;
-    int row2_w = (card_w * 2) + gap;
-    int row2_start_x = (screen_w - row2_w) / 2;
-    
-    flux_draw_card(row2_start_x, row2_y, card_w, card_h, "MATRIX", FLUX_ACCENT_VIOLET, NODE_MATRIX);
-    flux_draw_card(row2_start_x + card_w + gap, row2_y, card_w, card_h, "SETTINGS", 0xFFFFFF, NODE_SETTINGS);
+    flux_draw_card(start_x, row2_y, card_w, card_h, "MATRIX", FLUX_ACCENT_VIOLET, NODE_MATRIX);
+    flux_draw_card(start_x + card_w + gap, row2_y, card_w, card_h, "SETTINGS", 0xFFFFFF, NODE_SETTINGS);
+    flux_draw_card(start_x + (card_w+gap)*2, row2_y, card_w, card_h, "SANTITRAVEL", 0x55AAFF, NODE_SANTITRAVEL);
 }
 
 static void draw_focus_mode(void) {
@@ -978,6 +1050,9 @@ static void draw_focus_mode(void) {
     }
     else if (focused_space == win_files) {
          draw_files_content();
+    }
+    else if (focused_space == win_santitravel) {
+         draw_santitravel_content();
     }
     else if (focused_space == win_matrix) {
         /* Matrix is auto-drawn */
@@ -1022,8 +1097,6 @@ static void handle_flux_click(void) {
         if (screen_h < 600) start_y = 100; 
 
         int row2_y = start_y + card_h + gap;
-        int row2_w = (card_w * 2) + gap;
-        int row2_start_x = (screen_w - row2_w) / 2;
 
         #define HIT_CARD(x, y, wa, ha, node) \
             if (mouse_x >= x && mouse_x <= x + wa && mouse_y >= y && mouse_y <= y + ha) { \
@@ -1035,9 +1108,10 @@ static void handle_flux_click(void) {
         HIT_CARD(start_x + card_w + gap, start_y, card_w, card_h, NODE_SYSMON);
         HIT_CARD(start_x + (card_w+gap)*2, start_y, card_w, card_h, NODE_FILES);
         
-        /* Row 2 (Centered) */
-        HIT_CARD(row2_start_x, row2_y, card_w, card_h, NODE_MATRIX);
-        HIT_CARD(row2_start_x + card_w + gap, row2_y, card_w, card_h, NODE_SETTINGS);
+        /* Row 2 */
+        HIT_CARD(start_x, row2_y, card_w, card_h, NODE_MATRIX);
+        HIT_CARD(start_x + card_w + gap, row2_y, card_w, card_h, NODE_SETTINGS);
+        HIT_CARD(start_x + (card_w+gap)*2, row2_y, card_w, card_h, NODE_SANTITRAVEL);
         
         /* Focus Mode Input (Not applicable in MACRO, but logic flow check) */
     } else if (current_zoom == FLUX_FOCUS) {
@@ -1060,6 +1134,8 @@ static void handle_flux_click(void) {
                  handle_settings_click(lx, ly - TITLE_BAR_HEIGHT);
              } else if (focused_space == win_files) {
                  handle_files_click(lx, ly - TITLE_BAR_HEIGHT);
+             } else if (focused_space == win_santitravel) {
+                 handle_santitravel_click(lx, ly - TITLE_BAR_HEIGHT);
              }
         }
     }
@@ -1093,24 +1169,22 @@ static void flux_set_zoom(flux_zoom_level_t level, flux_node_id_t node) {
         int start_x = (1024 - total_w) / 2;
         int start_y = 200;
         int row2_y = start_y + card_h + gap;
-        
         int x = start_x;
         int y = start_y;
         
         if (node == NODE_SYSMON) { x += card_w + gap; }
         else if (node == NODE_FILES) { x += (card_w + gap) * 2; }
         else if (node == NODE_MATRIX) { /* Row 2, Col 1 */
-             /* Center row 2 (only 2 items) */
-             int row2_w = (card_w * 2) + gap;
-             int row2_start_x = (1024 - row2_w) / 2;
-             x = row2_start_x;
+             x = start_x;
              y = row2_y;
         }
         else if (node == NODE_SETTINGS) { 
-             int row2_w = (card_w * 2) + gap;
-             int row2_start_x = (1024 - row2_w) / 2;
-             x = row2_start_x + card_w + gap; 
+             x = start_x + card_w + gap; 
              y = row2_y; 
+        }
+        else if (node == NODE_SANTITRAVEL) {
+             x = start_x + (card_w + gap) * 2;
+             y = row2_y;
         }
         
         source_rect = (rect_t){x, y, card_w, card_h};
