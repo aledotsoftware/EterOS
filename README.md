@@ -51,11 +51,12 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │   │   │   ├── gdt.c           # GDT + TSS (64-bit)
 │   │   │   ├── pic.c           # PIC 8259 remapeado
 │   │   │   ├── syscall.c       # Syscalls (MSRs, STAR, LSTAR)
-│   │   │   └── interrupts.asm  # Stubs de interrupción ASM
-│   │   ├── aarch64/            # � En Desarrollo (RPi, phones, satélites)
-│   │   ├── arm-cortex-m/       # � En Desarrollo (STM32, Pico, IoT)
+│   │   │   ├── interrupts.asm  # Stubs de interrupción ASM
+│   │   │   └── user_mode.asm   # Context Switch Ring 0 <-> Ring 3
+│   │   ├── aarch64/            # 🚧 En Desarrollo (RPi, phones, satélites)
+│   │   ├── arm-cortex-m/       # 🚧 En Desarrollo (STM32, Pico, IoT)
 │   │   ├── riscv64/            # ⚠️ Implementación Preliminar (HAL, UART, PLIC, SBI)
-│   │   └── xtensa/             # � En Desarrollo (ESP32)
+│   │   └── xtensa/             # 🚧 En Desarrollo (ESP32)
 │   ├── mm/                     # Gestión de Memoria
 │   │   ├── pmm.c               # Physical Memory Manager (bitmap, E820)
 │   │   ├── vmm.c               # Virtual Memory Manager (4-Level Paging)
@@ -88,7 +89,8 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │       ├── santitravel.c       # Juego de texto (aventuras)
 │       ├── sysmon.c            # Monitor del sistema
 │       ├── gui_demo.c          # Flux UI Demo (Multitarea gráfica)
-│       └── wget.c              # Downloader de archivos
+│       ├── wget.c              # Downloader de archivos
+│       └── user_loader.c       # Loader de ejecutables de usuario
 ├── include/                    # API del sistema
 │   ├── hal.h                   # 🌍 HAL universal (interfaz multi-arch)
 │   ├── types.h                 # Tipos freestanding
@@ -208,7 +210,7 @@ Dirección       | Contenido
 
 ### Fase 3.5: Networking & Storage
 - [x] **Driver NIC:** Intel PRO/1000 (e1000) con detección PCI y MAC
-- [x] **Cliente DHCP:** Discover/Offer para obtención de IP
+- [x] **Cliente DHCP:** Discover/Offer para obtención de IP (Fix Linker Error)
 - [~] **Integración lwIP:** Stack TCP/IP completo (Porting layer en progreso en `kernel/net/lwip_port`)
 - [x] **Soporte FAT32:** Lectura de archivos y directorios con soporte 8.3.
 - [x] **Wget:** Downloader HTTP básico (`kernel/apps/wget.c`).
@@ -232,14 +234,15 @@ Para que el sistema sea considerado "listo para producción", el flujo de actual
 
 
 ### Fase 4: Espacio de Usuario (Userland)
-- [x] **Context Switching:** Transición Ring 0 → Ring 3 (`iretq`)
-- [~] **Syscalls (SYSCALL/SYSRET):** Instrucciones nativas x86_64 habilitadas, handler inicial implementado.
-- [ ] **Memoria de Usuario:** Separación de espacio kernel/usuario
-- [ ] **Cargador ELF64:** Cargar y ejecutar binarios externos
+- [x] **Context Switching:** Transición segura Ring 0 → Ring 3 (`iretq`, TSS RSP0)
+- [x] **Syscalls (SYSCALL/SYSRET):** Mecanismo MSR (`EFER`, `STAR`, `LSTAR`) habilitado.
+- [x] **User Loader:** Carga de payload binario en 0x40000000 (`kernel/apps/user_loader.c`)
+- [~] **Memoria de Usuario:** Separación de espacio kernel/usuario (PML4 User bit)
+- [ ] **Cargador ELF64:** Cargar y ejecutar binarios externos complejos
 - [ ] **Multiprocesamiento (fork/clone):** Duplicar procesos para paralelismo
 
 ### Fase 4.5: Compatibilidad POSIX
-- [ ] **Tabla de Syscalls Linux:** Las 50 syscalls esenciales (read, write, open, close, fork, execve)
+- [~] **Tabla de Syscalls Linux:** Implementación inicial (`write`, `exit`) en `kernel/arch/x86_64/syscall.c`
 - [ ] **Portar musl libc:** Librería C minimalista para aplicaciones
 - [ ] **Soporte de señales:** SIGKILL, SIGSEGV, etc.
 - [ ] **Estructura `/dev`, `/proc`:** Nodos de dispositivos virtuales
@@ -249,9 +252,14 @@ Para que el sistema sea considerado "listo para producción", el flujo de actual
 - [x] **Double Buffering Activo:** Renderizado libre de parpadeo con composicion en RAM antes de flush (`kernel/ui/image.c`)
 - [~] **Event Loop Reactivo:** Sistema de despacho de mensajes (Mouse + Teclado) dirigido a la ventana focalizada con soporte para gestos.
 - [x] **Compositor de Ventanas:** Gestión de apilamiento (Z-order) y transparencia alfa básica en el kernel (`kernel/ui/window.c`)
-- [x] **Flux UI Experience:** Entorno táctil/estilizado con animaciones de zoom, tarjetas flotantes y multitarea fluida (`gui_demo.c`).
-- [~] **Flux Widgets Library:** Componentes interactivos implementados: Botones con feedback, Campos de entrada (URL Bar) y Barras de estado reactivas.
-- [x] **Navegador Eter:** Aplicación de red con stack TCP/IP propio para navegación real en Internet.
+- [x] **Flux UI Experience:** Entorno táctil/estilizado con animaciones de zoom, tarjetas flotantes y multitarea fluida.
+- [x] **Flux Widgets Library:** Componentes interactivos: Botones, Barras, Inputs.
+- [x] **Navegador Eter:** Aplicación demo de red.
+- [x] **Aplicaciones Nativas:**
+    - `gui_demo.c`: Demo técnica de multitarea y UI.
+    - `santitravel.c`: Juego de texto portado.
+    - `sysmon.c`: Monitor de recursos del sistema.
+    - `wget.c`: Utilidad de descarga.
 
 ### Fase 5.5: Subsistema de Compatibilidad Linux (Aether-Linux-Subsystem)
 *Objetivo: Ejecutar binarios ELF de Linux sin máquinas virtuales.*
