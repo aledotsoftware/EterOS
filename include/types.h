@@ -72,6 +72,15 @@ typedef int64_t             time_t;     /* Even in 32-bit mode, we use 64-bit ti
 #endif
 
 /* ========================================================================= */
+/* Tipos POSIX (para compatibilidad)                                         */
+/* ========================================================================= */
+typedef int32_t             pid_t;
+typedef int64_t             off_t;
+typedef uint32_t            mode_t;
+typedef uint32_t            uid_t;
+typedef uint32_t            gid_t;
+
+/* ========================================================================= */
 /* Tipo booleano                                                             */
 /* ========================================================================= */
 /* GCC 15+ / C23: bool, true, false son keywords nativas.                    */
