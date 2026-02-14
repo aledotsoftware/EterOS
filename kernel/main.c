@@ -23,7 +23,7 @@
 #include <vga.h>
 #include <task.h>
 
-/* lwIP Headers */
+/* lwIP Headers disabled - Library not present
 #include "lwip/init.h"
 #include "lwip/netif.h"
 #include "lwip/dhcp.h"
@@ -32,6 +32,8 @@
 #include "netif/ethernet.h"
 #include <net/e1000.h>
 #include "ethernetif.h"
+*/
+
 
 /* Forward declarations for non-HAL kernel services */
 void pmm_init(void);
@@ -52,15 +54,15 @@ static void kernel_print_banner(void);
 static void kernel_print_sysinfo(void);
 static void kernel_halt(void);
 
-static struct netif e1000_netif;
+/* static struct netif e1000_netif;
 
 static void network_task(void) {
     while(1) {
-        ethernetif_poll(&e1000_netif);
-        sys_check_timeouts();
+        // ethernetif_poll(&e1000_netif);
+        // sys_check_timeouts();
         task_yield();
     }
-}
+} */
 
 /* ========================================================================= */
 /* Punto de entrada del kernel                                               */
@@ -134,29 +136,29 @@ void __attribute__((section(".text.boot"))) kmain(void) {
         /* For now, assume simple stack usage or static buffers */
     #endif
 
-    /* ---- 4. Inicializar Red ---- */
-    #if ETEROS_TIER >= 3
+    /* ---- 4. Inicializar Red (Disabled) ---- */
+    #if 0 // ETEROS_TIER >= 3
         hal_console_write("\n  [NET]  Escaneando dispositivos de red...\n");
         /* Attempt to init E1000 (Generic Driver but requires PCI) */
         if (e1000_init(NULL) == 0) {
             hal_console_write("  [NET]  Inicializando lwIP...\n");
-            lwip_init();
+            // lwip_init();
 
-            ip4_addr_t ipaddr, netmask, gw;
-            IP4_ADDR(&ipaddr, 0,0,0,0);
-            IP4_ADDR(&netmask, 0,0,0,0);
-            IP4_ADDR(&gw, 0,0,0,0);
+            // ip4_addr_t ipaddr, netmask, gw;
+            // IP4_ADDR(&ipaddr, 0,0,0,0);
+            // IP4_ADDR(&netmask, 0,0,0,0);
+            // IP4_ADDR(&gw, 0,0,0,0);
 
-            if (netif_add(&e1000_netif, &ipaddr, &netmask, &gw, NULL, ethernetif_init, ethernet_input) == NULL) {
-                hal_console_write("  [NET]  Error: netif_add falló.\n");
-            } else {
-                netif_set_default(&e1000_netif);
-                netif_set_up(&e1000_netif);
-                dhcp_start(&e1000_netif);
+            // if (netif_add(&e1000_netif, &ipaddr, &netmask, &gw, NULL, ethernetif_init, ethernet_input) == NULL) {
+            //     hal_console_write("  [NET]  Error: netif_add falló.\n");
+            // } else {
+            //     netif_set_default(&e1000_netif);
+            //     netif_set_up(&e1000_netif);
+            //     dhcp_start(&e1000_netif);
 
-                hal_console_write("  [NET]  DHCP iniciado. Creando tarea de red...\n");
-                task_create("network", network_task);
-            }
+            //     hal_console_write("  [NET]  DHCP iniciado. Creando tarea de red...\n");
+            //     task_create("network", network_task);
+            // }
         } else {
             hal_console_write("  [NET]  Info: No se detecto tarjeta de red compatible.\n");
             hal_console_write("         (El sistema continuara sin red)\n");
