@@ -19,6 +19,7 @@
 #include <mm.h>
 #include <gui_demo.h>
 #include <fs/initrd.h>
+#include <fs/vfs.h>
 #include <vga.h>
 #include <task.h>
 
@@ -104,7 +105,20 @@ void __attribute__((section(".text.boot"))) kmain(void) {
         /* ---- 3.5 Inicializar Initrd ---- */
         #if defined(ARCH_X86_64)
         if (boot_info && boot_info->initrd_addr != 0) {
-            initrd_init(boot_info->initrd_addr, boot_info->initrd_size);
+            fs_root = initialise_initrd(boot_info->initrd_addr, boot_info->initrd_size);
+            if (fs_root) {
+                hal_console_write("[VFS] Initrd mounted at /\n");
+
+                /* List files using VFS */
+                struct dirent *node = 0;
+                int i = 0;
+                while ((node = readdir_fs(fs_root, i)) != 0) {
+                    hal_console_write("  [VFS] Found file: ");
+                    hal_console_write(node->name);
+                    hal_console_write("\n");
+                    i++;
+                }
+            }
         }
         #endif
     #else
