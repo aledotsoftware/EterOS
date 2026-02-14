@@ -7,7 +7,7 @@
 #include <string.h>
 #include <framebuffer.h>
 
-#define MAX_WINDOWS 10
+/* #define MAX_WINDOWS 10 -- Now in ui/window.h */
 
 static window_t current_windows[MAX_WINDOWS];
 static int window_count = 0;
@@ -38,6 +38,8 @@ window_t* wm_create_window(int32_t x, int32_t y, int32_t w, int32_t h, const cha
 void wm_draw_window(window_t* win) {
     if (!win->active) return;
     
+    const int TITLE_H = 30;
+    
     /* 0. Sombra (Offset +4, +4) */
     framebuffer_rect((uint32_t)win->bounds.x + 4, (uint32_t)win->bounds.y + 4,
                      (uint32_t)win->bounds.w, (uint32_t)win->bounds.h,
@@ -49,33 +51,29 @@ void wm_draw_window(window_t* win) {
                      (uint32_t)win->bounds.w, (uint32_t)win->bounds.h,
                      win->bg_color);
                      
-    /* 2. Barra título */
-    /* Color basado en si es la última ventana creada (simple focus check) por ahora hardcoded en GREY */
-    /* Para futuro: win == wm_get_active_window() ? UI_COLOR_BLUE : UI_COLOR_GREY */
-    uint32_t title_color = UI_COLOR_CYAN; /* Cyan para mayor contraste por ahora */
+    /* 2. Barra título (Más alta para Touch - 30px) */
+    uint32_t title_color = UI_COLOR_CYAN; 
     
     framebuffer_rect((uint32_t)win->bounds.x, (uint32_t)win->bounds.y,
-                     (uint32_t)win->bounds.w, 20,
+                     (uint32_t)win->bounds.w, TITLE_H,
                      title_color);
                      
-    /* Título */
-    /* Ajuste: offset 4px, centrado 2px */
-    ui_draw_string(NULL, win->bounds.x + 4, win->bounds.y + 2, win->title, UI_COLOR_BLACK, title_color);
+    /* Título (Centrado verticalmente en 30px) */
+    ui_draw_string(NULL, win->bounds.x + 8, win->bounds.y + 7, win->title, UI_COLOR_BLACK, title_color);
     
-    /* 3. Botón Cerrar [X] */
-    /* Area: 16x16 px, padding 2px desde arriba y derecha */
-    int btn_x = win->bounds.x + win->bounds.w - 18;
-    int btn_y = win->bounds.y + 2;
+    /* 3. Botón Cerrar [X] (Touch Target grande - Magnet Effect) */
+    /* El botón visual es 20x20, pero el área de click será mayor */
+    int btn_size = 20;
+    int btn_margin = (TITLE_H - btn_size) / 2; /* Centrado: (30-20)/2 = 5 */
+    int btn_x = win->bounds.x + win->bounds.w - btn_size - btn_margin;
+    int btn_y = win->bounds.y + btn_margin;
     
-    framebuffer_rect(btn_x, btn_y, 16, 16, 0xC0C0C0); /* Fondo botón */
+    framebuffer_rect(btn_x, btn_y, btn_size, btn_size, 0xFF4040); /* Rojo suave */
     
-    /* Dibujar X simple */
-    /* Linea 1: (x+3, y+3) -> (x+12, y+12) */
-    /* Linea 2: (x+12, y+3) -> (x+3, y+12) */
-    /* Usamos pixeles raw para la X negra */
-    for(int i=3; i<=12; i++) {
-        ui_draw_pixel(btn_x + i, btn_y + i, 0x000000);
-        ui_draw_pixel(btn_x + 15 - i, btn_y + i, 0x000000);
+    /* Dibujar X */
+    for(int i=4; i<=15; i++) {
+        ui_draw_pixel(btn_x + i, btn_y + i, 0xFFFFFF);
+        ui_draw_pixel(btn_x + 19 - i, btn_y + i, 0xFFFFFF);
     }
     
     /* 4. Borde */
@@ -93,30 +91,34 @@ void wm_draw_all(void) {
 void wm_print_at(window_t* win, int32_t x, int32_t y, const char* text) {
     if (!win->active) return;
 
-    /* Offset por barra de título (20px) */
+    const int TITLE_H = 30;
+
+    /* Offset por barra de título */
     int32_t abs_x = win->bounds.x + x;
-    int32_t abs_y = win->bounds.y + 20 + y;
+    int32_t abs_y = win->bounds.y + TITLE_H + y;
     
-    /* Clipping básico */
-    if (abs_x < win->bounds.x || abs_y < win->bounds.y + 20 ||
-        abs_x + (int32_t)(strlen(text) * 8) > win->bounds.x + win->bounds.w ||
-        abs_y + 16 > win->bounds.y + win->bounds.h) {
-        return; /* Fuera de limites */
-    }
-    
-    ui_draw_string(NULL, abs_x, abs_y, text, win->fg_color, win->bg_color);
+    /* Clipping Rect: Content Area */
+    rect_t clip;
+    clip.x = win->bounds.x;
+    clip.y = win->bounds.y + TITLE_H;
+    clip.w = win->bounds.w;
+    clip.h = win->bounds.h - TITLE_H;
+
+    ui_draw_string(&clip, abs_x, abs_y, text, win->fg_color, win->bg_color);
 }
 
 void wm_fill_rect(window_t* win, rect_t rect, uint32_t color) {
     if (!win->active) return;
     
-    /* Offset por barra de título (20px) */
+    const int TITLE_H = 30;
+    
+    /* Offset por barra de título */
     int32_t abs_x = win->bounds.x + rect.x;
-    int32_t abs_y = win->bounds.y + 20 + rect.y;
+    int32_t abs_y = win->bounds.y + TITLE_H + rect.y;
 
     /* Límites del área de contenido */
     int32_t min_x = win->bounds.x;
-    int32_t min_y = win->bounds.y + 20;
+    int32_t min_y = win->bounds.y + TITLE_H;
     int32_t max_x = win->bounds.x + win->bounds.w;
     int32_t max_y = win->bounds.y + win->bounds.h;
 

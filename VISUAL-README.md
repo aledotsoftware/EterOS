@@ -522,3 +522,51 @@ Si quieres, el siguiente paso lógico es convertir esto en:
 * Especificación técnica formal lista para repo
 * Roadmap de desarrollo por hitos medibles
 * Prototipo visual interactivo (estructura de motor UI en pseudocódigo completo)
+
+
+
+
+aquí tenés las claves técnicas y de diseño para lograr esa adaptabilidad:1. El Concepto de "Target Size" (Tamaño de Objetivo)El ratón es preciso (píxel por píxel), pero el dedo no.Densidad Dinámica: Cuando el sistema detecta una pantalla táctil, los elementos de la UI (botones, ítems de menú, iconos) deben expandirse.Regla de los 44px: Los elementos interactivos deben tener un área mínima de $44 \times 44$ puntos para ser accionables con el pulgar sin errores.Padding Automático: Incrementá el espacio entre elementos de listas para evitar "toques accidentales".2. Adaptación de la Barra de Tareas y MenúsLa barra de tareas es el corazón de la navegación y debe cambiar su comportamiento:Modo Mouse: Iconos pequeños, etiquetas de texto finas y menús contextuales que aparecen con el click derecho.Modo Touch: Iconos más grandes, una barra más alta (o que se oculta automáticamente para ganar espacio) y menús que se activan con "long press" (presión prolongada), presentando botones más grandes.3. Gestos vs. Atajos de TecladoLa UI debe ofrecer equivalencias funcionales en ambos mundos:AcciónTeclado / MouseGesto TouchMultitareaAlt + TabSwipe con 3 dedos hacia arribaCerrar VentanaClick en "X" o Alt + F4Deslizar ventana hacia arriba en el selectorAtrásBotón dedicado o EscSwipe desde el borde izquierdo de la pantallaZoomCtrl + Rueda del mousePinch-to-zoom (pellizco)4. Estados de Hover (Pre-escucha)Este es el mayor error en UIs táctiles. El mouse permite el estado hover (pasar por encima sin cliquear), algo que no existe en el touch.Solución: No ocultes información crítica o acciones importantes solo detrás de un hover. Si usás efectos visuales al pasar el mouse, asegurate de que en touch la primera pulsación ejecute la acción de manera lógica.5. Teclado Virtual InteligenteSi el sistema detecta que no hay un teclado físico conectado (o si se pliega la pantalla en una 2-en-1):Debe desplegar un OSK (On-Screen Keyboard) automáticamente al enfocar un campo de texto.El layout del teclado debe cambiar según el contexto (ej. mostrar el @ y .com si el usuario está en la barra de direcciones del navegador).Implementación en tu diseño "Aurora"Como estás diseñando Aurora para Marea, podrías implementar una variable de estado global: isTouchMode.Si isTouchMode == true, tu sistema de diseño debería inyectar un set de variables CSS que aumenten los márgenes (--gap: 20px en lugar de 8px) y los tamaños de los botones.
+
+
+Gemini said
+¡Excelente! Para que Aurora (tu sistema de diseño) sea realmente híbrido y funcione bien tanto en una tablet como en tu MacBook Air, necesitamos definir una gramática de gestos y controles que sea intuitiva.
+
+Aquí tenés una propuesta técnica de cómo estructurar estos gestos para el manejo de ventanas y el sistema:
+
+1. Gestión de Ventanas (Window Management)
+El objetivo es que mover o redimensionar ventanas sea igual de fluido con un trackpad/mouse que con los dedos.
+
+Arrastrar al borde (Snapping):
+
+Mouse: Al arrastrar una ventana al borde superior, se maximiza. A los laterales, ocupa media pantalla.
+
+Touch: Al arrastrar la ventana cerca del borde, debe aparecer una "zona de aterrizaje" (un sombreado translúcido) que indique dónde se acoplará antes de soltarla.
+
+Cierre y Minimizado:
+
+Gesto: Un deslizamiento rápido (flick) hacia abajo desde la barra de título de la ventana podría minimizarla.
+
+Multitarea: Un deslizamiento con tres dedos hacia arriba (o un swipe desde el borde inferior) debe mostrar el "Exposé" o vista de todas las ventanas abiertas.
+
+2. El "Hot Corner" vs. "Edge Swipe"
+Como Marea es un entorno web, podés aprovechar los bordes de la pantalla, que son áreas de gran importancia jerárquica:
+
+Borde Izquierdo: Swipe hacia la derecha para volver a la aplicación anterior (como en iOS/Android).
+
+Borde Derecho: Swipe hacia la izquierda para abrir el Panel de Notificaciones y Widgets. Aquí es donde pondrías los controles de brillo, volumen y estado de la red.
+
+Borde Inferior: Un deslizamiento corto muestra el "Dock" o barra de tareas si está oculta. Un deslizamiento largo vuelve al "Escritorio" o Home.
+
+3. Menús Contextuales Híbridos
+El "Click Derecho" es el gran ausente en touch. Para Aurora, podrías implementar esto:
+
+Visualización: El menú debe ser tipo "Popover".
+
+Interacción: En modo touch, los elementos del menú deben tener una altura mínima de 48px y mayor separación.
+
+Acciones Rápidas: Encima de la lista de opciones (como "Copiar", "Pegar"), incluí una fila de iconos grandes para las acciones más frecuentes. Esto ahorra espacio vertical y es más fácil de tocar.
+
+
+El "Efecto Imán"
+En touch, los botones pequeños pueden tener un área de colisión invisible más grande que el gráfico del botón. Así, aunque el usuario no toque exactamente el icono, el sistema registra el click si el toque cae dentro del radio de proximidad.

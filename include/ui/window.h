@@ -3,7 +3,7 @@
 
 #include <ui/primitives.h>
 
-#define MAX_WINDOWS 10
+#define MAX_WINDOWS 32
 
 typedef struct {
     int id;

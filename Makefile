@@ -61,7 +61,7 @@ KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/net/dhcp.c             \
               $(KERNEL_DIR)/net/dhcp_parser.c      \
               $(KERNEL_DIR)/drivers/pci/pci.c      \
-              $(KERNEL_DIR)/mm/heap.c
+              $(KERNEL_DIR)/apps/gui_demo.c
 
 # ---- Archivos objeto ----
 # Mapear .c -> .o en el directorio de build
