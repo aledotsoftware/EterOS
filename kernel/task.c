@@ -32,6 +32,9 @@ static uint32_t next_id       = 0;    /* Generador de IDs */
 static uint32_t sched_ticks   = 0;    /* Contador para decidir cuándo switchear */
 static bool     scheduler_active = false; /* El scheduler está inicializado? */
 
+/* Variable global para el stack del kernel (usada por syscall_entry) */
+uint64_t kernel_stack_top = 0;
+
 /* ========================================================================= */
 /* Task Entry Wrapper                                                        */
 /* ========================================================================= */
@@ -90,6 +93,10 @@ void scheduler_init(void) {
     task_count = 1;
     current_task = 0;
     scheduler_active = true;
+
+    /* Configurar stack inicial para Task 0 (Boot Stack en 0x90000) */
+    kernel_stack_top = 0x90000;
+    tss_set_rsp0(kernel_stack_top);
 
     serial_write_string("[SCHED] Scheduler Round-Robin inicializado\n");
 }
