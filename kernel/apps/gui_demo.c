@@ -808,7 +808,8 @@ static void draw_global_status_bar(void) {
 }
 
 static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32_t accent, flux_node_id_t node) {
-    /* Physics: Magnetic Influence Field */
+    /* Physics: Magnetic Influence Field (DISABLED FOR STABILITY TEST) */
+    /*
     int center_x = x + (w / 2);
     int center_y = y + (h / 2);
     int dx = mouse_x - center_x;
@@ -825,15 +826,18 @@ static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32
         shift_x = (int)(dx * strength);
         shift_y = (int)(dy * strength);
     }
+    */
+    int shift_x = 0;
+    int shift_y = 0;
     
     int draw_x = x + shift_x;
     int draw_y = y + shift_y;
 
-    /* Capa 1: Contenedor (Using lighter color for visibility) */
-    framebuffer_rect(draw_x, draw_y, w, h, 0x1A1A1A); 
+    /* Capa 1: Contenedor (Using defined color) */
+    framebuffer_rect(draw_x, draw_y, w, h, FLUX_CARD_BG); 
     
     /* Header */
-    ui_draw_string(NULL, draw_x + 10, draw_y + 10, title, FLUX_TEXT_PRIMARY, 0x1A1A1A);
+    ui_draw_string(NULL, draw_x + 10, draw_y + 10, title, FLUX_TEXT_PRIMARY, FLUX_CARD_BG);
     framebuffer_rect(draw_x + 10, draw_y + 26, w - 20, 1, 0x505050);
     
     /* Live Content / Icon Placeholder */
@@ -841,7 +845,7 @@ static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32
     int icon_cy = draw_y + (h/2);
     
     if (node == NODE_TERMINAL) {
-        if (!terminals[0].used) term_create();
+        /* if (!terminals[0].used) term_create(); */ /* Don't create on draw, causes flicker/lag? */
         draw_term_preview(draw_x, draw_y, w, h, &terminals[0]);
         /* Overlay Icon */
         wm_fill_rect(NULL, (rect_t){icon_cx - 40, icon_cy - 30, 80, 60}, 0x000000);
@@ -857,7 +861,6 @@ static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32
         draw_files_preview(draw_x, draw_y, w, h);
     }
     
-    /* Active Border */
     /* Active Border */
     framebuffer_rect(draw_x, draw_y + h - 1, w, 2, accent);
 }
