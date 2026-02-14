@@ -78,13 +78,20 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │   │   ├── timer/pit.c         # PIT 8254 @ 100 Hz (uptime, delays)
 │   │   ├── rtc/rtc.c           # Real Time Clock (CMOS)
 │   │   ├── pci/pci.c           # Bus PCI (Escaneo y detección)
+│   │   ├── disk/               # Almacenamiento
+│   │   │   └── partition.c     # Gestor de particiones (MBR) y VFS A/B
 │   │   └── net/e1000.c         # Intel PRO/1000 NIC driver
 │   ├── ui/                     # AetherGraphics (GUI System)
 │   │   ├── window.c            # Window Manager & Compositor
 │   │   └── primitives.c        # Primitivas de dibujo 2D
 │   ├── net/                    # Stack de Red
 │   │   ├── dhcp.c              # Cliente DHCP (Discover/Offer)
+│   │   ├── tcp.c               # Stack TCP minimalista
+│   │   ├── stack.c             # Logica de sockets y buffer
 │   │   └── lwip_port/          # Port del stack lwIP (TCP/IP) - En progreso
+│   ├── crypto/                 # Criptografía
+│   │   ├── sha256.c            # Hashing SHA-256
+│   │   └── ed25519.c           # Firmas EdDSA (Seguridad)
 │   └── apps/                   # Aplicaciones del kernel
 │       ├── santitravel.c       # Juego de texto (aventuras)
 │       ├── sysmon.c            # Monitor del sistema
@@ -103,7 +110,9 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │   └── io.h / string.h         # I/O y utilidades
 ├── tools/                      # Herramientas de soporte
 │   ├── gen_logo.py             # Generador de bitmaps para boot
-│   └── mkinitrd.py             # Creador de imágenes Initrd
+│   ├── mkinitrd.py             # Creador de imágenes Initrd
+│   └── updater/                # Sistema de Actualización OTA
+│       └── build_update.ps1    # Script de empaquetado y firma
 ├── tests/                      # Suite de pruebas unitarias
 │   ├── test_fat32.c            # Test de lectura FAT32
 │   ├── test_heap.c             # Stress handling del Heap
@@ -220,16 +229,11 @@ Dirección       | Contenido
 
 Para que el sistema sea considerado "listo para producción", el flujo de actualización debe incluir validación en el VFS (entorno "shadow"), seguridad de firma (Ed25519) y manejo de errores con rollback automático.
 
-- [ ] **Stack de Red Minimalista (TCP/IP):** Implementación de sockets básicos en el kernel o vía driver para permitir la comunicación con el servidor FTP.
-  - *Archivos:* `kernel/net/tcp.c`, `kernel/net/stack.c`
-- [ ] **Módulo de Criptografía (Ed25519/SHA-256):** Integración de funciones de hashing y verificación de firmas dentro del kernel para validar componentes antes de la ejecución.
-  - *Archivos:* `kernel/crypto/sha256.c`, `kernel/crypto/ed25519.c`
-- [ ] **Driver de Almacenamiento con Soporte A/B:** Lógica de particionado que permita al VFS identificar y escribir en la partición "pasiva" sin desmontar la "activa".
-  - *Archivo:* `kernel/drivers/disk/partition.c`
-- [ ] **Sistema de Commits Atómicos:** Implementación de un flag en el sector de booteo o NVRAM que determine qué partición es la principal.
-  - *Archivo:* `kernel/arch/x64/boot/nvram.c`
-- [ ] **Implementación de Build Update (Toolchain):** Script externo que automatiza el empaquetado `.zst`, firma el manifiesto y realiza la carga vía FTP de forma estructurada.
-  - *Archivo:* `tools/updater/build_update.ps1`
+- [x] **Stack de Red Minimalista (TCP/IP):** Implementación de sockets básicos en el kernel (`kernel/net/tcp.c`, `stack.c`).
+- [x] **Módulo de Criptografía (Ed25519/SHA-256):** Hashing y verificación de firmas implementados (`kernel/crypto/`).
+- [x] **Driver de Almacenamiento con Soporte A/B:** Lógica de particionado MBR y detección de offsets (`kernel/drivers/disk/partition.c`).
+- [x] **Sistema de Commits Atómicos:** Estructura en NVRAM para selector de arranque (`kernel/arch/x86_64/boot/nvram.c`).
+- [x] **Implementación de Build Update (Toolchain):** Script de empaquetado `.zst` y firma de manifiesto (`tools/updater/build_update.ps1`).
 
 
 
