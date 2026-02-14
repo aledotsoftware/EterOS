@@ -515,15 +515,42 @@ static char history[HISTORY_SIZE][HISTORY_LEN];
 static int  history_count = 0;
 static int  history_idx   = 0;
 
-static void history_add(const char* cmd) {
-    if (cmd[0] == '\0') return;
-    /* No duplicar si es igual al último */
-    if (history_count > 0) {
-        int last = (history_count - 1) % HISTORY_SIZE;
-        if (strcmp(history[last], cmd) == 0) return;
+/* Ejecuta un comando (sin prompt, ni history management) */
+int shell_exec(char* input) {
+    if (!input || !*input) return 0;
+
+    /* 1. Buscar en comandos internos */
+    for (size_t i = 0; i < NUM_COMMANDS; i++) {
+        const char* args = match_command(input, commands[i].name);
+        if (args) {
+            /* Ejecutar handler */
+            commands[i].handler(args);
+            return 0; /* Exito */
+        }
     }
-    strlcpy(history[history_count % HISTORY_SIZE], cmd, HISTORY_LEN);
-    history_count++;
+
+    /* 2. Buscar en aplicaciones */
+    for (size_t i = 0; i < NUM_APPS; i++) {
+        const char* args = match_command(input, apps[i].name);
+        if (args) {
+            serial_write_string("[eterOS] Ejecutando app: ");
+            serial_write_string(apps[i].name);
+            serial_write_string("\n");
+            apps[i].run();
+            /* Restaurar terminal (opcional, depende de la app) */
+            // terminal_initialize(NULL); 
+            return 0;
+        }
+    }
+
+    /* 3. No encontrado */
+    terminal_write_colored("  Comando no encontrado: ", VGA_COLOR_RED, VGA_COLOR_BLACK);
+    terminal_write_string(input);
+    terminal_write_string("\n  Escribe ");
+    terminal_write_colored("help", VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
+    terminal_write_string(" para ver comandos disponibles.\n");
+    
+    return -1;
 }
 
 static void shell_replace_line(char* input, size_t* pos, const char* new_text) {
@@ -580,45 +607,18 @@ void shell_run(void) {
             terminal_write_string("\n");
             input[pos] = '\0';
 
-                if (pos > 0) {
-                    history_add(input);
-                    history_idx = history_count;
-
-                    bool found = false;
-                    for (size_t i = 0; i < NUM_COMMANDS; i++) {
-                    const char* args = match_command(input, commands[i].name);
-                    if (args) {
-                        commands[i].handler(args);
-                        found = true;
-                        break;
-                    }
+            if (pos > 0) {
+                /* Agregar al historial */
+                if (history_count == 0 || strcmp(history[(history_count - 1) % HISTORY_SIZE], input) != 0) {
+                     strlcpy(history[history_count % HISTORY_SIZE], input, SHELL_MAX_INPUT);
+                     history_count++;
                 }
-
-                if (!found) {
-                    for (size_t i = 0; i < NUM_APPS; i++) {
-                        if (match_command(input, apps[i].name)) {
-                            serial_write_string("[eterOS] Ejecutando app: ");
-                            serial_write_string(apps[i].name);
-                            serial_write_string("\n");
-                            apps[i].run();
-                            terminal_initialize(NULL);
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!found) {
-                    terminal_write_colored("  Comando no encontrado: ",
-                                          VGA_COLOR_RED, VGA_COLOR_BLACK);
-                    terminal_write_string(input);
-                    terminal_write_string("\n  Escribe ");
-                    terminal_write_colored("help",
-                                          VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
-                    terminal_write_string(" para ver comandos disponibles.\n");
-                }
+                history_idx = history_count;
+                
+                /* Ejecutar */
+                shell_exec(input);
             }
-
+            
             pos = 0;
             shell_print_prompt();
 

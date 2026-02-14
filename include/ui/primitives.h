@@ -22,6 +22,8 @@ typedef struct {
 #define UI_COLOR_DARK    0xFF202020
 #define UI_COLOR_BLUE    0xFF0000FF
 #define UI_COLOR_CYAN    0xFF00FFFF
+#define UI_COLOR_RED     0xFFFF0000
+#define UI_COLOR_GREEN   0xFF00FF00
 
 /* Funciones de dibujo base con clipping */
 void ui_draw_pixel(int32_t x, int32_t y, uint32_t color);

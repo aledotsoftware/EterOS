@@ -17,6 +17,7 @@
 #include <mouse.h>
 #include <shell.h>
 #include <mm.h>
+#include <gui_demo.h>
 
 /* Forward declarations for non-HAL kernel services */
 void pmm_init(void);
@@ -117,9 +118,18 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     hal_console_write("  [INIT] Scheduler Round-Robin\n");
     scheduler_init();
 
-    hal_console_write("  [INIT] Lanzando shell...\n");
+    /* ---- 8. Lanzar Entorno de Escritorio (Flux UI) ---- */
+    hal_console_write("  [INIT] Lanzando Flux UI...\n");
+    
+    /* Nota: gui_demo_run() bloquea hasta que el usuario salga */
+    /* Aseguramos que la interrupción de teclado esté habilitada */
+    hal_interrupts_enable(); 
+    
+    gui_demo_run();
 
-    /* ---- 8. Lanzar shell interactivo ---- */
+    hal_console_write("  [INFO] GUI cerrada. Iniciando shell de texto...\n");
+
+    /* ---- 9. Lanzar shell interactivo (Fallback) ---- */
     shell_run();  /* Nunca retorna (tarea 0 del kernel) */
 
     /* Si por alguna razón retorna, halt */

@@ -1,4 +1,4 @@
-[GDT] Inicializando GDT y TSS...
+[GDT Inicializando GDT y TSS...
 [GDT] GDT cargada. TSS activa.
 [eterOS] IDT cargada (256 vectores).
 [eterOS] PIT configurado a ~100 Hz.
@@ -40,8 +40,4 @@
 [MOUSE] Driver inicializado y IRQ12 desenmascarada.
   [INIT] Scheduler Round-Robin
 [SCHED] Scheduler Round-Robin inicializado
-  [INIT] Lanzando shell...
-
-  Terminal interactiva lista. Escribe help para ver comandos.
-
-eterOS> 
+  [INIT] Lanzando Flux UI...

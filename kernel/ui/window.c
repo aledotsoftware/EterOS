@@ -50,16 +50,36 @@ void wm_draw_window(window_t* win) {
                      win->bg_color);
                      
     /* 2. Barra título */
+    /* Color basado en si es la última ventana creada (simple focus check) por ahora hardcoded en GREY */
+    /* Para futuro: win == wm_get_active_window() ? UI_COLOR_BLUE : UI_COLOR_GREY */
+    uint32_t title_color = UI_COLOR_CYAN; /* Cyan para mayor contraste por ahora */
+    
     framebuffer_rect((uint32_t)win->bounds.x, (uint32_t)win->bounds.y,
                      (uint32_t)win->bounds.w, 20,
-                     UI_COLOR_GREY);
+                     title_color);
                      
     /* Título */
     /* Ajuste: offset 4px, centrado 2px */
-    ui_draw_string(NULL, win->bounds.x + 4, win->bounds.y + 2, win->title, UI_COLOR_BLACK, UI_COLOR_GREY);
+    ui_draw_string(NULL, win->bounds.x + 4, win->bounds.y + 2, win->title, UI_COLOR_BLACK, title_color);
     
-    /* 3. Borde */
-    ui_draw_rect(&win->bounds, UI_COLOR_CYAN);
+    /* 3. Botón Cerrar [X] */
+    /* Area: 16x16 px, padding 2px desde arriba y derecha */
+    int btn_x = win->bounds.x + win->bounds.w - 18;
+    int btn_y = win->bounds.y + 2;
+    
+    framebuffer_rect(btn_x, btn_y, 16, 16, 0xC0C0C0); /* Fondo botón */
+    
+    /* Dibujar X simple */
+    /* Linea 1: (x+3, y+3) -> (x+12, y+12) */
+    /* Linea 2: (x+12, y+3) -> (x+3, y+12) */
+    /* Usamos pixeles raw para la X negra */
+    for(int i=3; i<=12; i++) {
+        ui_draw_pixel(btn_x + i, btn_y + i, 0x000000);
+        ui_draw_pixel(btn_x + 15 - i, btn_y + i, 0x000000);
+    }
+    
+    /* 4. Borde */
+    ui_draw_rect(&win->bounds, 0xC0C0C0);
 }
 
 void wm_draw_all(void) {
