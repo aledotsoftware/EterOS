@@ -197,6 +197,7 @@ dirs:
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/mm
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/fs
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/ui
+	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/crypto
 
 # ---- Bootloader (Solo x86_64) ----
 boot: dirs $(BOOT_BIN)
