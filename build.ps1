@@ -25,7 +25,7 @@ param(
     [ValidateSet("all", "boot", "kernel", "image", "vdi", "vbox", "run", "run-nographic", "debug", "clean", "info")]
     [string]$Target = "all",
 
-    [ValidateSet("x86_64", "i386")]
+    [ValidateSet("x86_64", "i386", "aarch64")]
     [string]$Arch = "x86_64"
 )
 
@@ -75,6 +75,13 @@ $qemuSearchPaths = @(
     "$env:LOCALAPPDATA\Programs\qemu"
 )
 
+$aarch64SearchPaths = @(
+    "C:\aarch64-elf-tools\bin",
+    "$env:LOCALAPPDATA\aarch64-elf-tools\bin",
+    "C:\cross-aarch64\bin",
+    "C:\msys64\opt\aarch64-elf\bin"
+)
+
 $AS = Find-Tool "nasm"                $nasmSearchPaths
 $QEMU = Find-Tool "qemu-system-$Arch"  $qemuSearchPaths
 
@@ -94,6 +101,16 @@ if ($Arch -eq "x86_64") {
     $CARCHFLAGS = @("-m64", "-mcmodel=large", "-mno-red-zone", "-mno-sse", "-mno-sse2", "-mno-mmx", "-D__x86_64__", "-DARCH_X86_64")
     $LDFLAGS_ARCH = @("-m", "elf_x86_64")
     $VBOX_OSTYPE = "Other_64"
+}
+elseif ($Arch -eq "aarch64") {
+    $CC = Find-Tool "aarch64-elf-gcc" $aarch64SearchPaths
+    $LD = Find-Tool "aarch64-elf-ld" $aarch64SearchPaths
+    $OBJCOPY = Find-Tool "aarch64-elf-objcopy" $aarch64SearchPaths
+    # For ARM, we use the GCC preprocessor/assembler instead of NASM
+    $BOOT_DIR = "boot\aarch64"
+    $CARCHFLAGS = @("-march=armv8-a", "-ffreestanding", "-nostdlib", "-D__aarch64__", "-DARCH_AARCH64")
+    $LDFLAGS_ARCH = @("-m", "aarch64elf")
+    $VBOX_OSTYPE = "Oracle_Arm64" 
 }
 else {
     # Para i386 usamos el compilador de 32 bits si existe, o el de 64 bits con flag -m32
@@ -207,6 +224,9 @@ if ($Arch -eq "x86_64") {
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\gdt.c"
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\hal_impl.c"
 }
+elseif ($Arch -eq "aarch64") {
+    $KERNEL_SRCS += "$KERNEL_DIR\arch\aarch64\hal_impl.c"
+}
 else {
     $KERNEL_SRCS += "$KERNEL_DIR\arch\i386\idt.c"
     $KERNEL_SRCS += "$KERNEL_DIR\arch\i386\pic.c"
@@ -257,7 +277,15 @@ function Initialize-BuildDirs {
 
 function Invoke-BootBuild {
     Write-Step "ASM" $BOOT_SRC
-    & $AS -f bin $BOOT_SRC -o $BOOT_BIN
+    if ($Arch -eq "aarch64") {
+        # Para ARM usamos GCC/AS para generar un binario crudo o similar
+        # Por ahora generamos un objeto para enlazarlo con el kernel
+        & $CC $CFLAGS -c $BOOT_SRC -o "$BUILD_DIR\boot.o"
+    }
+    else {
+        & $AS -f bin $BOOT_SRC -o $BOOT_BIN
+    }
+
     if ($LASTEXITCODE -ne 0) {
         Write-Step "ERR" "Fallo al ensamblar el bootloader"
         exit 1
@@ -268,17 +296,24 @@ function Invoke-KernelBuild {
     $objFiles = @()
 
     # Compilar ASM stubs si existen
-    # Compilar TODOS los archivos ASM en arch/$Arch
-    $asmFiles = Get-ChildItem "$KERNEL_DIR\arch\$Arch" -Filter "*.asm"
+    # Compilar TODOS los archivos ASM/S en arch/$Arch
+    $asmFiles = Get-ChildItem "$KERNEL_DIR\arch\$Arch" -Include @("*.asm", "*.S") -Recurse
     
     foreach ($asmFile in $asmFiles) {
         $asmSrc = $asmFile.FullName
-        $asmObj = "$BUILD_DIR\$KERNEL_DIR\arch\$Arch\$($asmFile.Name -replace '\.asm$', '.o')"
+        $asmObj = "$BUILD_DIR\$KERNEL_DIR\arch\$Arch\$($asmFile.Name -replace '\.asm$', '.o' -replace '\.S$', '.o')"
         $objFiles += $asmObj
 
         Write-Step "ASM" $asmFile.Name
-        $asmFormat = if ($Arch -eq "x86_64") { "elf64" } else { "elf32" }
-        & $AS -f $asmFormat $asmSrc -o $asmObj
+        if ($Arch -eq "aarch64") {
+            # Use GCC as assembler for ARM (.S files)
+            & $CC $CFLAGS -c $asmSrc -o $asmObj
+        }
+        else {
+            $asmFormat = if ($Arch -eq "x86_64") { "elf64" } else { "elf32" }
+            & $AS -f $asmFormat $asmSrc -o $asmObj
+        }
+        
         if ($LASTEXITCODE -ne 0) {
             Write-Step "ERR" "Fallo al ensamblar $($asmFile.Name)"
             exit 1
