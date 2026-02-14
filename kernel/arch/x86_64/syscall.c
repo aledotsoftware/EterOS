@@ -57,10 +57,15 @@ void syscall_handler(struct syscall_regs* regs) {
     task_t* current_task = task_get_current();
 
     /* Logic for Magic Test Payload */
-    if (regs->rax == 0xCAFEBABE) {
+    if (current_task && regs->rax == 0xCAFEBABE) {
         serial_write_string("[SYSCALL] Magic Test Passed! Hello from Ring 3!\n");
         terminal_write_colored("\n[SYSCALL] Magic Test Passed! Hello from Ring 3!\n", VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
         regs->rax = 0;
+        return;
+    }
+
+    if (!current_task) {
+        regs->rax = (uint64_t)-1;
         return;
     }
 
@@ -102,6 +107,17 @@ void syscall_handler(struct syscall_regs* regs) {
                 int fd = (int)regs->rdi;
                 const char* buf = (const char*)regs->rsi;
                 size_t count = (size_t)regs->rdx;
+
+                /* Special handling for User Test Exit: 
+                   If our Ring 3 test uses 'syscall' with RAX=1 to mean 'exit', 
+                   and we are still in the early stages, let's treat it as exit.
+                   Actually, Linux 1 IS write. Our payload used 1 for exit/halt.
+                   So let's peek at RDI. If it looks like a pointer/length, it's write.
+                   If it's just '1', it might be exit.
+                   Actually, let's just use SYS_exit (60) later.
+                   For now, if NR=1 and FD is NOT 1 or 2, treat as potentially exit?
+                   No, let's just stick to SYS_write and fix the payload if needed.
+                */
 
                 if (fd < 0 || fd >= MAX_FD) {
                     ret = (uint64_t)-9; /* EBADF */
@@ -177,7 +193,7 @@ void syscall_handler(struct syscall_regs* regs) {
             break;
 
         case SYS_getpid:
-            ret = current_task ? current_task->id : 0;
+            ret = current_task->id;
             break;
 
         case SYS_sched_yield:
@@ -206,12 +222,28 @@ void syscall_handler(struct syscall_regs* regs) {
             }
             break;
 
-        case 1: /* Redirect SYS_write (1 in Linux) to our SYS_write handler if payload uses 1 */
-            /* Some payloads use 1 for exit (like our test one). Let's check. */
-            if (regs->rax == 1) {
-                serial_write_string("[SYSCALL] Syscall 1 called. Assuming exit/halt for test.\n");
-                task_exit();
+        case SYS_sendto:
+            /* sys_sendto(fd, buf, len, flags, addr, addrlen) */
+            {
+                extern void net_protocol_send(const char* data, size_t len);
+                net_protocol_send((const char*)regs->rsi, (size_t)regs->rdx);
+                ret = regs->rdx;
             }
+            break;
+
+        case SYS_recvfrom:
+            /* sys_recvfrom(fd, buf, len, flags, addr, addrlen) */
+            {
+                extern size_t net_protocol_recv(char* buf, size_t max_len);
+                ret = net_protocol_recv((char*)regs->rsi, (size_t)regs->rdx);
+            }
+            break;
+
+        case SYS_getuid:
+        case SYS_getgid:
+        case SYS_geteuid:
+        case SYS_getegid:
+            ret = 0; /* Always root for now */
             break;
 
         default:
