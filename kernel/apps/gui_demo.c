@@ -1131,27 +1131,36 @@ static void draw_notifications(void) {
     if (!active_notif.active) return;
     
     int current_tick = timer_get_ticks();
-    if (current_tick - active_notif.tick_start > active_notif.duration) {
+    int elapsed = current_tick - active_notif.tick_start;
+    if (elapsed > active_notif.duration) {
         active_notif.active = false;
         return;
+    }
+    
+    /* Fade-in / Fade-out alpha */
+    uint8_t alpha = 0xE0;
+    if (elapsed < 30) alpha = (uint8_t)((elapsed * 0xE0) / 30);
+    else if (elapsed > active_notif.duration - 50) {
+        int remaining = active_notif.duration - elapsed;
+        alpha = (uint8_t)((remaining * 0xE0) / 50);
     }
     
     /* Toast Top Center */
     int w = 300;
     int h = 60;
     int x = (1024 - w) / 2;
-    int y = 40; /* Top margin */
+    int y = 40;
     
-    /* Background & Shadow effect */
-    omni_fill_rect(x, y, w, h, 0x202020);
-    omni_fill_rect(x, y + h, w, 2, 0x000000); /* Shadow */
+    /* Glass-effect background with alpha */
+    omni_fill_rect_alpha(x, y, w, h, 0x181818, alpha);
+    omni_fill_rect_alpha(x, y + h, w, 2, 0x000000, alpha); /* Shadow */
     
     /* Accent Strip */
     omni_fill_rect(x, y, 4, h, active_notif.accent);
     
     /* Content */
-    omni_draw_string(NULL, x + 15, y + 15, active_notif.title, FLUX_TEXT_PRIMARY, 0x202020);
-    omni_draw_string(NULL, x + 15, y + 35, active_notif.message, FLUX_TEXT_SECONDARY, 0x202020);
+    omni_draw_string(NULL, x + 15, y + 15, active_notif.title, FLUX_TEXT_PRIMARY, 0x181818);
+    omni_draw_string(NULL, x + 15, y + 35, active_notif.message, FLUX_TEXT_SECONDARY, 0x181818);
 }
 
 /* ========================================================================= */
@@ -1310,7 +1319,8 @@ static void draw_global_status_bar(void) {
     
     int bar_h = 32;
     /* Deep Glassmorphism effect: Outer border + Inner fill */
-    omni_fill_rect(0, 0, screen_w, bar_h, 0x050505);
+    /* Gradient status bar for premium look */
+    omni_fill_gradient_v(0, 0, screen_w, bar_h, 0x0A0A0A, 0x050505);
     omni_fill_rect(0, bar_h - 1, screen_w, 1, 0x1A1A1A);
 
     /* Left: System Branding + Pulse */
@@ -1467,15 +1477,16 @@ static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32
     /* Capa 1: Contenedor (Using defined color) */
     uint32_t card_bg = FLUX_CARD_BG;
     if (dist_sq < 10000) { /* Hover highlight */
-        card_bg = 0x383838; /* Lighter for visibility (was 0x1A1A1A) */
+        card_bg = 0x383838;
     }
     
-    /* Active Glow (Steady, no strobing for A11y) */
+    /* Active Glow (Steady, alpha blend for soft edge) */
     if (dist_sq < 40000) {
-        omni_fill_rect(draw_x - 2, draw_y - 2, w + 4, h + 4, accent);
+        omni_fill_rect_alpha(draw_x - 3, draw_y - 3, w + 6, h + 6, accent, 0x80);
     }
 
-    omni_fill_rect(draw_x, draw_y, w, h, card_bg);
+    /* Card background with subtle gradient */
+    omni_fill_gradient_v(draw_x, draw_y, w, h, card_bg, 0x0A0A0A);
     
     /* Header */
     omni_draw_string(NULL, draw_x + 10, draw_y + 10, title, FLUX_TEXT_PRIMARY, card_bg);
@@ -2038,13 +2049,15 @@ void gui_demo_run(void) {
 
     while (desktop_running) {
         /* ⚡ BOLT: Intelligent Frame Refresh (Cap at ~100 FPS if resolution is 10ms) */
-        /* This prevents saturated loops that slow down the emulator's drawing pipeline */
         uint64_t current_ticks = timer_get_ticks();
         if (current_ticks == last_frame_ticks) {
             task_sleep(1); /* ⚡ BOLT: Real sleep to cool down the CPU */
             continue;
         }
         last_frame_ticks = current_ticks;
+
+        /* ⚡ OMNI v2.0: Begin frame - cache buffer pointer once */
+        omni_begin_frame();
 
         rect_t dirty = {0, 0, 1024, 768};
 
