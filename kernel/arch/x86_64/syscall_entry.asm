@@ -8,16 +8,16 @@ extern syscall_handler
 
 section .text
 syscall_entry:
-    ; 1. Swap GS to get access to per-cpu data (stored in KERNEL_GS_BASE)
+    ; 1. Swap GS to get access to per-cpu data (stored in KERNEL_GS_BASE = cpu_info_t*)
     swapgs
 
-    ; 2. Save User Stack Pointer temporarily in per-cpu struct
-    ; GS:[8] = user_stack
-    mov [gs:8], rsp
+    ; 2. Save User Stack Pointer temporarily in per-cpu struct (user_stack_scratch)
+    ; include/cpu.h: offsetof(cpu_info_t, user_stack_scratch) = 40 (0x28)
+    mov [gs:40], rsp
 
-    ; 3. Load Kernel Stack Pointer from per-cpu struct
-    ; RSP = GS:[0]
-    mov rsp, [gs:0]
+    ; 3. Load Kernel Stack Pointer from per-cpu struct (kernel_stack_top)
+    ; include/cpu.h: offsetof(cpu_info_t, kernel_stack_top) = 32 (0x20)
+    mov rsp, [gs:32]
 
     ; 4. Save Registers to match struct syscall_regs
     ; Struct: r11, rcx, rbp, rdi, rsi, rdx, r10, r8, r9, rax
