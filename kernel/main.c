@@ -25,6 +25,7 @@
 #include <net/socket.h>
 
 #include <net/e1000.h>
+#include <acpi.h>
 
 /* Compatibility for legacy apps */
 extern int network_ready;
@@ -38,9 +39,9 @@ void vmm_init(void);
 /* Constantes del Sistema                                                    */
 /* ========================================================================= */
 #define ETEROS_VERSION_MAJOR    0
-#define ETEROS_VERSION_MINOR    1
+#define ETEROS_VERSION_MINOR    2  /* Bump for SMP support */
 #define ETEROS_VERSION_PATCH    0
-#define ETEROS_CODENAME         "Genesis"
+#define ETEROS_CODENAME         "Genesis SMP"
 
 /* ========================================================================= */
 /* Prototipos internos                                                       */
@@ -101,6 +102,11 @@ void __attribute__((section(".text.boot"))) kmain(void) {
         boot_info_t* boot_info = (boot_info_t*)BOOT_INFO_ADDR;
     #else
         void* boot_info = NULL;
+    #endif
+
+    /* ---- 2.5 Inicializar ACPI (Hardware Discovery) ---- */
+    #if defined(ARCH_X86_64)
+    acpi_init();
     #endif
 
     /* ---- 3. Inicializar Memory Managers (Solo Tier 2+) ---- */
