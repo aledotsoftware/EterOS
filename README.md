@@ -176,6 +176,8 @@ Dirección       | Contenido
 0xB8000-0xBFFFF | Buffer de video VGA
 0x100000        | Kernel Heap Start (Identity Mapped)
 0x4000000       | Mapped Initrd (Image/Assets)
+0x200000000     | User Code (Ring 3)
+0x300000000     | User Stack (Ring 3)
 ```
 
 ## 🚀 Hoja de Ruta (Roadmap hacia la GUI)
@@ -214,7 +216,7 @@ Dirección       | Contenido
 - [x] **Topología Dinámica (>64 Cores):** Implementación de `cpu_set_t` escalable (bitmaps dinámicos) y `cpu_info_t` alineada a cache-line para evitar false sharing.
 - [x] **Per-CPU Data (GS Base):** Uso del registro `GS` en x86_64 para almacenamiento local de hilo (TLS) y contexto de CPU, eliminando locks globales en acceso a datos del núcleo.
 - [x] **BSP Initialization:** Bootstrapping del núcleo principal con soporte para stack de syscalls independiente.
-- [ ] **APIC Driver:** Controlador para Local APIC (xAPIC/x2APIC) y I/O APIC.
+- [x] **APIC Driver:** Enumeración MADT y soporte inicial de Local APIC (Mapeo MMIO).
 - [ ] **SMP Trampoline:** Código de 16-bit para despertar Application Processors (APs).
 - [ ] **Scheduler Multicore:** Balanceo de carga y colas de ejecución por CPU.
 
@@ -274,9 +276,11 @@ Para que el sistema sea considerado "listo para producción", el flujo de actual
     - 📁 **Monitor de Sistema:** Gestión visual de procesos y recursos.
     - 🛠️ **Admin. de Dispositivos:** Inventario de hardware (PCI, RK3566/x86_64).
     - 🎮 **SantiTravel:** El legendario juego de aventuras portado a la GUI.
-    - 🎨 **Creative Suite:** Aplicaciones de Lienzo (Paint), Notas y Galería.
-    - 🌐 **Navegador Eter:** Acceso a red con soporte lwIP.
+    - 🌌 **The Matrix:** Simulación de lluvia de código optimizada para el motor Omni.
+    - 🎨 **Creative Suite:** Aplicaciones de Lienzo (Paint), Notas y Galería (vía stubs de diseño).
+    - 🌐 **Navegador Eter:** Acceso a red con soporte lwIP y cliente TCP.
     - 🔧 **Utilidades:** Calculadora, Reloj, Clima y Ajustes del sistema.
+    - 📁 **Gestor de Archivos:** Navegación por directorios del Initrd/VFS.
 
 
 ### Fase 5.1: Optimización del Motor Gráfico (Omni v2.0) ✅
@@ -460,7 +464,10 @@ make info           # Ver información del toolchain
 │                                                          │
 │ 7. Long Mode: Salta a kmain() en 0x10000                 │
 │    └─▶ GDT/TSS → IDT → PIC → Timer → PMM → VMM → Heap  │
-│    └─▶ Shell interactivo con historial y teclas extendidas│
+│    └─▶ Carga de Initrd (Assets & User ELF)               │
+│    └─▶ Lanzamiento de Userland (Ring 3 Test)             │
+│    └─▶ Modo Gráfico: Lanzamiento de Flux UI (PID 1)      │
+│    └─▶ Fallback: Shell interactivo (si Flux UI se cierra)│
 └──────────────────────────────────────────────────────────┘
 ```
 
