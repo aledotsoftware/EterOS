@@ -102,6 +102,7 @@ extern int total_cpus;
 
 /* Inicialización */
 void cpu_init_bsp(void);        /* Inicializar estructuras para el Bootstrap Processor */
-void cpu_init_ap(void);         /* Inicializar Application Processor (llamado tras trampolín) */
+void cpu_init_ap(int index);    /* Inicializar Application Processor (llamado tras trampolín) */
+void smp_init(void);            /* Despertar Application Processors via INIT-SIPI-SIPI */
 
 #endif /* ETEROS_CPU_H */
