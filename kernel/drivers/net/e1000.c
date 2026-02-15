@@ -11,6 +11,7 @@
 #include "../../../include/serial.h"
 #include "../../../include/mm.h"
 #include "../../../include/string.h"
+#include "../../../include/pmm.h"
 #include "../../../include/io.h"
 #include "../../../include/timer.h"
 
@@ -56,9 +57,9 @@ static uint32_t e1000_read_reg(uint16_t offset) {
 /* ========================================================================= */
 
 static void e1000_init_rx(void) {
-    /* 1. Asignar memoria para descriptores (debe estar alineada a 16 bytes, kmalloc lo garantiza) */
-    rx_descs = (struct e1000_rx_desc*)kmalloc(sizeof(struct e1000_rx_desc) * NUM_RX_DESC);
-    memset(rx_descs, 0, sizeof(struct e1000_rx_desc) * NUM_RX_DESC);
+    /* 1. Asignar memoria para descriptores (debe estar alineada a 128 bytes, pmm_alloc_page lo garantiza) */
+    rx_descs = (struct e1000_rx_desc*)pmm_alloc_page();
+    memset(rx_descs, 0, PAGE_SIZE);
     
     /* 2. Asignar buffers para cada descriptor */
     for (int i = 0; i < NUM_RX_DESC; i++) {
@@ -91,9 +92,9 @@ static void e1000_init_rx(void) {
 }
 
 static void e1000_init_tx(void) {
-    /* 1. Asignar memoria para descriptores TX */
-    tx_descs = (struct e1000_tx_desc*)kmalloc(sizeof(struct e1000_tx_desc) * NUM_TX_DESC);
-    memset(tx_descs, 0, sizeof(struct e1000_tx_desc) * NUM_TX_DESC);
+    /* 1. Asignar memoria para descriptores TX (alineación 128 bytes mandatoria) */
+    tx_descs = (struct e1000_tx_desc*)pmm_alloc_page();
+    memset(tx_descs, 0, PAGE_SIZE);
     
     /* 2. Configurar registros TDBAL/TDBAH */
     uint64_t base_addr = (uint64_t)(uintptr_t)tx_descs;
