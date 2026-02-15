@@ -28,7 +28,7 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 |---|---|---|---|---|
 | **Tier 1** | éterOS-Micro | Aire acondicionado, sensores IoT, drones | ARM Cortex-M, AVR, RISC-V32, Xtensa | **No MMU** / MPU (Static) |
 | **Tier 2** | éterOS-Core | Tablets, phones, RPi, satélites | aarch64 (RK3566), RISC-V64 | **MMU** / Paging (4-Level) |
-| **Tier 3** | éterOS-Full | PCs, servidores, data centers | x86_64 | **MMU** / Ring 0-3 Protection |
+| **Tier 3** | éterOS-Full | PCs, servidores, data centers, VirtualBox | x86_64 | **MMU** / Ring 0-3 Protection |
 
 ## 📂 Estructura del Proyecto
 
@@ -110,6 +110,10 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │   ├── mkinitrd.py             # Creador de imágenes Initrd
 │   └── updater/                # Sistema de Actualización OTA
 │       └── build_update.ps1    # Script de empaquetado y firma
+├── userspace/                  # Espacio de usuario (Aplicaciones Ring 3)
+│   ├── libc/                   # Mini-LibC para éterOS
+│   └── test.c                 # Aplicación de prueba inicial
+├── initrd_root/                # Directorio raíz para el Initrd
 ├── tests/                      # Suite de pruebas unitarias
 │   ├── test_fat32.c            # Test de lectura FAT32
 │   ├── test_heap.c             # Stress handling del Heap
@@ -568,15 +572,29 @@ make run
 make run
 ```
 
-### Comandos del Makefile
-```bash
-make all            # Compilar todo
-make run            # Compilar y ejecutar en QEMU
-make run-nographic  # Ejecutar sin ventana (ideal para WSL)
-make debug          # Ejecutar con GDB server
-make clean          # Limpiar artefactos
-make info           # Ver información del toolchain
+### Opción 4: Windows PowerShell (Nativo)
+```powershell
+# Compilar todo (Kernel, Boot, Userspace, Initrd, Image)
+.\build.ps1 -Target all
+
+# Compilar y ejecutar en QEMU
+.\build.ps1 -Target run
+
+# Generar VDI e iniciar en VirtualBox
+.\build.ps1 -Target vbox
 ```
+
+### Comandos del Makefile / Build Script
+| Comando | Makefile (WSL/Linux) | build.ps1 (Windows) |
+|---|---|---|
+| Compilar todo | `make all` | `.\build.ps1 -Target all` |
+| Ejecutar (QEMU) | `make run` | `.\build.ps1 -Target run` |
+| VirtualBox | *N/A* | `.\build.ps1 -Target vbox` |
+| Modo Debug | `make debug` | `.\build.ps1 -Target debug` |
+| Limpiar | `make clean` | `.\build.ps1 -Target clean` |
+| Ver Info | `make info` | `.\build.ps1 -Target info` |
+| Imagen ISO | `make iso` | `.\build.ps1 -Target iso` |
+| Imagen USB | *N/A* | `.\build.ps1 -Target usb` |
 
 ## 🛣️ Secuencia de Arranque
 
