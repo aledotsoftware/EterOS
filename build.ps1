@@ -167,7 +167,12 @@ $BUILD_DIR = "build\$Arch"
 
 if (!(Test-Path $BUILD_DIR)) { New-Item -ItemType Directory -Force -Path $BUILD_DIR | Out-Null }
 
-$BOOT_SRC = "$BOOT_DIR\boot.asm"
+if ($Arch -eq "aarch64") {
+    $BOOT_SRC = "$BOOT_DIR\boot.S"
+}
+else {
+    $BOOT_SRC = "$BOOT_DIR\boot.asm"
+}
 $BOOT_BIN = "$BUILD_DIR\boot.bin"
 $KERNEL_ELF = "$BUILD_DIR\kernel.elf"
 $KERNEL_BIN = "$BUILD_DIR\kernel.bin"

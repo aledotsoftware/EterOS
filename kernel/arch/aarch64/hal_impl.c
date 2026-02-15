@@ -1,59 +1,64 @@
-/**
- * éterOS — aarch64 HAL Implementation
- * Copyright (c) 2026 Tudex Networks. All rights reserved.
- */
 
 #include <hal.h>
+#include <types.h>
 
-/* Global State */
-static volatile uint64_t sys_ticks = 0;
+/**
+ * ROCKCHIP RK3566 UART2 Base Address
+ * Default debug UART for many boards (Quartz64, etc.)
+ */
+#define UART2_BASE  0xFE660000
+
+/* Register Offsets (32-bit stride) */
+#define UART_THR    0x00
+#define UART_RBR    0x00
+#define UART_LSR    0x14
+
+/* LSR Bits */
+#define UART_LSR_THRE 0x20
+
+static volatile uint32_t* uart_base = (volatile uint32_t*)UART2_BASE;
 
 void hal_init(void) {
-    hal_console_init();
-    hal_timer_init(100);
-    hal_interrupts_enable();
+    /* Initialize UART? Usually done by U-Boot/TF-A */
+    /* We just assume it's working for early print */
+}
+
+void hal_console_write(const char* str) {
+    while (*str) {
+        /* Wait for THRE (Transmitter Holding Register Empty) */
+        while (!((*(uart_base + (UART_LSR/4))) & UART_LSR_THRE)) {
+            /* Spin */
+        }
+        
+        /* Write char */
+        *(uart_base + (UART_THR/4)) = *str;
+        
+        if (*str == '\n') {
+             /* Handle \n */
+             while (!((*(uart_base + (UART_LSR/4))) & UART_LSR_THRE));
+             *(uart_base + (UART_THR/4)) = '\r';
+        }
+        str++;
+    }
+}
+
+void hal_console_write_color(const char* str, uint8_t color) {
+    (void)color;
+    hal_console_write(str);
 }
 
 void hal_interrupts_enable(void) {
-    __asm__ volatile("msr daifclr, #2");
+    __asm__ volatile("msr daifclr, #2"); /* Enable IRQ */
 }
 
 void hal_interrupts_disable(void) {
-    __asm__ volatile("msr daifset, #2");
+    __asm__ volatile("msr daifset, #2"); /* Disable IRQ */
 }
 
-void hal_irq_install(uint8_t vector, irq_handler_t handler) {
-    (void)vector; (void)handler;
+void hal_halt(void) {
+    for(;;) { __asm__ volatile("wfi"); }
 }
 
-void hal_cpu_halt(void) {
-    __asm__ volatile("wfi");
+void hal_debug_write(const char* str) {
+    hal_console_write(str);
 }
-
-void hal_cpu_reset(void) {
-    /* Implementation specific to board (e.g. RPi Mailbox or PSCI) */
-    while(1);
-}
-
-/* Console Stubs (UART PL011 or similar) */
-void hal_console_init(void) { }
-void hal_console_putchar(char c) { (void)c; }
-void hal_console_write(const char* str) { while(*str) hal_console_putchar(*str++); }
-void hal_console_clear(void) { }
-
-/* Input Stubs */
-void hal_input_init(void) { }
-char hal_input_getchar(void) { return 0; }
-bool hal_input_available(void) { return false; }
-
-/* Timer Stubs */
-void hal_timer_init(uint32_t hz) { (void)hz; }
-uint64_t hal_timer_ticks(void) { return sys_ticks; }
-
-/* Debug */
-void hal_debug_putchar(char c) { hal_console_putchar(c); }
-void hal_debug_write(const char* str) { hal_console_write(str); }
-
-#if ETEROS_HAS_MMU
-void hal_mmu_init(void) { }
-#endif

@@ -65,6 +65,12 @@ void* pmm_alloc_page(void);
 void pmm_free_page(void* addr);
 
 /**
+ * Marca un rango de memoria física como OCUPADO.
+ * Usado por el Heap (mm_init) para evitar que el PMM asigne páginas dentro del heap.
+ */
+void pmm_mark_region_used(uint64_t base, uint64_t size);
+
+/**
  * Obtener estadísticas
  */
 uint64_t pmm_get_total_ram(void);

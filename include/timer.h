@@ -12,7 +12,7 @@
 #define PIT_FREQUENCY     1193182
 
 /** Frecuencia deseada de ticks (Hz). Aprox 100 ticks/segundo. */
-#define TIMER_HZ          100
+#define TIMER_HZ          1000
 
 /** Puertos del PIT. */
 #define PIT_CHANNEL0      0x40

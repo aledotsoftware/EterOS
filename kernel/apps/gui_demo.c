@@ -1929,16 +1929,16 @@ void gui_demo_run(void) {
     serial_write_string("[GUI] Initializing WM...\n");
     wm_init();
     
-    serial_write_string("[GUI] Creating terminal window...\n");
-    term_create(); 
+    /* serial_write_string("[GUI] Creating terminal window...\n");
+    term_create(); */ 
     
     /* Re-enable Double Buffer for flicker-free rendering - DISABLED TEMPORARILY */
-    /* framebuffer_enable_double_buffer(); */
+    framebuffer_enable_double_buffer();
     
     mouse_set_callback(on_mouse_event);
 
     /* 4. External Server Simulation - BACKGROUND TASK */
-    task_create("ext_server", server_external_task);
+    /* task_create("ext_server", server_external_task); */
     
     /* Init Apps */
     /* term_init_all(); -- Removed duplicate call */

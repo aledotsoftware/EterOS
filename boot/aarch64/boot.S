@@ -1,31 +1,44 @@
+
 /*
- * éterOS — aarch64 Bootloader / Entry Point
- * Copyright (c) 2026 Tudex Networks. All rights reserved.
+ * éterOS - RK3566 Boot Entry (AArch64)
  */
 
 .section .text.boot
 .global _start
 
 _start:
-    /* 1. Solo correr en el core principal (CPU 0) */
+    /* Check CPU ID (MPIDR_EL1) - Only core 0 boots initially */
     mrs x0, mpidr_el1
     and x0, x0, #0xFF
-    cbz x0, .cpu_ok
-.cpu_halt:
-    wfe
-    b .cpu_halt
+    cbz x0, master_core
+    /* Secondary cores loop */
+    b hang
 
-.cpu_ok:
-    /* 2. Configurar el stack */
-    ldr x0, =_stack_top
+master_core:
+    /* Setup Stack pointer */
+    ldr x0, =stack_top
     mov sp, x0
 
-    /* 3. Limpiar BSS (TODO) */
+    /* Clear BSS */
+    ldr x0, =__bss_start
+    ldr x1, =__bss_end
+    
+clear_bss:
+    cmp x0, x1
+    b.ge call_kernel
+    str xzr, [x0], #8
+    b clear_bss
 
-    /* 4. Saltar a kmain */
+call_kernel:
+    /* Jump to C kernel */
     bl kmain
+    
+hang:
+    wfi
+    b hang
 
-    /* 5. Si kmain retorna, halt */
-.hang:
-    wfe
-    b .hang
+.section .bss
+.align 16
+stack_bottom:
+.skip 16384 /* 16KB Stack */
+stack_top:

@@ -130,6 +130,9 @@ void mm_init(boot_info_t* boot_info) {
     heap_start->prev = NULL;
     memory_used = 0;
 
+    /* Important: We must tell PMM that this memory is now USED by the HEAP */
+    pmm_mark_region_used((uint64_t)heap_start, memory_total);
+    
     /* Log */
     char buf[64];
     serial_write_string("[MM] Heap inicializado dinamicamente.\n");

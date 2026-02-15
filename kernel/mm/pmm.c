@@ -46,7 +46,7 @@ static int bitmap_test(uint64_t bit) {
 }
 
 /* Marca un rango de direcciones físicas como OCUPADAS */
-static void pmm_mark_region_used(uint64_t base, uint64_t size) {
+void pmm_mark_region_used(uint64_t base, uint64_t size) {
     uint64_t start_page = base / PAGE_SIZE;
     uint64_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
 
