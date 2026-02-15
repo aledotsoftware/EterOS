@@ -22,7 +22,7 @@
 # =============================================================================
 
 param(
-    [ValidateSet("all", "boot", "kernel", "image", "vdi", "vbox", "run", "run-nographic", "debug", "clean", "info", "pxe", "usb")]
+    [ValidateSet("all", "boot", "kernel", "image", "vdi", "vbox", "run", "run-nographic", "debug", "clean", "info", "pxe", "usb", "iso")]
     [string]$Target = "all",
 
     [ValidateSet("x86_64", "i386", "aarch64")]
@@ -79,7 +79,9 @@ $aarch64SearchPaths = @(
     "C:\aarch64-elf-tools\bin",
     "$env:LOCALAPPDATA\aarch64-elf-tools\bin",
     "C:\cross-aarch64\bin",
-    "C:\msys64\opt\aarch64-elf\bin"
+    "C:\msys64\opt\aarch64-elf\bin",
+    "C:\Program Files (x86)\Arm GNU Toolchain\15.2 aarch64-none-elf\bin",
+    "C:\Program Files\Arm GNU Toolchain\15.2 aarch64-none-elf\bin"
 )
 
 $AS = Find-Tool "nasm"                $nasmSearchPaths
@@ -93,6 +95,15 @@ $vboxSearchPaths = @(
 )
 $VBOXMANAGE = Find-Tool "VBoxManage" $vboxSearchPaths
 
+$mkisofsSearchPaths = @(
+    "C:\Program Files\cdrtools",
+    "C:\Program Files (x86)\cdrtools",
+    "C:\Program Files\Git\usr\bin",
+    "C:\Program Files (x86)\Git\usr\bin",
+    "C:\msys64\usr\bin"
+)
+$MKISOFS = Find-Tool "mkisofs" $mkisofsSearchPaths
+
 if ($Arch -eq "x86_64") {
     $CC = Find-Tool "x86_64-elf-gcc" $crossSearchPaths
     $LD = Find-Tool "x86_64-elf-ld" $crossSearchPaths
@@ -104,8 +115,14 @@ if ($Arch -eq "x86_64") {
 }
 elseif ($Arch -eq "aarch64") {
     $CC = Find-Tool "aarch64-elf-gcc" $aarch64SearchPaths
+    if (!$CC) { $CC = Find-Tool "aarch64-none-elf-gcc" $aarch64SearchPaths }
+
     $LD = Find-Tool "aarch64-elf-ld" $aarch64SearchPaths
+    if (!$LD) { $LD = Find-Tool "aarch64-none-elf-ld" $aarch64SearchPaths }
+
     $OBJCOPY = Find-Tool "aarch64-elf-objcopy" $aarch64SearchPaths
+    if (!$OBJCOPY) { $OBJCOPY = Find-Tool "aarch64-none-elf-objcopy" $aarch64SearchPaths }
+
     # For ARM, we use the GCC preprocessor/assembler instead of NASM
     $BOOT_DIR = "boot\aarch64"
     $CARCHFLAGS = @("-march=armv8-a", "-ffreestanding", "-nostdlib", "-D__aarch64__", "-DARCH_AARCH64")
@@ -573,6 +590,45 @@ function Invoke-UsbBuild {
     Write-Host "  Uso: Graba este archivo con Balena Etcher en tu pendrive." -ForegroundColor Gray
 }
 
+function Invoke-IsoBuild {
+    if (!$MKISOFS) {
+        Write-Step "ERR" "mkisofs no encontrado. Instala cdrtools."
+        Write-Host "    Para crear ISOs, instala: winget install Schily-Tools.Cdrtools" -ForegroundColor Yellow
+        return
+    }
+
+    Write-Step "ISO" "Generando ISO bootable (El Torito)..."
+    
+    # Asegurar que tenemos la imagen base
+    Invoke-BootBuild
+    Invoke-KernelBuild
+    Invoke-InitrdBuild
+    Invoke-ImageBuild
+    
+    $isoRoot = "$BUILD_DIR\iso_root"
+    if (Test-Path $isoRoot) { Remove-Item -Recurse -Force $isoRoot }
+    New-Item -ItemType Directory $isoRoot | Out-Null
+    
+    # El archivo de arranque DEBE estar dentro del ISO
+    Copy-Item $OS_IMAGE "$isoRoot\boot.img" -Force
+    
+    $isoPath = "eteros_$Arch.iso"
+    
+    # mkisofs params:
+    # -o : output file
+    # -b : boot image file (relativo a iso_root)
+    # -c : boot catalog file (generado por mkisofs)
+    & $MKISOFS -o $isoPath -b boot.img -c boot.catalog -V "ETEROS" -quiet $isoRoot
+    
+    if (Test-Path $isoPath) {
+        Write-Step "OK" "ISO generado: $isoPath"
+        Write-Host "  Tip: Puedes usar Rufus para grabar este ISO en un USB." -ForegroundColor Gray
+    }
+    else {
+        Write-Step "ERR" "Fallo al generar el archivo ISO."
+    }
+}
+
 function Invoke-VBoxRun {
     if (!$VBOXMANAGE) {
         Write-Step "ERR" "VBoxManage no encontrado. Instalar VirtualBox."
@@ -760,11 +816,13 @@ switch ($Target) {
         Invoke-InitrdBuild
         Invoke-ImageBuild
         Invoke-VdiBuild
+        if ($MKISOFS) { Invoke-IsoBuild }
         Write-Host ""
         Write-Host "  ================================================" -ForegroundColor Green
         Write-Host "    eterOS construido exitosamente!" -ForegroundColor Green
         Write-Host "    IMG: $OS_IMAGE" -ForegroundColor White
         Write-Host "    VDI: $OS_VDI" -ForegroundColor White
+        if ($MKISOFS) { Write-Host "    ISO: eteros_$Arch.iso" -ForegroundColor White }
         Write-Host "    Ejecutar: .\build.ps1 -Target run" -ForegroundColor White
         Write-Host "  ================================================" -ForegroundColor Green
         Write-Host ""
@@ -825,6 +883,10 @@ switch ($Target) {
         Invoke-KernelBuild
         Invoke-ImageBuild
         Invoke-VBoxRun
+    }
+    "iso" {
+        Initialize-BuildDirs
+        Invoke-IsoBuild
     }
     "clean" {
         Invoke-BuildClean

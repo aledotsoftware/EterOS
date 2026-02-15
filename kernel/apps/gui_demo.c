@@ -23,6 +23,7 @@
 #include <keyboard.h>
 #include <mouse.h>
 #include <framebuffer.h>
+#include <pci.h>
 #include <shell.h>
 #include <pmm.h>
 #include <serial.h>
@@ -45,6 +46,7 @@ static volatile bool desktop_running = true;
 
 /* Ventanas y Estado */
 static window_t* win_sysinfo = NULL;
+static window_t* win_devman = NULL;
 
 /* Mouse */
 static int32_t mouse_x = 512;
@@ -92,7 +94,7 @@ typedef enum {
     NODE_GALLERY,
     NODE_BROWSER,
     NODE_CALENDAR,
-    NODE_PONG,
+    NODE_DEVMAN,
     NODE_COUNT
 } flux_node_id_t;
 
@@ -118,7 +120,7 @@ static const flux_app_meta_t FLUX_APPS[] = {
     { NODE_GALLERY,  "Galeria",      0xAADD55 },
     { NODE_BROWSER,  "Navegador",    0x44FFFF },
     { NODE_CALENDAR, "Calendario",   0xDDAA55 },
-    { NODE_PONG,     "Pong",         0xFFFFFF }
+    { NODE_DEVMAN,   "Dispositivos", FLUX_ACCENT_AMBER }
 };
 
 
@@ -480,6 +482,81 @@ static void draw_sysinfo_content(void) {
              row++;
              if (row > 10) break;
         }
+    }
+}
+
+static void draw_devman_content(void) {
+    if (!win_devman) return;
+    int w = win_devman->bounds.w;
+    int h = win_devman->bounds.h;
+    
+    wm_fill_rect(win_devman, (rect_t){0, 0, w, h}, 0x121212);
+    
+    /* Header */
+    wm_fill_rect(win_devman, (rect_t){0, 0, w, 45}, 0x1E1E1E);
+    wm_print_at(win_devman, 20, 15, "ADMINISTRADOR DE DISPOSITIVOS");
+    
+    int y = 70;
+    int x = 30;
+    
+    /* CPU Info */
+#if defined(ARCH_X86_64) || defined(__x86_64__)
+    wm_print_at(win_devman, x, y, "[CPU] Intel/AMD x86_64 Neural Core");
+#elif defined(ARCH_AARCH64) || defined(__aarch64__)
+    wm_print_at(win_devman, x, y, "[CPU] Rockchip RK3566 (AArch64) @ 1.8GHz");
+#else
+    wm_print_at(win_devman, x, y, "[CPU] Generic éterOS Core");
+#endif
+    y += 40;
+    
+    /* RAM Info */
+    char ram_buf[64];
+    uint32_t total_mb = (uint32_t)(pmm_get_total_ram() / (1024*1024));
+    itoa_s(total_mb, ram_buf, 64, 10);
+    strlcat(ram_buf, " MB Memoria Fisica Detectada", 64);
+    wm_print_at(win_devman, x, y, ram_buf);
+    y += 40;
+    
+    /* PCI Devices Header */
+    wm_fill_rect(win_devman, (rect_t){20, y, w-40, 30}, 0x222222);
+    wm_print_at(win_devman, 30, y+8, "BUS DE HARDWARE / DISPOSITIVOS");
+    y += 45;
+    
+    /* Scan results overlay */
+    int found = 0;
+    for (int slot = 0; slot < 32 && found < 12; slot++) {
+        uint16_t vendor = pci_read_word(0, slot, 0, PCI_OFFSET_VENDOR_ID);
+        if (vendor != 0xFFFF) {
+            char dev_buf[64];
+            uint16_t dev_id = pci_read_word(0, slot, 0, PCI_OFFSET_DEVICE_ID);
+            uint16_t class_code = pci_read_word(0, slot, 0, PCI_OFFSET_SUBCLASS);
+            uint8_t class_id = (class_code >> 8) & 0xFF;
+
+            strlcpy(dev_buf, "  > ", 64);
+            
+            /* Add Class Name */
+            switch(class_id) {
+                case 0x01: strlcat(dev_buf, "[STORAGE] ", 64); break;
+                case 0x02: strlcat(dev_buf, "[NET] ", 64); break;
+                case 0x03: strlcat(dev_buf, "[VIDEO] ", 64); break;
+                case 0x06: strlcat(dev_buf, "[BRIDGE] ", 64); break;
+                default: strlcat(dev_buf, "[DEV] ", 64); break;
+            }
+
+            char num[16];
+            strlcat(dev_buf, "V:", 64);
+            utoa_hex_s(vendor, num, 16); strlcat(dev_buf, num+2, 64);
+            strlcat(dev_buf, " D:", 64);
+            utoa_hex_s(dev_id, num, 16); strlcat(dev_buf, num+2, 64);
+            
+            wm_print_at(win_devman, x, y, dev_buf);
+            y += 22;
+            found++;
+        }
+    }
+    
+    if (found == 0) {
+        wm_print_at(win_devman, x, y, "  (No se encontraron dispositivos en bus de expansion)");
     }
 }
 
@@ -1546,6 +1623,11 @@ static void flux_launch_space(flux_node_id_t node) {
          if (browser_content[0] == 0 && !browser_loading) {
              sys_net_fetch(browser_url);
          }
+    } else if (node == NODE_DEVMAN) {
+          flux_notify("Admin Dispositivos", "Escaneando hardware...", FLUX_ACCENT_AMBER);
+          if (!win_devman) win_devman = wm_create_window(0, 0, 800, 600, "Dispositivos");
+          win_devman->active = true;
+          focused_space = win_devman;
     }
 }
 
@@ -1653,12 +1735,14 @@ static void draw_focus_mode(void) {
          draw_files_content();
     } else if (zooming_node == NODE_SANTITRAVEL) {
          draw_santitravel_content();
-    } else if (zooming_node == NODE_PONG) {
-         draw_pong_content(focused_space);
     } else if (zooming_node == NODE_CLOCK) {
          draw_clock_content(focused_space);
     } else if (zooming_node == NODE_BROWSER) {
          draw_browser_content();
+    } else if (zooming_node == NODE_DEVMAN) {
+         if (focused_space == win_devman) {
+             draw_devman_content();
+         }
     } else {
          /* Generic for others */
          if (zooming_node < sizeof(FLUX_APPS)/sizeof(FLUX_APPS[0])) {
