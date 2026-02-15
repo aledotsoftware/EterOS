@@ -152,6 +152,28 @@ void* memmove(void* dest, const void* src, size_t n) {
 int memcmp(const void* s1, const void* s2, size_t n) {
     const uint8_t* a = (const uint8_t*)s1;
     const uint8_t* b = (const uint8_t*)s2;
+
+    /*
+     * Optimization: Check if pointers are aligned to 8 bytes and we have enough data.
+     * If so, compare in 64-bit chunks to increase throughput.
+     */
+    if (n >= 8 && ((uintptr_t)a & 7) == 0 && ((uintptr_t)b & 7) == 0) {
+        const uint64_t* a64 = (const uint64_t*)a;
+        const uint64_t* b64 = (const uint64_t*)b;
+
+        while (n >= 8) {
+            if (*a64 != *b64) {
+                /* Mismatch found, break to byte-wise comparison to determine sign */
+                break;
+            }
+            a64++;
+            b64++;
+            n -= 8;
+        }
+        /* Update pointers to where the mismatch might be or where we left off */
+        a = (const uint8_t*)a64;
+        b = (const uint8_t*)b64;
+    }
     
     while (n--) {
         if (*a != *b) {
