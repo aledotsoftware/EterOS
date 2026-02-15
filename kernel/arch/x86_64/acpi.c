@@ -66,8 +66,6 @@ static void parse_madt(void) {
     uint8_t* ptr = (uint8_t*)madt->entries;
     uint8_t* end = (uint8_t*)madt + madt->header.length;
     
-    uint8_t* ptr = (uint8_t*)madt->entries;
-    uint8_t* end = (uint8_t*)madt + madt->header.length;
     
     total_cpus = 0;
     
