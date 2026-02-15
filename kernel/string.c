@@ -153,21 +153,33 @@ int memcmp(const void* s1, const void* s2, size_t n) {
     const uint8_t* a = (const uint8_t*)s1;
     const uint8_t* b = (const uint8_t*)s2;
 
-    /*
-     * Optimization: Compare 8 bytes at a time.
-     * We use a typedef with __may_alias__ to respect strict aliasing rules,
-     * and __aligned__(1) to allow unaligned access without undefined behavior.
-     */
-    typedef uint64_t __attribute__((__may_alias__, __aligned__(1))) aliased_uint64_t;
-
+#ifdef __x86_64__
+    // Optimization for x86_64: Compare 8-byte blocks
+    // This significantly reduces the number of iterations for large blocks.
+    // We use uint64_t to compare 8 bytes at a time.
     while (n >= 8) {
-        if (*(const aliased_uint64_t*)a != *(const aliased_uint64_t*)b) {
-            /* Difference found within this block. Fall back to byte-wise to find exact byte. */
+        if (*(const uint64_t*)a != *(const uint64_t*)b) {
+            // If there is a difference, break the fast loop
+            // and let the byte-by-byte loop find the exact position
+            // to return the correct value (sign).
             break;
         }
         a += 8;
         b += 8;
         n -= 8;
+    }
+#endif
+    
+    /* Optimization: Compare 8 bytes at a time if pointers are aligned */
+    if (((uintptr_t)a & 7) == 0 && ((uintptr_t)b & 7) == 0) {
+        while (n >= 8) {
+            if (*(const uint64_t*)a != *(const uint64_t*)b) {
+                break;
+            }
+            a += 8;
+            b += 8;
+            n -= 8;
+        }
     }
 
     while (n--) {
