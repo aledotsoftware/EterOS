@@ -152,6 +152,27 @@ void* memmove(void* dest, const void* src, size_t n) {
 int memcmp(const void* s1, const void* s2, size_t n) {
     const uint8_t* a = (const uint8_t*)s1;
     const uint8_t* b = (const uint8_t*)s2;
+
+#ifdef __x86_64__
+    /* Optimization: Compare 8 bytes at a time */
+    if (n >= 8) {
+        const uint64_t* a64 = (const uint64_t*)s1;
+        const uint64_t* b64 = (const uint64_t*)s2;
+
+        while (n >= 8) {
+            if (*a64 != *b64) {
+                /* Mismatch found, break to byte-wise comparison to find exact difference */
+                break;
+            }
+            a64++;
+            b64++;
+            n -= 8;
+        }
+
+        a = (const uint8_t*)a64;
+        b = (const uint8_t*)b64;
+    }
+#endif
     
     while (n--) {
         if (*a != *b) {
