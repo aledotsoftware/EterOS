@@ -246,10 +246,10 @@ Para que el sistema sea considerado "listo para producción", el flujo de actual
 - [ ] **Multiprocesamiento (fork/clone):** Duplicar procesos para paralelismo
 
 ### Fase 4.5: Compatibilidad POSIX
-- [~] **Tabla de Syscalls Linux:** Implementación inicial (`write`, `exit`) en `kernel/arch/x86_64/syscall.c`
-- [ ] **Portar musl libc:** Librería C minimalista para aplicaciones
-- [ ] **Soporte de señales:** SIGKILL, SIGSEGV, etc.
-- [ ] **Estructura `/dev`, `/proc`:** Nodos de dispositivos virtuales
+- [x] **Tabla de Syscalls Linux:** Implementación (`open`, `close`, `read`, `write`, `lseek`, `getpid`, `kill`, `exit`) en `kernel/arch/x86_64/syscall.c`.
+- [x] **Portar musl libc:** Librería C minimalista (mini-libc) implementada en `userspace/libc`.
+- [x] **Soporte de señales:** Manejo de SIGSEGV (Page Fault) y SIGKILL (via `kill` syscall).
+- [x] **Estructura `/dev`, `/proc`:** Nodos de dispositivos virtuales integrados en VFS e Initrd.
 
 ### Fase 5: Entorno Gráfico (Flux UI & AetherGraphics)
 - [x] **Motor de Dibujo "Omni":** Primitivas 2D (líneas, rectángulos, fuentes) y **Decodificador PNG Nativo** para iconos y assets (`kernel/ui/upng.c`)
