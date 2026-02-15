@@ -50,9 +50,14 @@ struct dirent *initrd_readdir(fs_node_t *node, uint32_t index) {
         dirent.inode = 0;
         return &dirent;
     }
+    if (index == 2) {
+        strlcpy(dirent.name, "sys", sizeof(dirent.name));
+        dirent.inode = 0;
+        return &dirent;
+    }
 
-    /* Initrd files (offset by 2) */
-    uint32_t file_index = index - 2;
+    /* Initrd files (offset by 3) */
+    uint32_t file_index = index - 3;
 
     if (file_index >= file_count)
         return 0;
@@ -82,6 +87,15 @@ fs_node_t *initrd_finddir(fs_node_t *node, char *name) {
             return copy;
         }
         return 0;
+    }
+    if (strcmp(name, "sys") == 0) {
+        /* Placeholder for sysfs */
+        fs_node_t* fnode = (fs_node_t*)kmalloc(sizeof(fs_node_t));
+        if (!fnode) return 0;
+        memset(fnode, 0, sizeof(fs_node_t));
+        strlcpy(fnode->name, "sys", sizeof(fnode->name));
+        fnode->flags = FS_DIRECTORY;
+        return fnode;
     }
 
     for (uint32_t i = 0; i < file_count; i++) {
