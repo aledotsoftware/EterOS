@@ -82,5 +82,6 @@ typedef struct {
 /* Funciones Públicas */
 void acpi_init(void);
 int acpi_get_cpu_count(void);
+uint32_t acpi_get_lapic_addr(void);
 
 #endif
