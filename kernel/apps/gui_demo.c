@@ -1875,6 +1875,17 @@ static void draw_focus_mode(void) {
     int bar_y = 768 - 15;
     
     omni_fill_rect(bar_x, bar_y, bar_w, bar_h, bar_col);
+
+    /* UX: Home label on hover - guides user back to Constellation */
+    if (hover_bottom) {
+        const char* hint = "<- CONSTELACION";
+        int hint_w = strlen(hint) * 8;
+        int hint_x = (1024 - hint_w) / 2;
+        int hint_y = bar_y - 20;
+        /* Glassmorphism tooltip bg */
+        omni_fill_rect_alpha(hint_x - 8, hint_y - 4, hint_w + 16, 18, 0x0A0A0A, 0xD0);
+        omni_draw_string(NULL, hint_x, hint_y, hint, FLUX_ACCENT_CYAN, 0x0A0A0A);
+    }
 }
 
 /* Input Handling for Flux */
