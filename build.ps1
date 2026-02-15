@@ -472,8 +472,8 @@ function Invoke-ImageBuild {
 
     $imagePath = Join-Path (Get-Location) $OS_IMAGE
 
-    # Crear imagen vacía de 1.44 MB (2880 sectores de 512 bytes)
-    $imageSize = 2880 * 512  # 1,474,560 bytes
+    # Crear imagen vacía de 32 MB (Vanguard-style large image)
+    $imageSize = 65536 * 512  # 33,554,432 bytes
     $imageData = New-Object byte[] $imageSize
 
     # Leer el bootloader y copiarlo al inicio
@@ -493,13 +493,15 @@ function Invoke-ImageBuild {
     $initrdPath = "$BUILD_DIR\initrd.bin"
     if (Test-Path $initrdPath) {
         $initrdData = [System.IO.File]::ReadAllBytes($initrdPath)
+        # El offset debe ser mayor que el final del kernel. Usamos un offset fijo seguro.
+        # En x84_64-elf-gcc el kernel suele ser pequeño (<256KB), pero dejamos 512 sectores (256KB) para el kernel.
         $initrdOffset = (1 + 16 + 512) * 512
         if ($initrdOffset + $initrdData.Length -le $imageSize) {
             [System.Array]::Copy($initrdData, 0, $imageData, $initrdOffset, $initrdData.Length)
             Write-Step "OK" "Initrd inyectado en la imagen."
         }
         else {
-            Write-Step "ERR" "Initrd demasiado grande para el floppy de 1.44MB!"
+            Write-Step "ERR" "Initrd demasiado grande para el espacio asignado!"
         }
     }
 
