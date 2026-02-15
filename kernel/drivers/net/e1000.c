@@ -27,9 +27,9 @@ static uint8_t mac_address[6];
 static volatile uint8_t* mmio_base;
 static int e1000_active = 0;
 
-/* Punteros a los anillos de descriptores (Allocated via kmalloc) */
-static struct e1000_rx_desc* rx_descs;
-static struct e1000_tx_desc* tx_descs;
+/* Punteros a los anillos de descriptores (Allocated via pmm_alloc_page) */
+static volatile struct e1000_rx_desc* rx_descs;
+static volatile struct e1000_tx_desc* tx_descs;
 
 /* Buffers de recepción */
 static uint8_t* rx_buffers[NUM_RX_DESC];
@@ -58,8 +58,8 @@ static uint32_t e1000_read_reg(uint16_t offset) {
 
 static void e1000_init_rx(void) {
     /* 1. Asignar memoria para descriptores (debe estar alineada a 128 bytes, pmm_alloc_page lo garantiza) */
-    rx_descs = (struct e1000_rx_desc*)pmm_alloc_page();
-    memset(rx_descs, 0, PAGE_SIZE);
+    rx_descs = (volatile struct e1000_rx_desc*)pmm_alloc_page();
+    memset((void*)rx_descs, 0, PAGE_SIZE);
     
     /* 2. Asignar buffers para cada descriptor */
     for (int i = 0; i < NUM_RX_DESC; i++) {
@@ -93,8 +93,8 @@ static void e1000_init_rx(void) {
 
 static void e1000_init_tx(void) {
     /* 1. Asignar memoria para descriptores TX (alineación 128 bytes mandatoria) */
-    tx_descs = (struct e1000_tx_desc*)pmm_alloc_page();
-    memset(tx_descs, 0, PAGE_SIZE);
+    tx_descs = (volatile struct e1000_tx_desc*)pmm_alloc_page();
+    memset((void*)tx_descs, 0, PAGE_SIZE);
     
     /* 2. Configurar registros TDBAL/TDBAH */
     uint64_t base_addr = (uint64_t)(uintptr_t)tx_descs;
@@ -140,10 +140,10 @@ int e1000_init(pci_device_t* pci_dev_ptr) {
     itoa_s(pci_dev->slot, buf, sizeof(buf), 10); terminal_write_string(buf); terminal_write_string(".");
     itoa_s(pci_dev->function, buf, sizeof(buf), 10); terminal_write_string(buf); terminal_write_string("\n");
 
-    /* Habilitar Bus Mastering */
+    /* Habilitar Bus Mastering y Memory Space */
     uint16_t command = pci_read_word(pci_dev->bus, pci_dev->slot, pci_dev->function, PCI_OFFSET_COMMAND);
-    if (!(command & (1 << 2))) {
-        command |= (1 << 2);
+    if (!(command & (1 << 2)) || !(command & (1 << 1))) {
+        command |= (1 << 2) | (1 << 1); /* Bit 2: Bus Master, Bit 1: Memory Space */
         pci_write_word(pci_dev->bus, pci_dev->slot, pci_dev->function, PCI_OFFSET_COMMAND, command);
     }
 
@@ -191,6 +191,10 @@ int e1000_init(pci_device_t* pci_dev_ptr) {
     /* Inicializar RX y TX */
     e1000_init_rx();
     e1000_init_tx();
+    
+    /* Activar Link (SLU - Set Link Up) */
+    uint32_t ctrl = e1000_read_reg(E1000_CTRL);
+    e1000_write_reg(E1000_CTRL, ctrl | E1000_CTRL_SLU);
     
     /* Habilitar Interrupciones (Link Status, RX Timer, Receive Overrun) - Opcional por ahora */
     // e1000_write_reg(E1000_IMS, (1 << 2) | (1 << 7) | (1 << 6));
