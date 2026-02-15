@@ -285,13 +285,13 @@ static int64_t sys_readv(int fd, const struct iovec *iov, int iovcnt) {
 
 void syscall_handler(struct syscall_regs* regs) {
     /* ULTRA DEBUG: Print immediately */
-    /*
+
     char buf_nr[32];
     serial_write_string("[SYSCALL] ENTRY NR=0x");
     utoa_hex_s(regs->rax, buf_nr, sizeof(buf_nr));
     serial_write_string(buf_nr);
     serial_write_string("\n");
-    */
+
 
     uint64_t ret = (uint64_t)-38; /* -ENOSYS */
 
