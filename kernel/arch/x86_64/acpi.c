@@ -153,3 +153,7 @@ void acpi_init(void) {
 int acpi_get_cpu_count(void) {
     return total_cpus > 0 ? total_cpus : 1;
 }
+
+uint32_t acpi_get_lapic_addr(void) {
+    return madt ? madt->lapic_addr : 0xFEE00000;
+}
