@@ -51,10 +51,10 @@ syscall_entry:
     pop r10
     pop r8
     pop r9
-    pop rax     ; Restore RAX (return value? If we want to return value, we should modify it in struct)
+    pop rax     ; Restore RAX (return value)
 
-    ; 7. Restore User Stack
-    mov rsp, [gs:8]
+    ; 7. Restore User Stack (user_stack_scratch)
+    mov rsp, [gs:40]
 
     ; 8. Swap GS back
     swapgs
