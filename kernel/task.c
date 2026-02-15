@@ -1,15 +1,6 @@
 /**
- * éterOS - Task Scheduler (Round-Robin Preemptive)
+ * éterOS - Task Scheduler (Multicore Ready)
  * Copyright (c) 2026 Tudex Networks. All rights reserved.
- *
- * Scheduler preemptivo basado en timer (PIT IRQ0).
- * Cada SCHEDULER_HZ ticks, se selecciona la siguiente tarea READY.
- *
- * Diseño:
- *   - Array fijo de MAX_TASKS tareas
- *   - Tarea 0 = kernel/shell (la tarea que corría antes de init)
- *   - Cada tarea tiene su propio stack de 4 KB
- *   - Context switch guarda/restaura registros callee-saved + RSP
  */
 
 #include "../include/task.h"
@@ -21,43 +12,28 @@
 #include "../include/gdt.h"
 #include "../include/cpu.h"
 #include "../include/msr.h"
+#include "../include/lock.h"
 
 /* ========================================================================= */
 /* Estado Global del Scheduler                                               */
 /* ========================================================================= */
 
 static task_t   tasks[MAX_TASKS] __attribute__((aligned(16)));
-static int      current_task  = 0;    /* Índice de la tarea actual */
-static int      task_count    = 0;    /* Número total de tareas */
-static uint32_t next_id       = 0;    /* Generador de IDs */
-static uint32_t sched_ticks   = 0;    /* Contador para decidir cuándo switchear */
-static bool     scheduler_active = false; /* El scheduler está inicializado? */
+static int      task_count    = 0;
+static uint32_t next_id       = 0;
+static bool     scheduler_active = false;
+static spinlock_t sched_lock = 0;
 
-/* CPU Load Metrics */
-static uint64_t cpu_total_ticks = 0;
-static uint64_t cpu_idle_ticks = 0;
-static int      cpu_last_load = 0;
-
-/* Variable global para el stack del kernel (usada por syscall_entry) */
-uint64_t kernel_stack_top = 0;
+/* Global load metrics (aggregate or BSP) */
+static int global_cpu_load = 0;
 
 /* ========================================================================= */
 /* Task Entry Wrapper                                                        */
 /* ========================================================================= */
 
-/**
- * Wrapper que envuelve la función de entrada de cada tarea.
- * Cuando la función retorna, la tarea se marca como DEAD.
- * 
- * NOTA: Este wrapper se ejecuta con interrupciones deshabilitadas
- * la primera vez (vino de context_switch → ret). Debemos habilitarlas.
- */
 typedef void (*task_func_t)(void);
 
-/* Almacenamos el entry point en el stack de la tarea */
 static void task_entry_wrapper(void) {
-    /* Habilitar interrupciones (estamos en una tarea nueva, el context_switch
-       no las habilita automáticamente como haría iretq) */
     __asm__ volatile("sti");
 
     task_t* self = task_get_current();
@@ -65,7 +41,6 @@ static void task_entry_wrapper(void) {
         self->entry();
     }
 
-    /* Si la función retorna, terminamos la tarea */
     task_exit();
 }
 
@@ -74,51 +49,55 @@ static void task_entry_wrapper(void) {
 /* ========================================================================= */
 
 void scheduler_init(void) {
+    spin_lock(&sched_lock);
     memset(tasks, 0, sizeof(tasks));
 
-    /* Tarea 0: Representa el hilo de ejecución actual (kernel/shell) */
+    cpu_info_t* bsp = &cpus[0];
+
+    /* Tarea 0: Kernel/Shell */
     tasks[0].id = next_id++;
     tasks[0].state = TASK_RUNNING;
-    tasks[0].stack_base = NULL;  /* El kernel ya tiene su stack */
-    tasks[0].rsp = 0;            /* Se llenará en el primer context_switch */
+    tasks[0].stack_base = NULL;
+    tasks[0].rsp = 0;
 
-    /* Inicializar CR3 del kernel */
     uint64_t cr3;
     __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
     tasks[0].cr3 = cr3;
-    tasks[0].kernel_stack = 0;   /* No necesario para tarea kernel pura */
+    tasks[0].kernel_stack = 0x90000; /* BSP Boot Stack */
 
     strlcpy(tasks[0].name, "kernel", sizeof(tasks[0].name));
 
-    /* POSIX Init for Kernel Task */
-    memset(tasks[0].fd_table, 0, sizeof(tasks[0].fd_table));
-    tasks[0].signal_mask = 0;
-    tasks[0].signal_pending = 0;
-    memset(tasks[0].signal_handlers, 0, sizeof(tasks[0].signal_handlers));
-
-    /* Linux Init */
-    tasks[0].brk = 0;
-    tasks[0].fs_base = 0;
-    tasks[0].gs_base = 0;
-
     task_count = 1;
-    current_task = 0;
+    bsp->current_task = &tasks[0];
+    bsp->sched_ticks = 0;
+    
     scheduler_active = true;
+    spin_unlock(&sched_lock);
 
-    /* Configurar stack inicial para Task 0 (Boot Stack en 0x90000) */
-    kernel_stack_top = 0x90000;
-    tss_set_rsp0(kernel_stack_top);
+    serial_write_string("[SCHED] Multicore Scheduler initialized (BSP Ready)\n");
+}
 
-    serial_write_string("[SCHED] Scheduler Round-Robin inicializado\n");
+void task_init_ap(void) {
+    cpu_info_t* cpu = get_current_cpu();
+    serial_write_string("[SCHED] Initializing scheduler for AP ");
+    
+    /* Create an idle task for this AP */
+    char idle_name[16];
+    strlcpy(idle_name, "idle", sizeof(idle_name));
+    /* TODO: append CPU index to name */
+    
+    /* The AP entry point will eventually become the idle loop */
+    /* For now, we just mark it as ONLINE and let it halt in smp.c */
 }
 
 int task_create(const char* name, void (*entry)(void)) {
+    spin_lock(&sched_lock);
+    
     if (task_count >= MAX_TASKS) {
-        serial_write_string("[SCHED] Error: Maximo de tareas alcanzado\n");
+        spin_unlock(&sched_lock);
         return -1;
     }
 
-    /* Encontrar un slot libre */
     int slot = -1;
     for (int i = 0; i < MAX_TASKS; i++) {
         if (tasks[i].state == TASK_DEAD || (i >= task_count && tasks[i].state == 0)) {
@@ -126,25 +105,24 @@ int task_create(const char* name, void (*entry)(void)) {
             break;
         }
     }
-    if (slot == -1) return -1;
+    
+    if (slot == -1) {
+        spin_unlock(&sched_lock);
+        return -1;
+    }
 
-    /* Alocar stack para la nueva tarea */
     uint8_t* stack = (uint8_t*)kmalloc(TASK_STACK_SIZE);
     if (!stack) {
-        serial_write_string("[SCHED] Error: No hay memoria para el stack\n");
+        spin_unlock(&sched_lock);
         return -1;
     }
     memset(stack, 0, TASK_STACK_SIZE);
 
-    /* Configurar la tarea */
     tasks[slot].id = next_id++;
     tasks[slot].state = TASK_READY;
     tasks[slot].stack_base = stack;
-
-    /* Configurar stack de kernel y CR3 */
     tasks[slot].kernel_stack = (uint64_t)(stack + TASK_STACK_SIZE);
 
-    /* Heredar CR3 del kernel (por ahora, luego cada proceso tendrá su PML4) */
     uint64_t cr3;
     __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
     tasks[slot].cr3 = cr3;
@@ -152,43 +130,14 @@ int task_create(const char* name, void (*entry)(void)) {
     strlcpy(tasks[slot].name, name, sizeof(tasks[slot].name));
     tasks[slot].entry = entry;
 
-    /* POSIX Init for New Task */
-    memset(tasks[slot].fd_table, 0, sizeof(tasks[slot].fd_table));
-    tasks[slot].signal_mask = 0;
-    tasks[slot].signal_pending = 0;
-    memset(tasks[slot].signal_handlers, 0, sizeof(tasks[slot].signal_handlers));
-
-    /* Linux Init */
-    tasks[slot].brk = 0;
-    tasks[slot].fs_base = 0;
-    tasks[slot].gs_base = 0;
-
-    /*
-     * Preparar el stack para que context_switch pueda "entrar" por primera vez.
-     * 
-     * Cuando context_switch cargue este RSP, hará:
-     *   pop r15  (→ entry function pointer, usado por task_entry_wrapper)
-     *   pop r14  (→ 0)
-     *   pop r13  (→ 0)
-     *   pop r12  (→ 0)
-     *   pop rbx  (→ 0)
-     *   pop rbp  (→ 0)
-     *   ret      (→ task_entry_wrapper)
-     *
-     * Luego task_entry_wrapper lee R15 para obtener el entry point.
-     */
     uint64_t* sp = (uint64_t*)(stack + TASK_STACK_SIZE);
-
-    /* ret address → task_entry_wrapper */
     *(--sp) = (uint64_t)task_entry_wrapper;
-
-    /* Callee-saved registers (en orden inverso al pop en context_switch) */
-    *(--sp) = 0;                     /* rbp */
-    *(--sp) = 0;                     /* rbx */
-    *(--sp) = 0;                     /* r12 */
-    *(--sp) = 0;                     /* r13 */
-    *(--sp) = 0;                     /* r14 */
-    *(--sp) = (uint64_t)entry;       /* r15 = entry point (leído por wrapper) */
+    *(--sp) = 0; /* rbp */
+    *(--sp) = 0; /* rbx */
+    *(--sp) = 0; /* r12 */
+    *(--sp) = 0; /* r13 */
+    *(--sp) = 0; /* r14 */
+    *(--sp) = (uint64_t)entry; /* r15 */
 
     tasks[slot].rsp = (uint64_t)sp;
 
@@ -196,228 +145,195 @@ int task_create(const char* name, void (*entry)(void)) {
         task_count = slot + 1;
     }
 
-    serial_write_string("[SCHED] Tarea creada: ");
+    spin_unlock(&sched_lock);
+    serial_write_string("[SCHED] Task created: ");
     serial_write_string(name);
     serial_write_string("\n");
 
     return (int)tasks[slot].id;
 }
 
-/**
- * Encuentra la siguiente tarea READY usando Round-Robin.
- * @return Índice de la siguiente tarea, o current_task si no hay otra.
- */
-static int find_next_task(void) {
-    int next = current_task;
+static int find_next_task(int current_idx) {
+    int next = current_idx;
     for (int i = 0; i < task_count; i++) {
         next = (next + 1) % task_count;
-        if (tasks[next].state == TASK_READY || tasks[next].state == TASK_RUNNING) {
+        /* Simple load balancing: check if task is READY */
+        if (tasks[next].state == TASK_READY) {
             return next;
         }
     }
-
-    /* Si la tarea actual también está durmiendo/bloqueada, no podemos retornarla */
-    if (tasks[current_task].state == TASK_READY || tasks[current_task].state == TASK_RUNNING) {
-        return current_task;
+    
+    /* If current task is still runnable, keep it */
+    if (tasks[current_idx].state == TASK_RUNNING) {
+        return current_idx;
     }
 
-    return -1; /* No hay tareas ejecutables */
+    return -1;
 }
 
 void schedule(void) {
     if (!scheduler_active) return;
 
-    /* Deshabilitar interrupciones para proteger el estado del scheduler */
     __asm__ volatile("cli");
+    cpu_info_t* cpu = get_current_cpu();
+    if (!cpu) return;
 
-    /* CPU Load tracking */
-    cpu_total_ticks++;
-    if (cpu_total_ticks >= SCHEDULER_HZ) {
-        if (cpu_total_ticks > 0)
-             cpu_last_load = 100 - ( (cpu_idle_ticks * 100) / cpu_total_ticks );
-        cpu_total_ticks = 0;
-        cpu_idle_ticks = 0;
-    }
+    spin_lock(&sched_lock);
 
-    int next = find_next_task();
-
-    /* Si no hay tareas listas y la actual esta muerta/durmiendo, 
-       debemos esperar hasta el proximo tick (Halt con interrupciones habilitadas) */
-    if (next == -1) {
-        cpu_idle_ticks++;
-        __asm__ volatile("sti");
-        while (1) {
-             __asm__ volatile("hlt");
-             /* El timer interrupt volvera a llamar a schedule() despues del tick */
-             return;
+    task_t* current = (task_t*)cpu->current_task;
+    int current_idx = -1;
+    
+    /* Find index of current task in global array (inefficient but works for now) */
+    if (current) {
+        for (int i = 0; i < task_count; i++) {
+            if (&tasks[i] == current) {
+                current_idx = i;
+                break;
+            }
         }
     }
 
-    if (next == current_task) {
-        __asm__ volatile("sti");
-        return;
-    }
-
-    /* Solo switchear cada SCHEDULER_HZ ticks (excepto si la actual murio/bloqueo) */
-    if (tasks[current_task].state == TASK_RUNNING) {
-        sched_ticks++;
-        if (sched_ticks < SCHEDULER_HZ) {
+    /* Check if we should switch */
+    if (current && current->state == TASK_RUNNING) {
+        cpu->sched_ticks++;
+        if (cpu->sched_ticks < SCHEDULER_HZ) {
+            spin_unlock(&sched_lock);
             __asm__ volatile("sti");
             return;
         }
     }
-    sched_ticks = 0;
+    cpu->sched_ticks = 0;
 
-    /* Cambiar estado */
-    int old = current_task;
-    
-    if (tasks[old].state == TASK_RUNNING) {
-        tasks[old].state = TASK_READY;
+    int next_idx = find_next_task(current_idx == -1 ? 0 : current_idx);
+
+    if (next_idx == -1 || (&tasks[next_idx] == current && current->state == TASK_RUNNING)) {
+        spin_unlock(&sched_lock);
+        __asm__ volatile("sti");
+        return;
     }
 
-    /* Save current TLS state */
-    tasks[old].fs_base = rdmsr(MSR_FS_BASE);
-    tasks[old].gs_base = rdmsr(MSR_KERNEL_GS_BASE); /* User GS is in KERNEL_GS_BASE while in kernel */
-    
-    tasks[next].state = TASK_RUNNING;
-    current_task = next;
+    task_t* old_task = current;
+    task_t* new_task = &tasks[next_idx];
 
-    /* Actualizar TSS RSP0 y Per-CPU Kernel Stack para Syscalls */
-    if (tasks[next].kernel_stack != 0) {
-        tss_set_rsp0(tasks[next].kernel_stack);
-        cpu_info_t* cpu = get_current_cpu();
-        if (cpu) {
-            cpu->kernel_stack_top = tasks[next].kernel_stack;
-        }
+    if (old_task && old_task->state == TASK_RUNNING) {
+        old_task->state = TASK_READY;
     }
 
-    /* Restore TLS state */
-    wrmsr(MSR_FS_BASE, tasks[next].fs_base);
-    wrmsr(MSR_KERNEL_GS_BASE, tasks[next].gs_base);
+    new_task->state = TASK_RUNNING;
+    cpu->current_task = new_task;
 
-    context_switch(&tasks[old].rsp, tasks[next].rsp);
+    /* Update TSS for this CPU */
+    if (new_task->kernel_stack != 0) {
+        tss_set_rsp0(new_task->kernel_stack);
+        cpu->kernel_stack_top = new_task->kernel_stack;
+    }
+
+    /* Context Switch */
+    /* Note: context_switch doesn't need the lock, but we must protect old_task->rsp write? 
+       Actually, only THIS CPU will ever write to old_task->rsp while it's its current task. */
+    
+    uint64_t* old_rsp_ptr = old_task ? &old_task->rsp : NULL;
+    uint64_t new_rsp = new_task->rsp;
+
+    spin_unlock(&sched_lock);
+    
+    if (old_rsp_ptr) {
+        context_switch(old_rsp_ptr, new_rsp);
+    } else {
+        /* This should only happen during first ever switch on a new CPU */
+        /* We need a variant of context_switch or just a jump */
+        __asm__ volatile("mov %0, %%rsp; ret" : : "r"(new_rsp));
+    }
 
     __asm__ volatile("sti");
 }
 
+task_t* task_get_current(void) {
+    cpu_info_t* cpu = get_current_cpu();
+    return cpu ? (task_t*)cpu->current_task : NULL;
+}
+
 void task_yield(void) {
-    if (!scheduler_active) return;
-    
-    /* Forzar un switch inmediato */
-    sched_ticks = SCHEDULER_HZ;
+    cpu_info_t* cpu = get_current_cpu();
+    if (cpu) cpu->sched_ticks = SCHEDULER_HZ;
     schedule();
 }
 
 void task_sleep(uint64_t ms) {
     if (!scheduler_active) {
-        /* Si no hay scheduler, usar busy-wait */
         timer_wait((uint32_t)ms);
         return;
     }
 
-    /* Convertir ms a ticks */
     uint64_t ticks = ((uint64_t)ms * TIMER_HZ) / 1000;
-    if (ms > 0 && ticks == 0) ticks = 1; /* Minimo 1 tick */
+    if (ms > 0 && ticks == 0) ticks = 1;
 
     task_t* current = task_get_current();
-    current->wake_tick = timer_get_ticks() + ticks;
-    current->state = TASK_SLEEPING;
-
-    /* Ceder CPU */
-    task_yield();
-
-    /* Si somos la única tarea o el scheduler no encontró a nadie más,
-       volveremos aquí inmediatamente pero seguiremos en estado SLEEPING.
-       Debemos esperar (wait for interrupt) hasta que el timer nos despierte. */
-    while (current->state == TASK_SLEEPING) {
-        __asm__ volatile("hlt");
+    if (current) {
+        current->wake_tick = timer_get_ticks() + ticks;
+        current->state = TASK_SLEEPING;
+        task_yield();
+        
+        while (current->state == TASK_SLEEPING) {
+            __asm__ volatile("hlt");
+        }
     }
-
-    /* Restaurar estado a RUNNING si nos despertamos */
-    current->state = TASK_RUNNING;
 }
 
 void task_wake_expired(uint64_t current_tick) {
     if (!scheduler_active) return;
-
-    for (int i = 0; i < task_count; i++) {
-        if (tasks[i].state == TASK_SLEEPING) {
-            if (current_tick >= tasks[i].wake_tick) {
-                tasks[i].state = TASK_READY;
+    
+    /* We could lock here, but checking wake_tick is mostly safe? 
+       No, better lock. */
+    if (spin_trylock(&sched_lock)) {
+        for (int i = 0; i < task_count; i++) {
+            if (tasks[i].state == TASK_SLEEPING) {
+                if (current_tick >= tasks[i].wake_tick) {
+                    tasks[i].state = TASK_READY;
+                }
             }
         }
+        spin_unlock(&sched_lock);
     }
 }
 
 void task_exit(void) {
-    /* Disable interrupts — we're destroying this task, no preemption allowed */
     __asm__ volatile("cli");
-
-    serial_write_string("[SCHED] Tarea terminada: ");
-    serial_write_string(tasks[current_task].name);
-    serial_write_string("\n");
-
-    /* Marcar como muerta */
-    tasks[current_task].state = TASK_DEAD;
+    task_t* current = task_get_current();
     
-    /* Encontrar otra tarea para ejecutar */
-    int next = find_next_task();
-    
-    if (next != -1 && next != current_task) {
-        int old = current_task;
-        tasks[next].state = TASK_RUNNING;
-        current_task = next;
-        
-        /* Actualizar TSS RSP0 y Per-CPU */
-        if (tasks[next].kernel_stack != 0) {
-            tss_set_rsp0(tasks[next].kernel_stack);
-            cpu_info_t* cpu = get_current_cpu();
-            if (cpu) {
-                cpu->kernel_stack_top = tasks[next].kernel_stack;
-            }
-        }
-        
-        /* Context switch — nunca volveremos aquí porque la tarea vieja está DEAD
-           y el scheduler nunca la seleccionará de nuevo */
-        context_switch(&tasks[old].rsp, tasks[next].rsp);
+    spin_lock(&sched_lock);
+    if (current) {
+        current->state = TASK_DEAD;
     }
+    spin_unlock(&sched_lock);
     
-    /* Si no hay otra tarea (o context_switch retornó por error), halt forever */
-    __asm__ volatile("sti");
+    schedule();
+    
     for (;;) { __asm__ volatile("hlt"); }
-}
-
-task_t* task_get_current(void) {
-    return &tasks[current_task];
 }
 
 int task_get_count(void) {
     int count = 0;
+    spin_lock(&sched_lock);
     for (int i = 0; i < task_count; i++) {
-        if (tasks[i].state == TASK_READY || tasks[i].state == TASK_RUNNING) {
+        if (tasks[i].state != TASK_DEAD && tasks[i].state != 0) {
             count++;
         }
     }
+    spin_unlock(&sched_lock);
     return count;
 }
 
 int task_kill(uint32_t pid) {
-    if (pid == 0) return -1; /* No matar kernel */
-    
+    spin_lock(&sched_lock);
     for (int i = 1; i < task_count; i++) {
         if (tasks[i].id == pid && tasks[i].state != TASK_DEAD) {
             tasks[i].state = TASK_DEAD;
-            serial_write_string("[SCHED] Killed task PID ");
-            /* TODO: Convert PID to string properly */
-            serial_write_string("\n");
-            
-            if (i == current_task) {
-                schedule(); /* Yield if killing self */
-            }
+            spin_unlock(&sched_lock);
             return 0;
         }
     }
-
+    spin_unlock(&sched_lock);
     return -1;
 }
 
@@ -433,11 +349,8 @@ int task_get_max(void) {
 }
 
 task_t* task_get_by_id(uint32_t id) {
-    if (!scheduler_active) return NULL;
     for (int i = 0; i < MAX_TASKS; i++) {
-        /* Permitimos buscar tareas READY, RUNNING o SLEEPING. 
-           Solo ignoramos slots vacíos (id=0 y state=0) o DEAD. */
-        if (tasks[i].id == id && tasks[i].name[0] != '\0' && tasks[i].state != TASK_DEAD) {
+        if (tasks[i].id == id && tasks[i].state != TASK_DEAD) {
             return &tasks[i];
         }
     }
@@ -445,5 +358,5 @@ task_t* task_get_by_id(uint32_t id) {
 }
 
 int task_get_cpu_load(void) {
-    return cpu_last_load;
+    return global_cpu_load;
 }
