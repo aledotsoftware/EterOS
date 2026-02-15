@@ -41,6 +41,9 @@ typedef enum {
 /* Estructura de Control por CPU (PCB - Processor Control Block) */
 /* Esta estructura debe estar alineada a cache line (64 bytes) para evitar false sharing */
 typedef struct {
+    /* Auto-referencia para get_current_cpu() */
+    uint64_t self;         /* Offset 0 - Obligatorio para mov gs:0 */
+    
     /* Identificación */
     uint32_t apic_id;       /* ID real del hardware (incluye x2APIC 32-bit ID) */
     uint32_t acpi_id;       /* ID lógico en ACPI/MADT */
