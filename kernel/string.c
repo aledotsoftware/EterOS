@@ -170,6 +170,18 @@ int memcmp(const void* s1, const void* s2, size_t n) {
     }
 #endif
     
+    /* Optimization: Compare 8 bytes at a time if pointers are aligned */
+    if (((uintptr_t)a & 7) == 0 && ((uintptr_t)b & 7) == 0) {
+        while (n >= 8) {
+            if (*(const uint64_t*)a != *(const uint64_t*)b) {
+                break;
+            }
+            a += 8;
+            b += 8;
+            n -= 8;
+        }
+    }
+
     while (n--) {
         if (*a != *b) {
             return *a - *b;
