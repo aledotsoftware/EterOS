@@ -32,6 +32,11 @@ static uint32_t next_id       = 0;    /* Generador de IDs */
 static uint32_t sched_ticks   = 0;    /* Contador para decidir cuándo switchear */
 static bool     scheduler_active = false; /* El scheduler está inicializado? */
 
+/* CPU Load Metrics */
+static uint64_t cpu_total_ticks = 0;
+static uint64_t cpu_idle_ticks = 0;
+static int      cpu_last_load = 0;
+
 /* Variable global para el stack del kernel (usada por syscall_entry) */
 uint64_t kernel_stack_top = 0;
 
@@ -214,11 +219,21 @@ void schedule(void) {
     /* Deshabilitar interrupciones para proteger el estado del scheduler */
     __asm__ volatile("cli");
 
+    /* CPU Load tracking */
+    cpu_total_ticks++;
+    if (cpu_total_ticks >= SCHEDULER_HZ) {
+        if (cpu_total_ticks > 0)
+             cpu_last_load = 100 - ( (cpu_idle_ticks * 100) / cpu_total_ticks );
+        cpu_total_ticks = 0;
+        cpu_idle_ticks = 0;
+    }
+
     int next = find_next_task();
 
     /* Si no hay tareas listas y la actual esta muerta/durmiendo, 
        debemos esperar hasta el proximo tick (Halt con interrupciones habilitadas) */
     if (next == -1) {
+        cpu_idle_ticks++;
         __asm__ volatile("sti");
         while (1) {
              __asm__ volatile("hlt");
@@ -402,4 +417,8 @@ task_t* task_get_by_id(uint32_t id) {
         }
     }
     return NULL;
+}
+
+int task_get_cpu_load(void) {
+    return cpu_last_load;
 }
