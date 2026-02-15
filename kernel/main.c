@@ -23,6 +23,7 @@
 #include <vga.h>
 #include <task.h>
 #include <net/socket.h>
+#include <cpu.h>
 
 #include <net/e1000.h>
 #include <acpi.h>
@@ -107,6 +108,8 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* ---- 2.5 Inicializar ACPI (Hardware Discovery) ---- */
     #if defined(ARCH_X86_64)
     acpi_init();
+    /* ---- 2.6 Inicializar SMP (BSP Topology) ---- */
+    cpu_init_bsp();
     #endif
 
     /* ---- 3. Inicializar Memory Managers (Solo Tier 2+) ---- */
