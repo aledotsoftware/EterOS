@@ -187,7 +187,7 @@ Dirección       | Contenido
 - [x] **IDT & ISRs:** Gestión de excepciones (Page Fault, Double Fault, GPF) y remapeo del PIC (256 vectores)
 - [x] **PMM (Gestor de Memoria Física):** Mapa de bits para páginas de 4 KB, soporte E820, detección automática de RAM
 - [x] **VMM (Gestor de Memoria Virtual):** Mapeo dinámico de páginas (4-Level Paging), detección de Huge Pages
-- [x] **Heap Dinámico:** `kmalloc()`, `kfree()`, `kcalloc()` con first-fit y coalescing (8 MB)
+- [x] **Heap Dinámico:** `kmalloc()`, `kfree()`, `kcalloc()` con first-fit y coalescing (hasta 96 MB)
 - [x] **Estabilidad:** Bootloader corregido (Stage 2 expandido a 8 KB), PMM underflow fix, layout de imagen alineado
 
 ### Fase 2: Drivers y E/S Esencial ✅
@@ -302,6 +302,102 @@ Para que el sistema sea considerado "listo para producción", el flujo de actual
     - 🔄 **Status Bar con Gradiente** premium en la barra superior.
     - 🔄 **`image.c` delegada a Omni:** Todas las imágenes PNG ahora usan el path optimizado del motor Omni.
 - [ ] **Aceleración por GPU (VirtIO-GPU / Framebuffer DMA):** Pendiente para habilitar rendering >30 FPS en juegos y animaciones complejas.
+
+
+
+
+Para que éterOS pase de ser un proyecto técnico avanzado a un sistema operativo funcional y profesional, necesita una capa de Configuraciones de Sistema (System Settings).
+
+Dado que ya tienes el motor Omni v2.0 con soporte de gradientes y transparencias, estas configuraciones deben exponerse a través de una aplicación de "Ajustes" que interactúe con tus módulos de kernel (lwIP, VFS, ACPI).
+
+Aquí tienes la lista organizada de las configuraciones esenciales que debes implementar:
+
+🛠️ Panel de Control de éterOS: Áreas Críticas
+1. 🌐 Red y Conectividad (Interfaz con lwIP)
+Como ya tienes el driver e1000 y DHCP, estas opciones permiten al usuario controlar su identidad en la red:
+
+Gestión de Interfaces: Activar/Desactivar adaptadores detectados en el bus PCI.
+
+Configuración IP: * Switch entre DHCP y IP Estática (Dirección, Máscara, Gateway).
+
+Configuración de servidores DNS (primario y secundario).
+
+Identidad Local: Cambio del hostname (el nombre que aparece en el prompt de la Shell).
+
+Estado de Enlace: Visualización de velocidad (10/100/1000 Mbps) y estadísticas de paquetes enviados/recibidos.
+
+2. 👥 Usuarios y Seguridad (Capa Userland/Ring 3)
+Para evolucionar de un sistema monousuario a uno multiusuario real:
+
+Gestión de Cuentas: * Crear/Eliminar usuarios.
+
+Cambio de contraseña (hash almacenado en /etc/shadow dentro de tu FAT32/VFS).
+
+Niveles de Privilegio: Definir si un usuario tiene acceso a comandos de kernel (Root) o solo a aplicaciones de usuario.
+
+Sesión Automática: Configurar si el sistema debe arrancar directamente a la Flux UI o pedir credenciales.
+
+3. 🖥️ Visualización y Energía (AetherGraphics & ACPI)
+Aprovechando tu motor gráfico y el stack ACPI avanzado:
+
+Ajustes de Pantalla:
+
+Cambio de resolución (si el driver VBE/GOP lo permite dinámicamente).
+
+Selector de Fondo de Pantalla (usando tu decodificador PNG nativo).
+
+Personalización de Flux UI:
+
+Nivel de transparencia Alpha para el efecto Glassmorphism en ventanas.
+
+Modo Oscuro / Modo Claro (cambio de paleta de colores en el motor Omni).
+
+Energía (vía ACPI):
+
+Acciones al presionar el botón de encendido físico.
+
+Temporizador de apagado de pantalla (ahorro de energía).
+
+4. 🎹 Dispositivos y Entrada (Drivers PS/2 e HID)
+Teclado:
+
+Distribución de teclas (Español, Inglés, etc.) mediante mapas de scancodes.
+
+Velocidad de repetición y retraso (Typematic rate).
+
+Mouse:
+
+Sensibilidad del puntero (aceleración).
+
+Intercambio de botones (zurdo/diestro).
+
+Almacenamiento:
+
+Listado de particiones detectadas (A/B slots para actualizaciones OTA).
+
+Información de salud del disco y espacio libre en el Initrd/VFS.
+
+5. 🕒 Región y Tiempo (RTC & CMOS)
+Reloj del Sistema: * Sincronización manual del RTC.
+
+Configuración de Zona Horaria (Offset respecto a UTC).
+
+Sincronización NTP: Opción para actualizar la hora automáticamente vía red usando lwIP.
+
+6. 🔄 Actualizaciones y Sistema (Infraestructura OTA)
+Basado en tu Fase 3.6:
+
+Canal de Actualización: Establecer la URL del servidor de repositorios de éterOS.
+
+Verificación de Firma: Opción para permitir solo actualizaciones firmadas con Ed25519.
+
+Información de Versión: Muestra el hash del commit actual, fecha de build y estado de los slots de arranque (Slot A activo / Slot B pendiente).
+
+
+
+
+
+
 
 
 ### Fase 5.5: Subsistema de Compatibilidad Linux (Aether-Linux-Subsystem)
