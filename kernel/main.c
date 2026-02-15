@@ -24,7 +24,6 @@
 #include <task.h>
 #include <net/socket.h>
 
-/* lwIP Headers disabled - Library not present 
 #include "lwip/init.h"
 #include "lwip/netif.h"
 #include "lwip/dhcp.h"
@@ -32,8 +31,11 @@
 #include "lwip/ip_addr.h"
 #include "netif/ethernet.h"
 #include "ethernetif.h"
-*/
 #include <net/e1000.h>
+
+/* Compatibility for legacy apps */
+int network_ready = 0;
+struct netif netif;
 
 
 /* Forward declarations for non-HAL kernel services */
@@ -57,11 +59,36 @@ static void kernel_halt(void);
 
 static void network_task(void) {
     while(1) {
-        net_poll();
+        /* Protect lwIP access with simple lock */
+        hal_interrupts_disable();
+        ethernetif_poll(&netif);
+        sys_check_timeouts();
+
+        /* Update status for legacy apps */
+        if (!network_ready && netif.ip_addr.addr != 0) {
+            network_ready = 1;
+            hal_console_write("  [NET]  DHCP Bound! IP assigned.\n");
+        }
+        hal_interrupts_enable();
+
         task_yield();
     }
 }
 
+static void init_network(void) {
+    ip4_addr_t ipaddr, netmask, gw;
+    IP4_ADDR(&ipaddr, 0, 0, 0, 0);
+    IP4_ADDR(&netmask, 0, 0, 0, 0);
+    IP4_ADDR(&gw, 0, 0, 0, 0);
+
+    lwip_init();
+
+    netif_add(&netif, &ipaddr, &netmask, &gw, NULL, ethernetif_init, ethernet_input);
+    netif_set_default(&netif);
+    netif_set_up(&netif);
+
+    dhcp_start(&netif);
+}
 
 /* ========================================================================= */
 /* Punto de entrada del kernel                                               */
@@ -78,8 +105,12 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* Esto configura relojes, interrupciones, consola, timer, etc. */
     hal_init();
     
-    /* hal_console_write("\n"); */
+    hal_console_write("\n");
     hal_debug_write("[eterOS] HAL Inicializada.\n");
+
+    /* ---- 1.5 Mostrar Logo de Arranque ---- */
+    /* Mostramos el logo de eterOS mientras cargamos el resto */
+    gui_draw_boot_logo();
 
     /* ---- 2. Obtener Info del Bootloader (si aplica) ---- */
     /* En x86, esto está en 0xA000. En ARM, puede ser NULL o DTB. */
@@ -126,9 +157,6 @@ void __attribute__((section(".text.boot"))) kmain(void) {
             }
         }
         #endif
-
-        /* ---- 3.7 Mostrar Logo de Arranque (Ahora que VFS esta listo) ---- */
-        gui_draw_boot_logo();
     #else
         /* Tier 1 (Microcontroller): Use simple static heap or similar if needed */
         /* For now, assume simple stack usage or static buffers */
@@ -139,9 +167,7 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* Attempt to init E1000 (Generic Driver but requires PCI) */
     if (e1000_init(NULL) == 0) {
         hal_console_write("  [NET]  Hardware inicializado.\n");
-        net_init();
-        extern void dhcp_discover(void);
-        dhcp_discover();
+        init_network();
         task_create("Network", network_task);
     } else {
         hal_console_write("  [NET]  Info: No se detecto tarjeta de red compatible.\n");
