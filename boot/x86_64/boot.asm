@@ -351,7 +351,7 @@ load_kernel:
 ; load_initrd: Carga el Initrd desde disco
 ; -----------------------------------------------------------------------------
 INITRD_LOAD_ADDR    equ 0x40000     ; ⚡ BOLT: Restored to safe sub-1MB zone
-INITRD_SECTORS      equ 128         ; Keep the increased limit
+INITRD_SECTORS      equ 512         ; Keep the increased limit
 INITRD_START_LBA    equ 1 + STAGE2_SECTORS + KERNEL_SECTORS
 
 load_initrd:
