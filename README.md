@@ -47,9 +47,13 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │   │   │   ├── idt.c           # IDT + ISRs (256 vectores)
 │   │   │   ├── gdt.c           # GDT + TSS (64-bit)
 │   │   │   ├── pic.c           # PIC 8259 remapeado
-│   │   │   ├── syscall.c       # Syscalls (MSRs, STAR, LSTAR)
+│   │   │   ├── syscall.c       # Syscalls (MSRs, STAR, LSTAR) y Dispatcher Linux
 │   │   │   ├── interrupts.asm  # Stubs de interrupción ASM
-│   │   │   └── user_mode.asm   # Context Switch Ring 0 <-> Ring 3
+│   │   │   ├── user_mode.asm   # Context Switch Ring 0 <-> Ring 3
+│   │   │   ├── acpi.c          # Stack ACPI (RSDP, MADT parsing)
+│   │   │   ├── apic.c          # Driver Local/IO APIC
+│   │   │   ├── smp.c           # Gestión Multicore y Per-CPU GS Base
+│   │   │   └── trampoline.asm  # Código de arranque para APs (16-bit)
 │   │   ├── aarch64/            # 🚧 En Desarrollo (Soporte RK3566 inicial)
 │   │   ├── arm-cortex-m/       # 🚧 En Desarrollo (STM32, Pico, IoT)
 │   │   ├── riscv64/            # ⚠️ Implementación Preliminar (HAL, UART, PLIC, SBI)
@@ -58,7 +62,7 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │   │   ├── pmm.c               # Physical Memory Manager (bitmap, E820)
 │   │   ├── vmm.c               # Virtual Memory Manager (4-Level Paging)
 │   │   └── heap.c              # Heap dinámico (kmalloc/kfree/kcalloc)
-│   ├── task.c                  # Scheduler Round-Robin (Multitarea)
+│   ├── task.c                  # Scheduler Round-Robin SMP-Aware (Multitarea)
 │   ├── fs/                     # Sistema de Archivos Virtual (VFS)
 │   │   ├── vfs.c               # Capa de abstracción (read/write/open/close)
 │   │   ├── fat32.c             # Driver FAT32 (Lectura de archivos/dir)
@@ -80,7 +84,9 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │   │   └── net/e1000.c         # Intel PRO/1000 NIC driver
 │   ├── ui/                     # AetherGraphics (GUI System)
 │   │   ├── window.c            # Window Manager & Compositor
-│   │   └── primitives.c        # Primitivas de dibujo 2D
+│   │   ├── omni.c              # Motor Omni v2.0 (Dibujo optimizado)
+│   │   ├── upng.c              # Decodificador PNG nativo
+│   │   └── primitives.c        # Primitivas de dibujo 2D (Legacy)
 │   ├── net/                    # Stack de Red
 │   │   ├── dhcp.c              # Cliente DHCP (Discover/Offer)
 │   │   ├── tcp.c               # Stack TCP minimalista
@@ -92,8 +98,9 @@ El nombre **éter** evoca la sustancia que lo llena todo de forma invisible. Baj
 │   └── apps/                   # Aplicaciones del kernel
 │       ├── santitravel.c       # Juego de texto (aventuras)
 │       ├── sysmon.c            # Monitor del sistema
-│       ├── gui_demo.c          # Flux UI Demo (Multitarea gráfica)
+│       ├── gui_demo.c          # Flux UI Desktop Environment (16+ Apps)
 │       ├── wget.c              # Downloader de archivos
+│       ├── doomgeneric/        # Port de DOOM (Motor de juego)
 │       └── user_loader.c       # Loader de ejecutables de usuario
 ├── include/                    # API del sistema
 │   ├── hal.h                   # 🌍 HAL universal (interfaz multi-arch)
@@ -162,6 +169,20 @@ UART 16550 a 38400 baud para depuración. Compatible con `qemu -serial stdio`.
 - **`time_t` de 64 bits**: Garantiza que el sistema funcionará sin desbordamientos hasta el año 292.000 millones.
 - **VFS Compliant**: Todos los nodos del sistema de archivos (`fs_node_t`) y las estructuras de estado (`stat`) utilizan marcas de tiempo de 8 bytes.
 - **Arquitectura Futura**: Incluso en futuras versiones de 32 bits, éterOS mantendrá el estándar de 64 bits para el tiempo, evitando el colapso del 19 de enero de 2038.
+
+### 6. Motor Omni v2.0 (Gráficos de Nueva Era)
+éterOS utiliza el motor **Omni v2.0**, una reinvención total del pipeline gráfico:
+- **Dirty Region Tracking**: Solo se redibujan las partes de la pantalla que cambian, ahorrando un 80% de ancho de banda.
+- **Alpha Blending Pro**: Mezcla de colores de 256 niveles para efectos de transparencia (Glassmorphism) y sombras suaves.
+- **Fast-Path Geometry**: Líneas y rectángulos optimizados que escriben directamente en el buffer de video sin overhead de funciones.
+- **Omni-Frame Batching**: Agrupamiento de operaciones de dibujo para maximizar la caché de la CPU.
+
+### 7. SMP & Topología Multicore (Poder Paralelo)
+éterOS ha evolucionado para romper la barrera del monoprocesador:
+- **SMP Trampoline**: Código especializado en 16-bit para transicionar los Application Processors (APs) desde el modo real hasta Long Mode de 64 bits.
+- **Per-CPU Data Structures**: Cada CPU posee su propio stack de kernel y bloque de control, accesible vía el registro de segmento `GS`.
+- **IPI (Inter-Processor Interrupts)**: Mecanismo de comunicación mediante el Local APIC para coordinar tareas entre núcleos.
+- **Locking de Grano Fino**: Uso de Spinlocks optimizados para proteger estructuras críticas del kernel sin detener la ejecución en otros núcleos.
 
 ## 📋 Layout de Memoria
 
@@ -276,16 +297,18 @@ Para que el sistema sea considerado "listo para producción", el flujo de actual
 - [x] **Double Buffering Activo:** Renderizado libre de parpadeo con composicion en RAM antes de flush (`kernel/ui/image.c`)
 - [x] **Event Loop Reactivo:** Sistema de despacho de mensajes (Mouse + Teclado) dirigido a la ventana focalizada.
 - [x] **Compositor de Ventanas:** Gestión de apilamiento (Z-order) y transparencia alfa básica en el kernel (`kernel/ui/window.c`)
-- [x] **Flux UI Experience:** Entorno táctil/estilizado con 15+ aplicaciones integradas:
+- [x] **Flux UI Experience:** Entorno táctil/estilizado con 16+ aplicaciones integradas:
     - 📟 **Terminal Flux:** Integrada con soporte completo para comandos (`ls`, `ps`, `sysinfo`).
     - 📁 **Monitor de Sistema:** Gestión visual de procesos y recursos.
-    - 🛠️ **Admin. de Dispositivos:** Inventario de hardware (PCI, RK3566/x86_64).
+    - 🛠️ **Admin. de Dispositivos:** Inventario de hardware (CPU, RAM, PCI).
+    - 📡 **Monitor de Red:** Estado de IP y conectividad en tiempo real.
     - 🎮 **SantiTravel:** El legendario juego de aventuras portado a la GUI.
-    - 🌌 **The Matrix:** Simulación de lluvia de código optimizada para el motor Omni.
-    - 🎨 **Creative Suite:** Aplicaciones de Lienzo (Paint), Notas y Galería (vía stubs de diseño).
-    - 🌐 **Navegador Eter:** Acceso a red con soporte lwIP y cliente TCP.
-    - 🔧 **Utilidades:** Calculadora, Reloj, Clima y Ajustes del sistema.
-    - 📁 **Gestor de Archivos:** Navegación por directorios del Initrd/VFS.
+    - 🌌 **The Matrix:** Simulación de lluvia de código optimizada para Omni.
+    - 🎨 **Lienzo (Paint):** Herramienta de dibujo con soporte de transparencia.
+    - 🧪 **Calculadora & Notas:** Aplicaciones de productividad para el día a día.
+    - 🌐 **Navegador Eter:** Acceso a red con soporte lwIP y sockets.
+    - 🕒 **Reloj & Calendario:** Gestión de tiempo basada en RTC.
+    - 🔊 **Reproductor de Música & Galería:** Stubs de medios con interfaz unificada.
 
 
 ### Fase 5.1: Optimización del Motor Gráfico (Omni v2.0) ✅

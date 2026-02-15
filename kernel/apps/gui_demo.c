@@ -2187,6 +2187,13 @@ static void draw_flux_hub(void) {
     } else {
         omni_draw_string(NULL, ix + 10, iy + 10, hub_input, 0xFFFFFF, 0x151515);
     }
+
+    /* Cursor Blinking (UX: Visual Feedback for Input Focus) */
+    int cursor_x = ix + 10 + (strlen(hub_input) * 8);
+    /* Blink every ~300ms */
+    if ((timer_get_ticks() / 30) % 2 == 0) {
+        omni_fill_rect(cursor_x, iy + 10, 2, 16, FLUX_ACCENT_CYAN);
+    }
     
     /* 3. Categorized Listing (The "DOM") */
     int list_y = iy + 55;
@@ -2400,7 +2407,7 @@ void gui_demo_run(void) {
         }
         last_frame_ticks = current_ticks;
 
-        rect_t dirty = {0, 0, 1024, 768};
+
 
         /* --- 1. POLL KEYBOARD DRIVER --- */
         while (keyboard_has_input()) {
@@ -2536,7 +2543,7 @@ void gui_demo_run(void) {
             draw_focus_mode();
         } else {
              /* Transitioning */
-             dirty = draw_zoom_transition();
+             draw_zoom_transition();
         }
         
         /* Layer 3: System Notifications (Always on top) */

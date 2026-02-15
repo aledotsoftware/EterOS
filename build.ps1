@@ -217,7 +217,7 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\drivers\video\vga.c",
     "$KERNEL_DIR\drivers\video\framebuffer.c",
     "$KERNEL_DIR\drivers\video\font.c",
-    "$KERNEL_DIR\ui\primitives.c",
+
     "$KERNEL_DIR\ui\window.c",
     "$KERNEL_DIR\drivers\serial\serial.c",
     "$KERNEL_DIR\drivers\input\keyboard.c",

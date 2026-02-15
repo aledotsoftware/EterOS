@@ -1,7 +1,7 @@
 #ifndef UI_WINDOW_H
 #define UI_WINDOW_H
 
-#include <ui/primitives.h>
+#include <ui/omni.h>
 
 #define MAX_WINDOWS 32
 

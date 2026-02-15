@@ -2,7 +2,30 @@
 #define OMNI_H
 
 #include <types.h>
-#include <ui/primitives.h>
+#include <types.h>
+
+/* Moved from primitives.h */
+typedef struct {
+    int32_t x;
+    int32_t y;
+    int32_t w;
+    int32_t h;
+} rect_t;
+
+typedef struct {
+    int32_t x;
+    int32_t y;
+} point_t;
+
+/* Colores predefinidos */
+#define UI_COLOR_BLACK   0xFF000000
+#define UI_COLOR_WHITE   0xFFFFFFFF
+#define UI_COLOR_GREY    0xFF808080
+#define UI_COLOR_DARK    0xFF202020
+#define UI_COLOR_BLUE    0xFF0000FF
+#define UI_COLOR_CYAN    0xFF00FFFF
+#define UI_COLOR_RED     0xFFFF0000
+#define UI_COLOR_GREEN   0xFF00FF00
 
 /* ========================================================================= */
 /* Omni Drawing Engine v2.0 - éterOS High Performance 2D Graphics            */
