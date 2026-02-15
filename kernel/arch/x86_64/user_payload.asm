@@ -11,9 +11,9 @@ user_payload_start:
     mov rax, 0xCAFEBABE
     syscall
 
-    ; 2. Exit/Halt Syscall (1)
+    ; 2. Exit Syscall (60 = SYS_exit)
     ; This should stop the user process.
-    mov rax, 1
+    mov rax, 60
     syscall
 
     ; 3. Loop Forever (Safeguard)

@@ -60,4 +60,4 @@ syscall_entry:
     swapgs
 
     ; 9. Return to Ring 3
-    sysretq
+    o64 sysret

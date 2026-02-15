@@ -73,9 +73,14 @@ void syscall_handler(struct syscall_regs* regs) {
              }
              ret = len;
         }
-    } else if (regs->rax == SYS_exit || regs->rax == 1) { /* Assume 1 is exit for our test */
+    } else if (regs->rax == SYS_exit) {
         serial_write_string("[SYSCALL] Task exit called.\n");
+        /* task_exit() never returns — it marks the task DEAD and context-switches away.
+         * We must NOT return from syscall_handler after this, or sysret will
+         * jump back to the user RIP which is no longer valid. */
         task_exit();
+        /* Never reached */
+        __builtin_unreachable();
     }
 
     regs->rax = ret;

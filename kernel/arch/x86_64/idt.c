@@ -145,7 +145,19 @@ static void handle_exception(uint8_t vector, struct interrupt_frame* frame, uint
     serial_write_string(buf);
     serial_write_string("\n");
     serial_write_string("RIP: "); utoa_hex_s(frame->rip, buf, sizeof(buf)); serial_write_string(buf);
+    serial_write_string(" CS: "); utoa_hex_s(frame->cs, buf, sizeof(buf)); serial_write_string(buf);
+    serial_write_string("\nRFLAGS: "); utoa_hex_s(frame->rflags, buf, sizeof(buf)); serial_write_string(buf);
     serial_write_string(" Error: "); utoa_hex_s(error_code, buf, sizeof(buf)); serial_write_string(buf);
+    serial_write_string("\nTask: ");
+    extern task_t* task_get_current(void);
+    task_t* panic_task = task_get_current();
+    if (panic_task) {
+        serial_write_string(panic_task->name);
+        serial_write_string(" (state=");
+        itoa_s(panic_task->state, buf, sizeof(buf), 10);
+        serial_write_string(buf);
+        serial_write_string(")");
+    }
     serial_write_string("\n");
 
     /* Halt forever */

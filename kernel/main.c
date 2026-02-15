@@ -62,26 +62,6 @@ static void network_task(void) {
     }
 }
 
-/* ========================================================================= */
-/* Network Stubs (Legacy Support)                                            */
-/* ========================================================================= */
-/* int network_ready = 1; Defined in net/stack.c */
-
-/* raw_tcp_get might also be in stack.c? Let's check first. */
-int raw_tcp_get(const char* host, const char* path, char* response_buf, size_t max_len) {
-    (void)host;
-    (void)path;
-    (void)max_len;
-
-    const char* stub_response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello from Stub!";
-    size_t len = strlen(stub_response);
-    if (len >= max_len) len = max_len - 1;
-
-    memcpy(response_buf, stub_response, len);
-    response_buf[len] = 0;
-
-    return (int)len;
-}
 
 /* ========================================================================= */
 /* Punto de entrada del kernel                                               */
@@ -98,12 +78,8 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* Esto configura relojes, interrupciones, consola, timer, etc. */
     hal_init();
     
-    hal_console_write("\n");
+    /* hal_console_write("\n"); */
     hal_debug_write("[eterOS] HAL Inicializada.\n");
-
-    /* ---- 1.5 Mostrar Logo de Arranque ---- */
-    /* Mostramos el logo de eterOS mientras cargamos el resto */
-    gui_draw_boot_logo();
 
     /* ---- 2. Obtener Info del Bootloader (si aplica) ---- */
     /* En x86, esto está en 0xA000. En ARM, puede ser NULL o DTB. */
@@ -150,6 +126,9 @@ void __attribute__((section(".text.boot"))) kmain(void) {
             }
         }
         #endif
+
+        /* ---- 3.7 Mostrar Logo de Arranque (Ahora que VFS esta listo) ---- */
+        gui_draw_boot_logo();
     #else
         /* Tier 1 (Microcontroller): Use simple static heap or similar if needed */
         /* For now, assume simple stack usage or static buffers */

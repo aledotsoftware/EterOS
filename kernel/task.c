@@ -54,15 +54,9 @@ static void task_entry_wrapper(void) {
        no las habilita automáticamente como haría iretq) */
     __asm__ volatile("sti");
 
-    /* Obtener el entry point de la tarea actual.
-     * Lo guardamos en R15 del stack inicial de la tarea.
-     * R15 fue restaurado por context_switch. */
-    task_func_t entry;
-    __asm__ volatile("mov %%r15, %0" : "=r"(entry));
-
-    /* Ejecutar la función de la tarea */
-    if (entry) {
-        entry();
+    task_t* self = task_get_current();
+    if (self && self->entry) {
+        self->entry();
     }
 
     /* Si la función retorna, terminamos la tarea */
@@ -145,6 +139,7 @@ int task_create(const char* name, void (*entry)(void)) {
     tasks[slot].cr3 = cr3;
 
     strlcpy(tasks[slot].name, name, sizeof(tasks[slot].name));
+    tasks[slot].entry = entry;
 
     /* POSIX Init for New Task */
     memset(tasks[slot].fd_table, 0, sizeof(tasks[slot].fd_table));
@@ -215,16 +210,37 @@ static int find_next_task(void) {
 
 void schedule(void) {
     if (!scheduler_active) return;
-    if (task_count <= 1) return; /* Unica tarea no necesita switch */
 
-    /* Solo switchear cada SCHEDULER_HZ ticks */
-    sched_ticks++;
-    if (sched_ticks < SCHEDULER_HZ) return;
-    sched_ticks = 0;
+    /* Deshabilitar interrupciones para proteger el estado del scheduler */
+    __asm__ volatile("cli");
 
     int next = find_next_task();
 
-    if (next == -1 || next == current_task) return;
+    /* Si no hay tareas listas y la actual esta muerta/durmiendo, 
+       debemos esperar hasta el proximo tick (Halt con interrupciones habilitadas) */
+    if (next == -1) {
+        __asm__ volatile("sti");
+        while (1) {
+             __asm__ volatile("hlt");
+             /* El timer interrupt volvera a llamar a schedule() despues del tick */
+             return;
+        }
+    }
+
+    if (next == current_task) {
+        __asm__ volatile("sti");
+        return;
+    }
+
+    /* Solo switchear cada SCHEDULER_HZ ticks (excepto si la actual murio/bloqueo) */
+    if (tasks[current_task].state == TASK_RUNNING) {
+        sched_ticks++;
+        if (sched_ticks < SCHEDULER_HZ) {
+            __asm__ volatile("sti");
+            return;
+        }
+    }
+    sched_ticks = 0;
 
     /* Cambiar estado */
     int old = current_task;
@@ -232,7 +248,6 @@ void schedule(void) {
     if (tasks[old].state == TASK_RUNNING) {
         tasks[old].state = TASK_READY;
     }
-    /* Si era TASK_SLEEPING, se queda en SLEEPING */
     
     tasks[next].state = TASK_RUNNING;
     current_task = next;
@@ -243,8 +258,9 @@ void schedule(void) {
         per_cpu_data.kernel_stack = tasks[next].kernel_stack;
     }
 
-    /* Context switch: guardar RSP actual en tasks[old], cargar de tasks[next] */
     context_switch(&tasks[old].rsp, tasks[next].rsp);
+
+    __asm__ volatile("sti");
 }
 
 void task_yield(void) {
@@ -297,6 +313,9 @@ void task_wake_expired(uint64_t current_tick) {
 }
 
 void task_exit(void) {
+    /* Disable interrupts — we're destroying this task, no preemption allowed */
+    __asm__ volatile("cli");
+
     serial_write_string("[SCHED] Tarea terminada: ");
     serial_write_string(tasks[current_task].name);
     serial_write_string("\n");
@@ -304,15 +323,27 @@ void task_exit(void) {
     /* Marcar como muerta */
     tasks[current_task].state = TASK_DEAD;
     
-    /* No liberamos el stack aquí (lo hacemos lazy o en un reaper).
-     * Por ahora solo marcamos DEAD y forzamos un switch. */
+    /* Encontrar otra tarea para ejecutar */
+    int next = find_next_task();
     
-    /* Forzar switch a otra tarea. No podemos retornar de aquí
-     * porque el stack de esta tarea ya no es válido conceptualmente. */
-    sched_ticks = SCHEDULER_HZ;
-    schedule();
-
-    /* Si llegamos aquí, no había otra tarea (no debería pasar) */
+    if (next != -1 && next != current_task) {
+        int old = current_task;
+        tasks[next].state = TASK_RUNNING;
+        current_task = next;
+        
+        /* Actualizar TSS RSP0 y Per-CPU */
+        if (tasks[next].kernel_stack != 0) {
+            tss_set_rsp0(tasks[next].kernel_stack);
+            per_cpu_data.kernel_stack = tasks[next].kernel_stack;
+        }
+        
+        /* Context switch — nunca volveremos aquí porque la tarea vieja está DEAD
+           y el scheduler nunca la seleccionará de nuevo */
+        context_switch(&tasks[old].rsp, tasks[next].rsp);
+    }
+    
+    /* Si no hay otra tarea (o context_switch retornó por error), halt forever */
+    __asm__ volatile("sti");
     for (;;) { __asm__ volatile("hlt"); }
 }
 
@@ -364,7 +395,9 @@ int task_get_max(void) {
 task_t* task_get_by_id(uint32_t id) {
     if (!scheduler_active) return NULL;
     for (int i = 0; i < MAX_TASKS; i++) {
-        if (tasks[i].id == id && tasks[i].state != 0 && tasks[i].state != TASK_DEAD) {
+        /* Permitimos buscar tareas READY, RUNNING o SLEEPING. 
+           Solo ignoramos slots vacíos (id=0 y state=0) o DEAD. */
+        if (tasks[i].id == id && tasks[i].name[0] != '\0' && tasks[i].state != TASK_DEAD) {
             return &tasks[i];
         }
     }

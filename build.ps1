@@ -223,7 +223,9 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\fs\devfs.c",
     "$KERNEL_DIR\fs\procfs.c",
     "$KERNEL_DIR\ui\image.c",
-    "$KERNEL_DIR\ui\upng.c"
+    "$KERNEL_DIR\ui\upng.c",
+    "$KERNEL_DIR\drivers\disk\partition.c",
+    "$KERNEL_DIR\fs\elf.c"
 )
 
 # Archivos específicos de arquitectura
@@ -233,6 +235,7 @@ if ($Arch -eq "x86_64") {
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\gdt.c"
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\hal_impl.c"
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\syscall.c"
+    $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\boot\nvram.c"
 }
 elseif ($Arch -eq "aarch64") {
     $KERNEL_SRCS += "$KERNEL_DIR\arch\aarch64\hal_impl.c"
@@ -272,11 +275,13 @@ function Initialize-BuildDirs {
         "$BUILD_DIR\$KERNEL_DIR\drivers\rtc",
         "$BUILD_DIR\$KERNEL_DIR\drivers\pci",
         "$BUILD_DIR\$KERNEL_DIR\drivers\net",
+        "$BUILD_DIR\$KERNEL_DIR\drivers\disk",
         "$BUILD_DIR\$KERNEL_DIR\net",
         "$BUILD_DIR\$KERNEL_DIR\mm",
         "$BUILD_DIR\$KERNEL_DIR\apps",
         "$BUILD_DIR\$KERNEL_DIR\fs",
-        "$BUILD_DIR\$KERNEL_DIR\ui"
+        "$BUILD_DIR\$KERNEL_DIR\ui",
+        "$BUILD_DIR\$KERNEL_DIR\arch\$Arch\boot"
     )
     foreach ($d in $dirs) {
         if (!(Test-Path $d)) {
@@ -381,6 +386,23 @@ function Invoke-InitrdBuild {
     }
 }
 
+function Stop-LockingProcesses {
+    # Kill any QEMU or VirtualBox processes that might be locking the image file
+    $procs = @("qemu-system-x86_64", "qemu-system-i386", "VirtualBoxVM", "VBoxHeadless")
+    $killed = $false
+    foreach ($p in $procs) {
+        $running = Get-Process -Name $p -ErrorAction SilentlyContinue
+        if ($running) {
+            Write-Step "IMG" "Deteniendo $p (PID $($running.Id -join ','))..."
+            $running | Stop-Process -Force -ErrorAction SilentlyContinue
+            $killed = $true
+        }
+    }
+    if ($killed) {
+        Start-Sleep -Milliseconds 1500
+    }
+}
+
 function Invoke-ImageBuild {
     Write-Step "IMG" "Generando imagen de disco..."
 
@@ -417,8 +439,23 @@ function Invoke-ImageBuild {
         }
     }
 
-    # Escribir imagen final
-    [System.IO.File]::WriteAllBytes($imagePath, $imageData)
+    # Escribir imagen final (con retry automático si el archivo está bloqueado)
+    $maxRetries = 3
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        try {
+            [System.IO.File]::WriteAllBytes($imagePath, $imageData)
+            break  # Éxito
+        }
+        catch [System.IO.IOException] {
+            if ($attempt -lt $maxRetries) {
+                Write-Step "IMG" "Imagen bloqueada. Intentando liberar (intento $attempt/$maxRetries)..."
+                Stop-LockingProcesses
+            }
+            else {
+                throw  # Re-lanzar si agotamos reintentos
+            }
+        }
+    }
 
     $totalSize = (Get-Item $imagePath).Length
     Write-Step "OK" "Imagen: $imagePath ($totalSize bytes)"
@@ -632,7 +669,7 @@ function Invoke-QemuRun {
     Write-Step "QEMU" "Iniciando eterOS ($Arch)..."
 
     $qemuArgs = @(
-        "-drive", "format=raw,file=$OS_IMAGE,if=floppy",
+        "-drive", "format=raw,file=$OS_IMAGE,index=0,media=disk",
         "-m", "128M",
         "-no-reboot",
         "-no-shutdown"

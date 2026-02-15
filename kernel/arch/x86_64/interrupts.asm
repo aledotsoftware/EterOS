@@ -60,47 +60,75 @@ section .text
 ; -----------------------------------------------------------------------------
 isr_stub_timer:
     ; Hardware pushed: SS, RSP, RFLAGS, CS, RIP (5 qwords)
+    
+    ; Check if we came from User Mode (CS bit 0-1 = 3)
+    test qword [rsp + 8], 3     ; [rsp+8] is CS in the hard frame
+    jz .kernel_entry
+    swapgs
+.kernel_entry:
+
     PUSH_ALL
-    
-    ; ABI Setup
     cld                         ; Clear Direction Flag (System V ABI)
-    
-    ; call irq_timer_handler      ; Llamar lógica en C
     call irq_timer_handler
-    
-    ; Enviar EOI manual (PIC1_COMMAND 0x20, PIC_EOI 0x20)
-    ; mov al, 0x20
-    ; out 0x20, al
-    
     POP_ALL
+    
+    ; Check if we are returning to User Mode
+    test qword [rsp + 8], 3     ; CS
+    jz .kernel_exit
+    swapgs
+.kernel_exit:
     iretq
 
 ; -----------------------------------------------------------------------------
 ; ISR Keyboard (IRQ1)
 ; -----------------------------------------------------------------------------
 isr_stub_keyboard:
+    test qword [rsp + 8], 3
+    jz .k1
+    swapgs
+.k1:
     PUSH_ALL
     cld
     call irq_keyboard_handler
     POP_ALL
+    test qword [rsp + 8], 3
+    jz .k2
+    swapgs
+.k2:
     iretq
 
 ; -----------------------------------------------------------------------------
 ; ISR Serial (IRQ4)
 ; -----------------------------------------------------------------------------
 isr_stub_serial:
+    test qword [rsp + 8], 3
+    jz .s1
+    swapgs
+.s1:
     PUSH_ALL
     cld
     call irq_serial_handler
     POP_ALL
+    test qword [rsp + 8], 3
+    jz .s2
+    swapgs
+.s2:
     iretq
 
 ; -----------------------------------------------------------------------------
 ; ISR Mouse (IRQ12)
 ; -----------------------------------------------------------------------------
 isr_stub_mouse:
+    test qword [rsp + 8], 3
+    jz .m1
+    swapgs
+.m1:
     PUSH_ALL
     cld
     call irq_mouse_handler
     POP_ALL
+    test qword [rsp + 8], 3
+    jz .m2
+    swapgs
+.m2:
     iretq

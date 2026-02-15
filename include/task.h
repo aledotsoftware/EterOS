@@ -56,6 +56,7 @@ typedef struct task {
     uint32_t       signal_mask;             /* Mask of blocked signals */
     uint32_t       signal_pending;          /* Bitmap of pending signals */
     void           (*signal_handlers[32])(int); /* Signal Handlers */
+    void           (*entry)(void);          /* Entry point for task_entry_wrapper */
 } task_t;
 
 /* ========================================================================= */

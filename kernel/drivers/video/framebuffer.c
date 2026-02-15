@@ -1,6 +1,7 @@
 #include <framebuffer.h>
 #include <string.h>
 #include <mm.h>
+#include <serial.h>
 
 static uint32_t* fb_buffer = 0;
 static uint32_t* back_buffer = 0; /* Doble buffer */
@@ -24,6 +25,12 @@ void framebuffer_init(boot_info_t* info) {
     
     fb_size_bytes = fb_height * fb_pitch;
     
+    char buf[64];
+    serial_write_string("[FB] LFB Address: 0x");
+    utoa_hex_s((uint64_t)fb_buffer, buf, sizeof(buf));
+    serial_write_string(buf);
+    serial_write_string("\n");
+
     /* Default to front buffer */
     active_buffer = fb_buffer;
 }
