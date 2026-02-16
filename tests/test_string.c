@@ -48,8 +48,38 @@ void benchmark_memcmp() {
     free(buf2);
 }
 
+void benchmark_strlen() {
+    const size_t size = 1024 * 1024; /* 1 MB */
+    const int iterations = 1000;
+
+    char* buf = malloc(size);
+    if (!buf) {
+        printf("Benchmark failed: malloc error\n");
+        return;
+    }
+
+    /* Fill buffer with non-null chars, leaving only the last one null */
+    std_memset(buf, 'A', size - 1);
+    buf[size - 1] = '\0';
+
+    clock_t start = clock();
+
+    volatile size_t res = 0; /* Prevent optimization */
+    for (int i = 0; i < iterations; i++) {
+        res += strlen(buf);
+    }
+
+    clock_t end = clock();
+    double time_taken = ((double)(end - start)) / CLOCKS_PER_SEC;
+
+    printf("Benchmark strlen: %d iterations of 1MB string length check took %f seconds\n", iterations, time_taken);
+
+    free(buf);
+}
+
 int main() {
     benchmark_memcmp();
+    benchmark_strlen();
     printf("Running string tests...\n");
 
     /* Test itoa_s */

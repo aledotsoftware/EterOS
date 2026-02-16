@@ -207,17 +207,56 @@ int memcmp(const void* s1, const void* s2, size_t n) {
 
 size_t strlen(const char* str) {
     const char *s = str;
+
+    /* Handle unaligned bytes until 8-byte alignment */
+    /* This avoids unaligned access penalties and ensures we don't cross page boundaries unpredictably */
+    while ((uintptr_t)s & 7) {
+        if (!*s) return s - str;
+        s++;
+    }
+
     /*
-     * Unroll loop (4x) to reduce branching overhead.
-     * This is faster than byte-by-byte and safer/simpler than word-at-a-time (SWAR)
-     * which requires strict aliasing care.
+     * SWAR (SIMD Within A Register) Optimization
+     * Process 8 bytes at a time using 64-bit integer arithmetic.
+     * Complexity: O(N/8)
      */
+    const uint64_t *longword_ptr = (const uint64_t *)s;
+    uint64_t longword, himagic, lomagic;
+
+    himagic = 0x8080808080808080ULL;
+    lomagic = 0x0101010101010101ULL;
+
     while (1) {
-        if (!s[0]) return s - str;
-        if (!s[1]) return s - str + 1;
-        if (!s[2]) return s - str + 2;
-        if (!s[3]) return s - str + 3;
-        s += 4;
+        longword = *longword_ptr++;
+
+        /*
+         * ((longword - lomagic) & ~longword & himagic) != 0
+         * if any byte in longword is zero (NULL).
+         *
+         * Explanation:
+         * 1. (longword - lomagic): Subtracting 1 from each byte. If byte is 0, it borrows from next byte.
+         *    0x00 - 0x01 = 0xFF.
+         * 2. ~longword: Inverted bits. If byte was 0x00, it becomes 0xFF.
+         * 3. & himagic: Mask high bits (0x80).
+         *
+         * If byte is 0: (0xFF & 0xFF & 0x80) = 0x80. (Bit set)
+         * If byte is > 0 and < 0x80: High bit not set in result.
+         * If byte is >= 0x80: High bit set in result, but we handle ASCII strings mostly.
+         * Actually, the logic works for all values.
+         */
+        if (((longword - lomagic) & ~longword & himagic) != 0) {
+            /* Found a NULL byte within this longword */
+            const char *cp = (const char *)(longword_ptr - 1);
+
+            if (!cp[0]) return cp - str;
+            if (!cp[1]) return cp - str + 1;
+            if (!cp[2]) return cp - str + 2;
+            if (!cp[3]) return cp - str + 3;
+            if (!cp[4]) return cp - str + 4;
+            if (!cp[5]) return cp - str + 5;
+            if (!cp[6]) return cp - str + 6;
+            if (!cp[7]) return cp - str + 7;
+        }
     }
 }
 
