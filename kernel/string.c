@@ -207,17 +207,28 @@ int memcmp(const void* s1, const void* s2, size_t n) {
 
 size_t strlen(const char* str) {
     const char *s = str;
-    /*
-     * Unroll loop (4x) to reduce branching overhead.
-     * This is faster than byte-by-byte and safer/simpler than word-at-a-time (SWAR)
-     * which requires strict aliasing care.
-     */
+
+    /* Align to 8 bytes */
+    while ((uintptr_t)s & 7) {
+        if (*s == '\0') return s - str;
+        s++;
+    }
+
+    /* Process 8 bytes at a time */
+    typedef uint64_t __attribute__((__may_alias__)) u64_alias;
+    const u64_alias *ls = (const u64_alias *)s;
+    uint64_t v;
+
     while (1) {
-        if (!s[0]) return s - str;
-        if (!s[1]) return s - str + 1;
-        if (!s[2]) return s - str + 2;
-        if (!s[3]) return s - str + 3;
-        s += 4;
+        v = *ls++;
+        /* Check if any byte in the word is zero */
+        uint64_t bits = (v - 0x0101010101010101ULL) & ~v & 0x8080808080808080ULL;
+        if (bits) {
+            /* Found a null byte. Use ctz to find the index.
+             * __builtin_ctzll returns the number of trailing zeros.
+             * Dividing by 8 gives the byte index (0-7) in Little Endian. */
+            return (const char *)(ls - 1) - str + (__builtin_ctzll(bits) / 8);
+        }
     }
 }
 
