@@ -239,6 +239,40 @@ size_t strlen(const char* str) {
     }
 #else
     const char *s = str;
+
+#ifdef __x86_64__
+    /*
+     * Optimized SWAR (SIMD Within A Register) implementation for x86_64.
+     * Processes 8 bytes at a time using 64-bit operations.
+     */
+
+    /* 1. Align to 8 bytes boundary */
+    while ((uintptr_t)s & 7) {
+        if (!*s) return s - str;
+        s++;
+    }
+
+    /* 2. Process 8 bytes at a time */
+    const uint64_t *ls = (const uint64_t *)s;
+    uint64_t v;
+
+    while (1) {
+        v = *ls++;
+        /* Check for null byte using bit magic:
+           (v - 0x01...) & ~v & 0x80... detects if any byte is 0 */
+        if (((v - 0x0101010101010101UL) & ~v & 0x8080808080808080UL)) {
+            const char *p = (const char *)(ls - 1);
+            if (!p[0]) return p - str;
+            if (!p[1]) return p - str + 1;
+            if (!p[2]) return p - str + 2;
+            if (!p[3]) return p - str + 3;
+            if (!p[4]) return p - str + 4;
+            if (!p[5]) return p - str + 5;
+            if (!p[6]) return p - str + 6;
+            return p - str + 7;
+        }
+    }
+#else
     /*
      * Unroll loop (4x) to reduce branching overhead.
      * This is faster than byte-by-byte and safer/simpler than word-at-a-time (SWAR)
