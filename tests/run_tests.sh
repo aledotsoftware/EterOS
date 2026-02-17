@@ -47,3 +47,12 @@ rm tests/test_crypto
 
 echo "---------------------------------------------------"
 echo "All tests passed!"
+
+# Test Omni (UI)
+echo "---------------------------------------------------"
+echo "Running test_omni..."
+gcc -c -O2 -D__ETEROS_HOST_TEST__ -Iinclude kernel/ui/omni.c -o omni.o
+gcc -c -O2 -D__ETEROS_HOST_TEST__ -Iinclude kernel/string.c -o string.o
+gcc -O2 -D__ETEROS_HOST_TEST__ tests/test_omni.c omni.o string.o -o tests/test_omni
+./tests/test_omni
+rm tests/test_omni omni.o string.o

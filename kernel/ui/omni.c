@@ -480,22 +480,39 @@ void omni_fill_gradient_v(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t c
     
     dirty_mark(x, y, w, h);
     
-    uint32_t tr = (color_top >> 16) & 0xFF;
-    uint32_t tg = (color_top >> 8) & 0xFF;
-    uint32_t tb = color_top & 0xFF;
-    uint32_t br = (color_bottom >> 16) & 0xFF;
-    uint32_t bg = (color_bottom >> 8) & 0xFF;
-    uint32_t bb = color_bottom & 0xFF;
+    int32_t tr = (color_top >> 16) & 0xFF;
+    int32_t tg = (color_top >> 8) & 0xFF;
+    int32_t tb = color_top & 0xFF;
+    int32_t br = (color_bottom >> 16) & 0xFF;
+    int32_t bg = (color_bottom >> 8) & 0xFF;
+    int32_t bb = color_bottom & 0xFF;
     
     if (omni_bpp == 32) {
+        /* Safety check for division */
+        if (h <= 0) return;
+
+        /* Fixed point 16.16 */
+        int32_t r_val = tr << 16;
+        int32_t g_val = tg << 16;
+        int32_t b_val = tb << 16;
+
+        int32_t r_step = ((br - tr) * 65536) / h;
+        int32_t g_step = ((bg - tg) * 65536) / h;
+        int32_t b_step = ((bb - tb) * 65536) / h;
+
         for (int i = 0; i < h; i++) {
-            uint32_t r = tr + ((br - tr) * i) / h;
-            uint32_t g_ch = tg + ((bg - tg) * i) / h;
-            uint32_t b = tb + ((bb - tb) * i) / h;
-            uint32_t color = 0xFF000000 | (r << 16) | (g_ch << 8) | b;
+            uint32_t r = (r_val >> 16) & 0xFF;
+            uint32_t g = (g_val >> 16) & 0xFF;
+            uint32_t b = (b_val >> 16) & 0xFF;
+
+            uint32_t color = 0xFF000000 | (r << 16) | (g << 8) | b;
             
             uint32_t* row = omni_fb + ((y + i) * omni_pitch_div4) + x;
             memset32(row, color, w);
+
+            r_val += r_step;
+            g_val += g_step;
+            b_val += b_step;
         }
     }
 }

@@ -5,3 +5,7 @@
 ## 2026-10-14 - [Word-at-a-time String Comparison]
 **Learning:** When optimizing `memcmp` with word-sized (e.g., `uint64_t`) comparisons on Little Endian architectures (x86_64), the integer comparison result (`a < b` or `a > b`) does NOT necessarily match the lexicographical byte-wise comparison result due to byte significance order.
 **Action:** Use word-sized comparisons ONLY to check for equality (`a == b`). Upon finding the first differing word, fall back to a byte-wise comparison loop to determine the correct return value sign.
+
+## 2026-10-15 - [Gradient Optimization]
+**Learning:** Integer division per-row in gradient rendering can be expensive (millions of ops/sec). Unsigned arithmetic for color deltas (e.g., `br - tr` where `br < tr`) causes wrap-around bugs in standard integer implementations.
+**Action:** Use fixed-point arithmetic (16.16) to replace division with addition in inner loops and ensure signed types are used for delta calculations to support negative gradients correctly.
