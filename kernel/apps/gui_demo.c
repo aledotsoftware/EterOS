@@ -1729,6 +1729,17 @@ static void draw_doom_preview(int x, int y, int w, int h) {
     omni_draw_string(NULL, x + 20, y + 60, "Doom (No Engine)", 0xCC0000, 0x000000);
 }
 
+static void draw_box_shadow(int x, int y, int w, int h, int thickness, uint32_t color, uint8_t alpha) {
+    /* Top Strip */
+    omni_fill_rect_alpha(x - thickness, y - thickness, w + thickness * 2, thickness, color, alpha);
+    /* Bottom Strip */
+    omni_fill_rect_alpha(x - thickness, y + h, w + thickness * 2, thickness, color, alpha);
+    /* Left Strip */
+    omni_fill_rect_alpha(x - thickness, y, thickness, h, color, alpha);
+    /* Right Strip */
+    omni_fill_rect_alpha(x + w, y, thickness, h, color, alpha);
+}
+
 static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32_t accent, flux_node_id_t node) {
     /* Physics: Magnetic Influence Field (Enabled for Investor WOW) */
     int center_x = x + (w / 2);
@@ -1743,9 +1754,10 @@ static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32
     int shift_y = 0;
     
     if (dist_sq < radius_sq) {
-        int strength = 120; // 0.12 * 1000
-        shift_x = (dx * strength) / 1000;
-        shift_y = (dy * strength) / 1000;
+        /* ⚡ BOLT Optimization: Use shift/mult instead of div/mod (120/1000 ~= 123/1024) */
+        int strength = 123;
+        shift_x = (dx * strength) >> 10;
+        shift_y = (dy * strength) >> 10;
     }
     
     int draw_x = x + shift_x;
@@ -1759,7 +1771,8 @@ static void flux_draw_card(int x, int y, int w, int h, const char* title, uint32
     
     /* Active Glow (Steady, alpha blend for soft edge) */
     if (dist_sq < 40000) {
-        omni_fill_rect_alpha(draw_x - 3, draw_y - 3, w + 6, h + 6, accent, 0x80);
+        /* ⚡ BOLT Optimization: Draw hollow box shadow instead of full rect */
+        draw_box_shadow(draw_x, draw_y, w, h, 3, accent, 0x80);
     }
 
     /* Card background with subtle gradient */
@@ -1983,12 +1996,13 @@ static void draw_focus_mode(void) {
     uint8_t alpha = 60 + ((val * 120) / 100);
 
     /* Outer soft glow */
-    omni_fill_rect_alpha(focused_space->bounds.x - 6, focused_space->bounds.y - 6,
-                     focused_space->bounds.w + 12, focused_space->bounds.h + 12, FLUX_ACCENT_CYAN, alpha / 3);
+    /* ⚡ BOLT Optimization: Draw hollow box shadow (Avoid overdraw) */
+    draw_box_shadow(focused_space->bounds.x, focused_space->bounds.y,
+                    focused_space->bounds.w, focused_space->bounds.h, 6, FLUX_ACCENT_CYAN, alpha / 3);
 
     /* Inner strong glow */
-    omni_fill_rect_alpha(focused_space->bounds.x - 2, focused_space->bounds.y - 2,
-                     focused_space->bounds.w + 4, focused_space->bounds.h + 4, FLUX_ACCENT_CYAN, alpha);
+    draw_box_shadow(focused_space->bounds.x, focused_space->bounds.y,
+                    focused_space->bounds.w, focused_space->bounds.h, 2, FLUX_ACCENT_CYAN, alpha);
 
     /* Draw Window Frame (Title Bar, Close Button, Background) */
     wm_draw_window(focused_space);
