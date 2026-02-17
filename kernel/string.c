@@ -333,11 +333,61 @@ size_t strlcat(char* dest, const char* src, size_t size) {
 }
 
 int strcmp(const char* s1, const char* s2) {
+#ifdef __x86_64__
+    const char *p1 = s1;
+    const char *p2 = s2;
+
+    /* 1. Align p1 to 8 bytes boundary */
+    while ((uintptr_t)p1 & 7) {
+        if (!*p1 || *p1 != *p2) {
+            return *(const unsigned char*)p1 - *(const unsigned char*)p2;
+        }
+        p1++;
+        p2++;
+    }
+
+    /* 2. Optimized path if p2 is also 8-byte aligned */
+    if (((uintptr_t)p2 & 7) == 0) {
+        const uint64_t *lp1 = (const uint64_t *)p1;
+        const uint64_t *lp2 = (const uint64_t *)p2;
+
+        while (1) {
+            uint64_t v1 = *lp1;
+            uint64_t v2 = *lp2;
+
+            /* Check for mismatch */
+            if (v1 != v2) {
+                break;
+            }
+
+            /* Check for null byte using bit magic:
+               (v - 0x01...) & ~v & 0x80... detects if any byte is 0 */
+            if (((v1 - 0x0101010101010101UL) & ~v1 & 0x8080808080808080UL)) {
+                return 0; /* Match found and null terminator present -> Equal */
+            }
+
+            lp1++;
+            lp2++;
+        }
+
+        /* Mismatch or null found, fallback to byte-wise to find exact position */
+        p1 = (const char *)lp1;
+        p2 = (const char *)lp2;
+    }
+
+    /* 3. Byte-wise comparison (Tail or Unaligned p2) */
+    while (*p1 && (*p1 == *p2)) {
+        p1++;
+        p2++;
+    }
+    return *(const unsigned char*)p1 - *(const unsigned char*)p2;
+#else
     while (*s1 && (*s1 == *s2)) {
         s1++;
         s2++;
     }
     return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+#endif
 }
 
 char* strchr(const char *s, int c) {
