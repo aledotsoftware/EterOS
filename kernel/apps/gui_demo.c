@@ -874,10 +874,39 @@ static void draw_santitravel_content(void) {
 
     for (int i = 0; i < 5; i++) {
         int ry = start_y + (i * 60);
-        wm_fill_rect(win_santitravel, (rect_t){20, ry, w - 40, 50}, 0x2A3545);
+
+        /* 🎨 Palette: Hover effect for interactivity */
+        int item_global_x = win_santitravel->bounds.x + 20;
+        int item_global_y = win_santitravel->bounds.y + TITLE_BAR_HEIGHT + ry;
+        bool hover = (mouse_x >= item_global_x && mouse_x < item_global_x + (w - 40) &&
+                      mouse_y >= item_global_y && mouse_y < item_global_y + 50);
+
+        uint32_t bg_col = hover ? 0x3A4555 : 0x2A3545;
+        uint32_t btn_col = hover ? FLUX_ACCENT_CYAN : 0xAAAAAA;
+
+        wm_fill_rect(win_santitravel, (rect_t){20, ry, w - 40, 50}, bg_col);
         wm_fill_rect(win_santitravel, (rect_t){20, ry, 4, 50}, colors[i]);
+
+        /* Save old colors to restore context */
+        uint32_t old_fg = win_santitravel->fg_color;
+        uint32_t old_bg = win_santitravel->bg_color;
+
+        /* Set BG to match rect for clean text rendering */
+        win_santitravel->bg_color = bg_col;
+
         wm_print_at(win_santitravel, 40, ry + 15, places[i]);
+
+        win_santitravel->fg_color = btn_col;
         wm_print_at(win_santitravel, w - 100, ry + 15, "[ VISITAR ]");
+
+        /* Highlighting */
+        if (hover) {
+             wm_fill_rect(win_santitravel, (rect_t){w - 24, ry, 4, 50}, FLUX_ACCENT_CYAN);
+        }
+
+        /* Restore */
+        win_santitravel->fg_color = old_fg;
+        win_santitravel->bg_color = old_bg;
     }
 
     /* Airplane Decoration */
