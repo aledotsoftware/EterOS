@@ -9,3 +9,7 @@
 ## 2026-10-24 - [Fixed Point Gradient & Unsigned Underflow]
 **Learning:** Calculating gradients using `(end - start) * i / h` with `uint32_t` components causes underflow when `end < start`, resulting in corrupted colors. Also, division inside the loop is expensive.
 **Action:** Use `int32_t` fixed-point arithmetic (16.16) to handle negative slopes correctly and replace per-pixel division with integer addition.
+
+## 2026-11-23 - [Glow Overdraw & VRAM Reads]
+**Learning:** Alpha blending operations like `omni_fill_rect_alpha` require reading from the framebuffer (VRAM), which is extremely slow due to uncached memory access. Drawing a full filled rectangle for a border/glow effect and then overwriting the center wastes ~90% of bandwidth.
+**Action:** Use a "hollow" drawing function (4 strips) for borders and glows to eliminate overdraw of the central area, especially for large UI elements.
