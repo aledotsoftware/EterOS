@@ -171,6 +171,21 @@ void pmm_init(void) {
     pmm_mark_region_used((uint64_t)pmm_bitmap, pmm_bitmap_size);
     pmm_mark_region_used((uint64_t)pmm_ref_counts, total_pages);
     
+    /* c) Reservar Initrd si existe */
+    #include "../../include/boot.h"
+    boot_info_t* boot_info = (boot_info_t*)BOOT_INFO_ADDR;
+    if (boot_info->initrd_addr != 0 && boot_info->initrd_size != 0) {
+        terminal_write_string("[PMM] Reservando Initrd en 0x");
+        char buf[32];
+        utoa_hex_s(boot_info->initrd_addr, buf, sizeof(buf));
+        terminal_write_string(buf);
+        terminal_write_string(" Size: ");
+        itoa_s(boot_info->initrd_size, buf, sizeof(buf), 10);
+        terminal_write_string(buf);
+        terminal_write_string("\n");
+        pmm_mark_region_used(boot_info->initrd_addr, boot_info->initrd_size);
+    }
+    
     /* c) Tablas de paginación del bootloader (0x70000-0x76000, ya dentro del 1MB) */
 
     free_mem_start = PAGE_ALIGN_UP(pmm_end);

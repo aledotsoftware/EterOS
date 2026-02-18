@@ -15,6 +15,9 @@ typedef struct window {
     uint32_t bg_color;
     uint32_t fg_color;
     bool active;
+    bool maximized;
+    bool focused;
+    rect_t old_bounds;
 
     /* Z-Order Linked List */
     struct window* next; /* Above this window */
@@ -30,6 +33,8 @@ typedef struct window {
 void wm_init(void);
 window_t* wm_create_window(int32_t x, int32_t y, int32_t w, int32_t h, const char* title);
 void wm_destroy_window(window_t* win);
+void wm_maximize_window(window_t* win);
+void wm_restore_window(window_t* win);
 
 void wm_draw_all(void);
 void wm_draw_window(window_t* win);
@@ -41,6 +46,7 @@ void wm_pump_events(void); /* Main loop helper */
 
 /* Z-Order Management */
 void wm_bring_to_front(window_t* win);
+window_t* wm_get_focused_window(void);
 
 /* Helpers de dibujo contextual */
 void wm_print_at(window_t* win, int32_t x, int32_t y, const char* text);

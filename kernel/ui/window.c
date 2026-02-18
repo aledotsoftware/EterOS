@@ -26,6 +26,11 @@ static int32_t mouse_x = 512;
 static int32_t mouse_y = 384;
 static int32_t mouse_buttons = 0;
 
+/* Dragging State */
+static window_t* dragging_window = NULL;
+static int32_t drag_off_x = 0;
+static int32_t drag_off_y = 0;
+
 /* Event Queue */
 typedef enum {
     WM_EVENT_MOUSE,
@@ -129,13 +134,24 @@ void wm_destroy_window(window_t* win) {
 }
 
 void wm_bring_to_front(window_t* win) {
-    if (!win || win == windows_tail) {
+    if (!win) return;
+    
+    // Clear previous focus
+    if (focused_window) focused_window->focused = false;
+    
+    if (win == windows_tail) {
         focused_window = win;
+        win->focused = true;
         return;
     }
     list_remove(win);
     list_append(win);
     focused_window = win;
+    win->focused = true;
+}
+
+window_t* wm_get_focused_window(void) {
+    return focused_window;
 }
 
 /* Default frame drawing */
@@ -159,13 +175,16 @@ void wm_draw_window_frame(window_t* win) {
     /* Close Button (Red) */
     int btn_x = win->bounds.x + win->bounds.w - 20;
     int btn_y = win->bounds.y + 8;
-    omni_fill_rect(btn_x, btn_y, 12, 12, 0xFF5555);
-
-    /* Maximize Button (Green) */
-    omni_fill_rect(btn_x - 16, btn_y, 12, 12, 0x55FF55);
-
-    /* Minimize Button (Yellow) */
-    omni_fill_rect(btn_x - 32, btn_y, 12, 12, 0xFFFF55);
+    
+    // Si la ventana esta maximizada, omitimos los controles locales 
+    // porque se dibujan en el Unified Header del Status Bar.
+    if (!win->maximized) {
+        omni_fill_rect(btn_x, btn_y, 12, 12, 0xFF5555);
+        /* Maximize Button (Green) */
+        omni_fill_rect(btn_x - 16, btn_y, 12, 12, 0x55FF55);
+        /* Minimize Button (Yellow) */
+        omni_fill_rect(btn_x - 32, btn_y, 12, 12, 0xFFFF55);
+    }
 }
 
 void wm_draw_all(void) {
@@ -198,6 +217,24 @@ void wm_draw_window(window_t* win) {
     else wm_draw_window_frame(win);
 }
 
+void wm_maximize_window(window_t* win) {
+    if (!win || win->maximized) return;
+    win->old_bounds = win->bounds;
+    win->bounds.x = 0;
+    win->bounds.y = 44; // STATUS_BAR_HEIGHT
+    win->bounds.w = omni_get_width();
+    win->bounds.h = omni_get_height() - 44;
+    win->maximized = true;
+    wm_bring_to_front(win);
+}
+
+void wm_restore_window(window_t* win) {
+    if (!win || !win->maximized) return;
+    win->bounds = win->old_bounds;
+    win->maximized = false;
+    wm_bring_to_front(win);
+}
+
 /* Event Queue Impl */
 void wm_push_event(wm_event_t evt) {
     int next = (wm_q_head + 1) % WM_EVENT_QUEUE_SIZE;
@@ -208,7 +245,7 @@ void wm_push_event(wm_event_t evt) {
 }
 
 void wm_push_mouse_packet(int8_t dx, int8_t dy, uint8_t buttons) {
-    wm_event_t evt;
+    wm_event_t evt = {0};
     evt.type = WM_EVENT_MOUSE;
     evt.dx = dx;
     evt.dy = dy;
@@ -225,7 +262,7 @@ void wm_pump_events(void) {
     /* 1. Poll Keyboard */
     while (keyboard_has_input()) {
         char c = keyboard_getchar();
-        wm_event_t evt;
+        wm_event_t evt = {0};
         evt.type = WM_EVENT_KEY;
         evt.key = c;
         wm_push_event(evt);
@@ -252,34 +289,58 @@ void wm_pump_events(void) {
 
             mouse_buttons = evt.buttons;
 
-            /* Dispatch to Top-Most Window under cursor */
-            window_t* target = windows_tail; /* Start at top */
-            bool handled = false;
-
-            while (target) {
-                if (target->active &&
-                    mouse_x >= target->bounds.x && mouse_x < target->bounds.x + target->bounds.w &&
-                    mouse_y >= target->bounds.y && mouse_y < target->bounds.y + target->bounds.h) {
-
-                    /* Hit! */
-                    if (evt.buttons & 1) {
-                         /* Click brings to front */
-                         if (target != windows_tail) {
-                             wm_bring_to_front(target);
-                         }
-                    }
-
-                    if (target->on_mouse) {
-                        /* Send local coordinates */
-                        target->on_mouse(target, mouse_x - target->bounds.x, mouse_y - target->bounds.y, mouse_buttons);
-                    }
-
-                    handled = true;
-                    break;
+            /* Handle Dragging */
+            if (dragging_window) {
+                if (evt.buttons & 1) {
+                    /* Identify monitors boundaries? For now just move. */
+                    dragging_window->bounds.x = mouse_x - drag_off_x;
+                    dragging_window->bounds.y = mouse_y - drag_off_y;
+                } else {
+                    /* Mouse released */
+                    dragging_window = NULL;
                 }
-                target = target->prev;
             }
 
+            /* Dispatch to Top-Most Window under cursor */
+            /* If dragging, we consume events or pass them? Typically consume move, pass others? */
+            /* For simplicity, if dragging, we don't dispatch to others to avoid weird hover effects */
+            
+            if (!dragging_window) {
+                window_t* target = windows_tail; /* Start at top */
+                while (target) {
+                    if (target->active &&
+                        mouse_x >= target->bounds.x && mouse_x < target->bounds.x + target->bounds.w &&
+                        mouse_y >= target->bounds.y && mouse_y < target->bounds.y + target->bounds.h) {
+    
+                        /* Hit! */
+                        if (evt.buttons & 1) {
+                             /* Click brings to front */
+                             if (target != windows_tail) {
+                                 wm_bring_to_front(target);
+                             }
+                             
+                             /* Title Bar Hit Test for Dragging */
+                             /* Standard Title Bar Height = 30. Buttons are approx right 60px. */
+                             int local_x = mouse_x - target->bounds.x;
+                             int local_y = mouse_y - target->bounds.y;
+                             
+                             if (local_y < 30 && local_x < (target->bounds.w - 60) && !target->maximized) {
+                                 /* Start Dragging */
+                                 dragging_window = target;
+                                 drag_off_x = local_x;
+                                 drag_off_y = local_y;
+                             }
+                        }
+    
+                        if (target->on_mouse) {
+                            /* Send local coordinates */
+                            target->on_mouse(target, mouse_x - target->bounds.x, mouse_y - target->bounds.y, mouse_buttons);
+                        }
+                        break;
+                    }
+                    target = target->prev;
+                }
+            }
         } else if (evt.type == WM_EVENT_KEY) {
             if (focused_window && focused_window->on_key) {
                 focused_window->on_key(focused_window, evt.key);

@@ -125,3 +125,46 @@ char *strstr(const char *haystack, const char *needle) {
     }
     return (void*)0;
 }
+
+static int tolower(int c) {
+    if (c >= 'A' && c <= 'Z') return c + ('a' - 'A');
+    return c;
+}
+
+int strcasecmp(const char *s1, const char *s2) {
+    const unsigned char *p1 = (const unsigned char *)s1;
+    const unsigned char *p2 = (const unsigned char *)s2;
+    int result;
+    if (p1 == p2) return 0;
+    while ((result = tolower(*p1) - tolower(*p2)) == 0) {
+        if (*p1++ == '\0') return 0;
+        p2++;
+    }
+    return result;
+}
+
+int strncasecmp(const char *s1, const char *s2, size_t n) {
+    const unsigned char *p1 = (const unsigned char *)s1;
+    const unsigned char *p2 = (const unsigned char *)s2;
+    int result;
+    if (p1 == p2) return 0;
+    while (n > 0) {
+        result = tolower(*p1) - tolower(*p2);
+        if (result != 0) return result;
+        if (*p1++ == '\0') return 0;
+        p2++;
+        n--;
+    }
+    return 0;
+}
+
+#include <stdlib.h>
+
+char *strdup(const char *s) {
+    size_t len = strlen(s) + 1;
+    char *new_str = malloc(len);
+    if (new_str) {
+        memcpy(new_str, s, len);
+    }
+    return new_str;
+}

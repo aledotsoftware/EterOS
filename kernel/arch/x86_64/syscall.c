@@ -21,6 +21,7 @@
 #include <lock.h>
 #include <timer.h>
 #include <vmm.h>
+#include <framebuffer.h>
 
 extern void syscall_entry(void);
 
@@ -199,8 +200,44 @@ static int64_t sys_mmap(void* addr, size_t len, int prot, int flags, int fd, int
     if (len == 0) return -EINVAL;
 
     /* MAP_ANONYMOUS = 0x20 */
+    /* MAP_ANONYMOUS = 0x20 */
     if (!(flags & 0x20)) {
-        return -ENODEV; /* File mapping not implemented yet */
+        /* Check for /dev/fb0 - File Mapping */
+        task_t* current = task_get_current();
+        if (fd < 0 || fd >= MAX_FD) return -EBADF;
+        if (!current->fd_table[fd].node) return -EBADF;
+
+        fs_node_t* node = current->fd_table[fd].node;
+        /* fb0 is char device with inode 5 */
+        if ((node->flags & 0x7) == FS_CHARDEVICE && node->inode == 5) {
+             /* Map Framebuffer */
+             uint64_t phys_addr = (uint64_t)framebuffer_get_buffer();
+             size_t fb_size = framebuffer_get_height() * framebuffer_get_pitch();
+             
+             if (len > fb_size) len = fb_size;
+
+             uint64_t virt;
+             if (addr && (flags & 0x10)) { /* MAP_FIXED */
+                 virt = (uint64_t)addr;
+                 if (virt & 0xFFF) return -EINVAL;
+             } else {
+                 virt = current->mmap_base;
+                 current->mmap_base += PAGE_ALIGN_UP(len);
+             }
+             
+             uint64_t start = PAGE_ALIGN_DOWN(virt);
+             uint64_t end = PAGE_ALIGN_UP(virt + len);
+             uint64_t phys_start = PAGE_ALIGN_DOWN(phys_addr);
+             
+             for (uint64_t v = start; v < end; v += PAGE_SIZE) {
+                 /* User | Read | Write */
+                 hal_mem_map(phys_start, v, HAL_MEM_USER | HAL_MEM_READ | HAL_MEM_WRITE);
+                 phys_start += PAGE_SIZE;
+             }
+             return virt;
+        }
+
+        return -ENODEV; 
     }
 
     task_t* current = task_get_current();
@@ -234,6 +271,7 @@ static int64_t sys_mmap(void* addr, size_t len, int prot, int flags, int fd, int
 
     return virt;
 }
+
 
 static int64_t sys_pipe(int* pipefd) {
     if (!validate_user_buffer(pipefd, 2 * sizeof(int))) return -EFAULT;
@@ -571,10 +609,45 @@ static int64_t sys_uname(struct utsname* buf) {
     return 0;
 }
 
+typedef struct {
+    uint32_t width;
+    uint32_t height;
+    uint32_t pitch;
+    uint32_t bpp;
+} fb_info_ioctl_t;
+
 static int64_t sys_ioctl(int fd, unsigned long request, void* arg) {
-    (void)fd; (void)request; (void)arg;
     /* Determine if it is a TTY */
-    if (fd == 0 || fd == 1 || fd == 2) return 0; // Success for stdio
+    if (fd == 0) { // Stdin
+        if (request == 0xB002) { // KBD_CHECK
+             int ready = keyboard_has_input() ? 1 : 0;
+             if (!validate_user_buffer(arg, sizeof(int))) return -EFAULT;
+             *(int*)arg = ready;
+             return 0;
+        }
+        return 0; // Other TTY ioctls ignored
+    }
+    if (fd == 1 || fd == 2) return 0; // Stdout/Stderr
+
+    task_t* current = task_get_current();
+    if (fd >= 0 && fd < MAX_FD && current->fd_table[fd].node) {
+        fs_node_t* node = current->fd_table[fd].node;
+        /* fb0: inode 5 */
+        if (node->inode == 5) {
+             if (request == 0xB001) { // FB_GET_INFO
+                 fb_info_ioctl_t info;
+                 info.width = framebuffer_get_width();
+                 info.height = framebuffer_get_height();
+                 info.pitch = framebuffer_get_pitch();
+                 info.bpp = framebuffer_get_bpp();
+                 
+                 /* Validate user buffer */
+                 if (!validate_user_buffer(arg, sizeof(fb_info_ioctl_t))) return -EFAULT;
+                 memcpy(arg, &info, sizeof(fb_info_ioctl_t));
+                 return 0;
+             }
+        }
+    }
     return -ENOTTY;
 }
 

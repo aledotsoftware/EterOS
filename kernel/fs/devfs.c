@@ -5,6 +5,7 @@
 #include <hal.h>
 #include <keyboard.h>
 #include <vga.h>
+#include <framebuffer.h>
 
 /* Global root node for DevFS */
 static fs_node_t* devfs_root = NULL;
@@ -98,6 +99,33 @@ static uint32_t dev_random_write(fs_node_t *node, uint32_t offset, uint32_t size
 }
 
 /* ========================================================================= */
+/* /dev/fb0 Implementation                                                   */
+/* ========================================================================= */
+static uint32_t dev_fb_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+    (void)node;
+    uint32_t* fb = framebuffer_get_buffer();
+    uint32_t fb_size = framebuffer_get_height() * framebuffer_get_pitch();
+    
+    if (offset >= fb_size) return 0;
+    if (offset + size > fb_size) size = fb_size - offset;
+    
+    memcpy(buffer, (uint8_t*)fb + offset, size);
+    return size;
+}
+
+static uint32_t dev_fb_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+    (void)node;
+    uint32_t* fb = framebuffer_get_buffer();
+    uint32_t fb_size = framebuffer_get_height() * framebuffer_get_pitch();
+    
+    if (offset >= fb_size) return 0;
+    if (offset + size > fb_size) size = fb_size - offset;
+    
+    memcpy((uint8_t*)fb + offset, buffer, size);
+    return size;
+}
+
+/* ========================================================================= */
 /* DevFS Directory Operations                                                */
 /* ========================================================================= */
 
@@ -166,6 +194,16 @@ static fs_node_t *devfs_finddir(fs_node_t *node, char *name) {
         fnode->read = dev_random_read;
         fnode->write = dev_random_write;
         fnode->inode = 4;
+    } else if (strcmp(name, "urandom") == 0) {
+        strlcpy(fnode->name, "urandom", sizeof(fnode->name));
+        fnode->read = dev_random_read;
+        fnode->write = dev_random_write;
+        fnode->inode = 4;
+    } else if (strcmp(name, "fb0") == 0) {
+        strlcpy(fnode->name, "fb0", sizeof(fnode->name));
+        fnode->read = dev_fb_read;
+        fnode->write = dev_fb_write;
+        fnode->inode = 5;
     } else {
         kfree(fnode);
         return 0;

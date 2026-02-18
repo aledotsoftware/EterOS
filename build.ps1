@@ -231,6 +231,7 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\net\stack.c",
     "$KERNEL_DIR\net\raw_tcp.c",
     "$KERNEL_DIR\net\tcp.c",
+    "$KERNEL_DIR\net\dns.c",
     "$KERNEL_DIR\mm\heap.c",
     "$KERNEL_DIR\mm\pmm.c",
     "$KERNEL_DIR\mm\vmm.c",
@@ -427,6 +428,68 @@ function Invoke-UserspaceBuild {
     if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al enlazar test.elf"; exit 1 }
 
     Write-Step "OK" "Userspace construido: $testElf"
+    
+    Invoke-DoomBuild
+}
+
+function Invoke-DoomBuild {
+    Write-Step "CC" "Compilando Doom..."
+    $userDir = "userspace"
+    $doomDir = "$userDir\doom"
+    $doomGenDir = "$doomDir\doomgeneric"
+    $objDir = "$BUILD_DIR\userspace\doom"
+    $initrdRoot = "initrd_root"
+    
+    if (!(Test-Path $objDir)) { New-Item -ItemType Directory -Force -Path $objDir | Out-Null }
+    
+    # Generic Sources (excluding platforms)
+    $srcs = Get-ChildItem "$doomGenDir\*.c" | Where-Object { 
+        $_.Name -notmatch "doomgeneric_sdl|doomgeneric_win|doomgeneric_xlib|doomgeneric_soso|doomgeneric_sosox|doomgeneric_allegro|doomgeneric_emscripten|doomgeneric_linuxvt|i_allegromusic|i_allegrosound|i_sdlmusic|i_sdlsound" 
+    }
+    
+    # Platform Source
+    $platformSrc = "$doomDir\doomgeneric_eteros.c"
+    
+    $doomObjs = @()
+    
+    # Compile Generic
+    foreach ($src in $srcs) {
+        $obj = "$objDir\$($src.Name -replace '\.c$', '.o')"
+        $doomObjs += $obj
+        & $CC -m64 -mcmodel=large -ffreestanding -fno-builtin -fno-stack-protector -nostdlib -std=gnu89 -w -Os -I"$userDir\libc\include" -I"$doomGenDir" -DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200 -c $src.FullName -o $obj
+        if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al compilar DOOM ($($src.Name))"; exit 1 }
+    }
+    
+    # Compile Platform
+    $platObj = "$objDir\doomgeneric_eteros.o"
+    $doomObjs += $platObj
+    & $CC -m64 -mcmodel=large -ffreestanding -fno-builtin -fno-stack-protector -nostdlib -std=gnu89 -w -Os -I"$userDir\libc\include" -I"$doomGenDir" -DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200 -c $platformSrc -o $platObj
+    if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al compilar doomgeneric_eteros.c"; exit 1 }
+    
+    # Link
+    $doomElf = "$initrdRoot\doom.elf"
+    # Need libc objects
+    $libcObjs = Get-ChildItem "$BUILD_DIR\userspace\libc\*.o" | Select-Object -ExpandProperty FullName
+    
+    & $LD -T "$userDir\linker.ld" -nostdlib -m elf_x86_64 -o $doomElf $doomObjs $libcObjs
+    if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al enlazar DOOM"; exit 1 }
+    
+    Write-Step "OK" "Doom compilado: $doomElf"
+
+    # Download Shareware WAD
+    $wadPath = "$initrdRoot\doom1.wad"
+    if (!(Test-Path $wadPath)) {
+        Write-Step "NET" "Descargando doom1.wad (Shareware)..."
+        try {
+            # Source: A reliable mirror for Shareware Doom
+            $url = "https://www.ibiblio.org/pub/historic-linux/distributions/slitaz/sources/packages/d/doom1.wad"
+            Invoke-WebRequest -Uri $url -OutFile $wadPath
+            Write-Step "OK" "WAD Descargado."
+        }
+        catch {
+            Write-Step "ERR" "Fallo descarga WAD. Por favor copia doom1.wad a initrd_root manual."
+        }
+    }
 }
 
 function Invoke-InitrdBuild {

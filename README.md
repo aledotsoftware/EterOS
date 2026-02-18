@@ -292,24 +292,6 @@ Para que el sistema sea considerado "listo para producción", el flujo de actual
 
 
 
-### Fase 5: Entorno Gráfico (Flux UI & AetherGraphics) ✅
-- [x] **Motor de Dibujo "Omni":** Primitivas 2D (líneas, rectángulos, fuentes) y **Decodificador PNG Nativo** para iconos y assets (`kernel/ui/upng.c`)
-- [x] **Double Buffering Activo:** Renderizado libre de parpadeo con composicion en RAM antes de flush (`kernel/ui/image.c`)
-- [x] **Event Loop Reactivo:** Sistema de despacho de mensajes (Mouse + Teclado) dirigido a la ventana focalizada.
-- [x] **Compositor de Ventanas:** Gestión de apilamiento (Z-order) y transparencia alfa básica en el kernel (`kernel/ui/window.c`)
-- [x] **Flux UI Experience:** Entorno táctil/estilizado con 16+ aplicaciones integradas:
-    - 📟 **Terminal Flux:** Integrada con soporte completo para comandos (`ls`, `ps`, `sysinfo`).
-    - 📁 **Monitor de Sistema:** Gestión visual de procesos y recursos.
-    - 🛠️ **Admin. de Dispositivos:** Inventario de hardware (CPU, RAM, PCI).
-    - 📡 **Monitor de Red:** Estado de IP y conectividad en tiempo real.
-    - 🎮 **SantiTravel:** El legendario juego de aventuras portado a la GUI.
-    - 🌌 **The Matrix:** Simulación de lluvia de código optimizada para Omni.
-    - 🎨 **Lienzo (Paint):** Herramienta de dibujo con soporte de transparencia.
-    - 🧪 **Calculadora & Notas:** Aplicaciones de productividad para el día a día.
-    - 🌐 **Navegador Eter:** Acceso a red con soporte lwIP y sockets.
-    - 🕒 **Reloj & Calendario:** Gestión de tiempo basada en RTC.
-    - 🔊 **Reproductor de Música & Galería:** Stubs de medios con interfaz unificada.
-
 
 ### Fase 5.1: Optimización del Motor Gráfico (Omni v2.0) ✅
 - [x] **Motor Omni v2.0:** Refactorización completa del motor de dibujo 2D:

@@ -2,6 +2,7 @@
 #define _UNISTD_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include <sys/syscall.h>
 
 #define SEEK_SET 0
@@ -9,7 +10,6 @@
 #define SEEK_END 2
 
 typedef int32_t ssize_t;
-typedef uint64_t size_t;
 typedef int pid_t;
 
 /* File Descriptors */

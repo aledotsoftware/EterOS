@@ -75,3 +75,10 @@ int kill(int pid, int sig) {
     if (ret < 0) { errno = -ret; return -1; }
     return (int)ret;
 }
+
+int ioctl(int fd, unsigned long request, void *arg) {
+    long ret = syscall3(SYS_ioctl, fd, request, (long)arg);
+    /* 16 = SYS_ioctl */
+    if (ret < 0) { errno = -ret; return -1; }
+    return (int)ret;
+}

@@ -156,7 +156,7 @@ void __attribute__((section(".text.boot"))) kmain(void) {
 
         /* ---- 3.6 Mostrar Logo de Arranque (Initrd Ready) ---- */
         /* Mostramos el logo ahora que tenemos sistema de archivos */
-        gui_draw_boot_logo();
+        // gui_draw_boot_logo();
 
     #else
         /* Tier 1 (Microcontroller): Use simple static heap or similar if needed */
@@ -198,30 +198,35 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     task_create("UserLoader", user_loader_entry);
 
     /* ---- 8. Lanzar Entorno de Escritorio (Flux UI) como Tarea Separada ---- */
-    hal_console_write("  [INIT] Lanzando Flux UI...\n");
+    // hal_console_write("  [INIT] Lanzando Flux UI...\n");
     
+    /* Silence VGA/FB console to prevent overwriting the GUI */
+    // terminal_set_silent(true);
+
     /* Crear la tarea para la GUI (será PID 1) */
-    int gui_pid = task_create("FluxUI", gui_demo_run);
+    // int gui_pid = task_create("FluxUI", gui_demo_run);
     
-    hal_interrupts_enable(); 
+    // hal_interrupts_enable(); 
 
     /* La Tarea 0 (Kernel) espera a que la GUI termine o sea 'matada' 
        para evitar conflictos de teclado y recursos. */
-    while (gui_pid >= 0) {
-        task_t* t = task_get_by_id(gui_pid); 
-        /* Si la tarea ya no existe o está muerta, salimos del loop */
-        if (!t || t->state == TASK_DEAD) {
-            hal_debug_write("[MAIN] GUI Task DEAD or NULL. Exiting loop.\n");
-            break;
-        }
-        // hal_debug_write("[MAIN] GUI running...\n"); /* Uncomment for spam debug */
-        task_sleep(200); /* No desperdiciar ciclos */
-    }
+    // while (gui_pid >= 0) {
+    //     task_t* t = task_get_by_id(gui_pid); 
+    //     /* Si la tarea ya no existe o está muerta, salimos del loop */
+    //     if (!t || t->state == TASK_DEAD) {
+    //         hal_debug_write("[MAIN] GUI Task DEAD or NULL. Exiting loop.\n");
+    //         break;
+    //     }
+    //     // hal_debug_write("[MAIN] GUI running...\n"); /* Uncomment for spam debug */
+    //     task_sleep(200); /* No desperdiciar ciclos */
+    // }
 
     /* Al cerrar o matar la GUI, volvemos al modo texto */
     terminal_set_silent(false);
-    hal_console_write("\n  [INFO] FluxUI finalizado. Retornando a consola...\n");
+    hal_console_write("\n  [INFO] System Ready. Starting Shell...\n");
     terminal_initialize(NULL); /* Reset terminal state & screen */
+    
+    hal_interrupts_enable();
     shell_run(); 
 
     /* ---- 9. Lanzar shell interactivo (Fallback) ---- */

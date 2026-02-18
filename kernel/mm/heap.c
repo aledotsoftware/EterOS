@@ -22,8 +22,8 @@
 /* Dirección donde termina el kernel (símbolo del linker) */
 extern uint8_t _kernel_end;
 
-/* Constante de seguridad: Mínimo 1MB para evitar la zona baja reservada */
-#define ARCH_RESERVED_MEM_END  0x100000
+/* Constante de seguridad: Mínimo 8MB para evitar la zona baja reservada e Initrd */
+#define ARCH_RESERVED_MEM_END  0x800000
 
 /* Magic Number para validación de heap */
 #define HEAP_MAGIC 0x48454150 /* "HEAP" */

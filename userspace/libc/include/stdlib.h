@@ -2,8 +2,7 @@
 #define _STDLIB_H
 
 #include <stdint.h>
-
-typedef uint64_t size_t;
+#include <stddef.h>
 
 /* Process termination */
 void exit(int status) __attribute__((noreturn));
@@ -14,9 +13,15 @@ void  free(void *ptr);
 void *calloc(size_t nmemb, size_t size);
 void *realloc(void *ptr, size_t size);
 
+int  abs(int j);
+long labs(long j);
+
 /* String conversion */
 int   atoi(const char *nptr);
 long  atol(const char *nptr);
+long  strtol(const char *nptr, char **endptr, int base);
+double strtod(const char *nptr, char **endptr);
+double atof(const char *nptr);
 
 /* Pseudo-random */
 #define RAND_MAX 0x7fffffff
@@ -27,6 +32,6 @@ void  srand(unsigned int seed);
 void  abort(void) __attribute__((noreturn));
 
 /* Misc */
-#define NULL ((void *)0)
+/* NULL is defined in stddef.h */
 
 #endif /* _STDLIB_H */

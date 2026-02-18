@@ -5,6 +5,7 @@
 
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
 #include <errno.h>
 
 extern int errno;
@@ -157,4 +158,13 @@ char *getcwd(char *buf, size_t size) {
     long ret = _syscall2(SYS_getcwd, (long)buf, (long)size);
     if (ret < 0) { errno = (int)(-ret); return (void*)0; }
     return buf;
+}
+
+int mkdir(const char *pathname, mode_t mode) {
+    long ret = _syscall2(SYS_mkdir, (long)pathname, mode);
+    if (ret < 0) {
+        errno = (int)(-ret);
+        return -1;
+    }
+    return 0;
 }

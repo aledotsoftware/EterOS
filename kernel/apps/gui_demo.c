@@ -50,9 +50,6 @@ extern uint32_t my_ip; // Defined in stack.c
 
 static volatile bool desktop_running = true;
 
-/* Mouse */
-static int32_t mouse_x = 512;
-static int32_t mouse_y = 384;
 static bool    mouse_left_btn = false;
 
 /* Ventanas de Sistema */
@@ -61,9 +58,7 @@ static window_t* statusbar_win = NULL;
 static window_t* dock_win = NULL;
 static window_t* launcher_win = NULL;
 static window_t* control_center_win = NULL;
-
 /* Estado Global UI */
-static bool launcher_active = false;
 static bool control_center_active = false;
 static char launcher_search[64] = "";
 
@@ -109,9 +104,19 @@ static void statusbar_on_paint(window_t* win) {
 
     /* Left: Logo & App Name */
     omni_draw_string(NULL, 20, 14, "Eter OS", 0xFFFFFF, 0x00000000);
-
-    const char* app_name = "Escritorio";
-    // omni_draw_string(NULL, 100, 14, app_name, 0xFFFFFF, ...);
+    
+    // Unified Header: Mostrar controles si hay una ventana maximizada enfocada
+    window_t* focused_window = wm_get_focused_window();
+    if (focused_window && focused_window->maximized) {
+        omni_draw_string(NULL, 100, 14, "|", CLR_TEXT_SEC, 0x000000);
+        omni_draw_string(NULL, 120, 14, focused_window->title, CLR_TEXT_PRI, 0x000000);
+        
+        // Window Controls in Status Bar
+        int cx = 300;
+        omni_fill_rect(cx, 16, 12, 12, 0xFF5555); // Close
+        omni_fill_rect(cx + 16, 16, 12, 12, 0x55FF55); // Max/Restore
+        omni_fill_rect(cx + 32, 16, 12, 12, 0xFFFF55); // Min
+    }
 
     /* Right: Control Center Toggles */
     // WiFi, Battery, Clock
@@ -147,6 +152,16 @@ static void statusbar_on_paint(window_t* win) {
 static void statusbar_on_mouse(window_t* win, int x, int y, int b) {
     (void)win; (void)y;
     int w = omni_get_width();
+    
+    // Unified Header Clicks
+    window_t* focused_window = wm_get_focused_window();
+    if (focused_window && focused_window->maximized) {
+        if (b & 1 && !mouse_left_btn) {
+            if (x >= 300 && x <= 312) { wm_destroy_window(focused_window); mouse_left_btn = true; return; }
+            if (x >= 316 && x <= 328) { wm_restore_window(focused_window); mouse_left_btn = true; return; }
+        }
+    }
+
     if (b & 1 && !mouse_left_btn) {
         mouse_left_btn = true;
         if (x > w - 200) { // Right side -> Control Center
@@ -187,22 +202,22 @@ static void dock_on_paint(window_t* win) {
     
     // 1. Launcher
     omni_fill_rect_alpha(start_x, cy, icon_size, icon_size, 0xFFFFFF, 0x1A);
-    omni_draw_char_scaled(start_x + 12, cy + 8, 'M', 0xFFFFFF, 2);
+    ui_draw_image("icon_launcher.png", start_x, cy);
     
     // 2. GIMP (Linux)
     start_x += icon_size + gap;
     omni_fill_rect_alpha(start_x, cy, icon_size, icon_size, CLR_LINUX, 0x40);
-    omni_draw_char_scaled(start_x + 12, cy + 8, 'G', 0xFFFFFF, 2);
+    ui_draw_image("icon_gimp.png", start_x, cy);
     
     // 3. Play Store (Android)
     start_x += icon_size + gap;
     omni_fill_rect_alpha(start_x, cy, icon_size, icon_size, CLR_ANDROID, 0x40);
-    omni_draw_char_scaled(start_x + 12, cy + 8, 'P', 0xFFFFFF, 2);
+    ui_draw_image("icon_play.png", start_x, cy);
 
     // 4. Terminal
     start_x += icon_size + gap;
     omni_fill_rect_alpha(start_x, cy, icon_size, icon_size, 0x000000, 0x80);
-    omni_draw_char_scaled(start_x + 12, cy + 8, '>', 0xFFFFFF, 2);
+    ui_draw_image("icon_term.png", start_x, cy);
 }
 
 static void dock_on_mouse(window_t* win, int x, int y, int b) {
@@ -321,34 +336,124 @@ static void launcher_on_paint(window_t* win) {
     // Grid
     int gx = sx;
     int gy = sy + 80;
-    int item_w = 100;
-    int item_h = 100;
-    int cols = 5;
+    int item_w = 110;
+    int item_h = 110;
+    int cols = 6;
     
-    const char* apps[] = {"GIMP", "VS Code", "Terminal", "Spotify", "Chrome"};
-    uint32_t tags[] = {CLR_LINUX, CLR_LINUX, CLR_LINUX, CLR_ANDROID, CLR_ANDROID};
+    const char* apps[] = {
+        "Firefox", "VLC", "VS Code", "LibreOffice", "GIMP", "Terminal",
+        "Spotify", "Chrome", "Play Store", "Instagram", "WhatsApp", "Gmail", "Maps", "YouTube"
+    };
+    uint32_t tags[] = {
+        CLR_LINUX, CLR_LINUX, CLR_LINUX, CLR_LINUX, CLR_LINUX, CLR_LINUX,
+        CLR_ANDROID, CLR_ANDROID, CLR_ANDROID, CLR_ANDROID, CLR_ANDROID, CLR_ANDROID, CLR_ANDROID, CLR_ANDROID
+    };
+    char icons[] = {
+        'F', 'V', 'C', 'L', 'G', '>',
+        'S', 'C', 'P', 'I', 'W', 'M', '@', 'Y'
+    };
     
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 14; i++) {
         int col = i % cols;
         int row = i / cols;
-        int x = gx + col * (item_w + 20);
-        int y = gy + row * (item_h + 20);
+        int x = gx + col * (item_w + 10);
+        int y = gy + row * (item_h + 10);
 
         // Icon Bg
-        omni_fill_rect_alpha(x + 20, y, 60, 60, 0xFFFFFF, 0x10);
+        omni_fill_rect_alpha(x + 25, y + 10, 60, 60, 0xFFFFFF, 0x15);
+        omni_draw_char_scaled(x + 40, y + 22, icons[i], 0xFFFFFF, 2);
 
         // Tag
-        omni_fill_rect(x + 20, y + 65, 40, 10, tags[i]);
+        omni_fill_rect(x + 25, y + 75, 50, 4, tags[i]);
 
         // Name
-        omni_draw_string(NULL, x + 20, y + 80, apps[i], 0xFFFFFF, 0x000000);
+        omni_draw_string(NULL, x + 15, y + 85, apps[i], 0xFFFFFF, 0x000000);
+    }
+}
+
+static void app_window_on_mouse(window_t* win, int x, int y, int b) {
+    if (win->maximized) return; // Controls handled by Status Bar
+    
+    if (b & 1 && !mouse_left_btn) {
+        mouse_left_btn = true;
+        
+        // Title bar hit test
+        if (y < 30) {
+            int btn_x = win->bounds.w - 20;
+            if (x >= btn_x && x <= btn_x + 12) { wm_destroy_window(win); return; }
+            if (x >= btn_x - 16 && x <= btn_x - 4) { wm_maximize_window(win); return; }
+        }
+    } else if (!(b & 1)) {
+        mouse_left_btn = false;
     }
 }
 
 static void launcher_on_mouse(window_t* win, int x, int y, int b) {
-    (void)win;
+    (void)win; 
+    int sw = omni_get_width();
+
     if (b & 1 && !mouse_left_btn) {
         mouse_left_btn = true;
+        
+        // Grid Calculations (Must match on_paint)
+        int search_w = 600;
+        int sx = (sw - search_w) / 2;
+        int sy = 100;
+        
+        int gx = sx;
+        int gy = sy + 80;
+        int item_w = 110;
+        int item_h = 110;
+        int cols = 6;
+        
+        // Check grid clicks
+        if (x >= gx && y >= gy) {
+            int rel_x = x - gx;
+            int rel_y = y - gy;
+            
+            int col = rel_x / (item_w + 10);
+            int row = rel_y / (item_h + 10);
+            
+            // Check if inside item bounds (ignoring gap roughly)
+            int offset_x = rel_x % (item_w + 10);
+            int offset_y = rel_y % (item_h + 10);
+            
+            if (offset_x < item_w && offset_y < item_h) {
+                int index = row * cols + col;
+                
+                if (index >= 0 && index < 14) {
+                    // Launch App!
+                    const char* apps[] = {
+                        "Firefox", "VLC", "VS Code", "LibreOffice", "GIMP", "Terminal",
+                        "Spotify", "Chrome", "Play Store", "Instagram", "WhatsApp", "Gmail", "Maps", "YouTube"
+                    };
+                    
+                    // Close launcher
+                    launcher_win->active = false;
+                    
+                    // Spawn Window
+                    // Position cascaded? Random? Centered?
+                    static int spawn_x = 100;
+                    static int spawn_y = 100;
+                    
+                    window_t* new_win = wm_create_window(spawn_x, spawn_y, 800, 600, apps[index]);
+                    if (new_win) {
+                        new_win->on_mouse = app_window_on_mouse;
+                        // Determine Color based on app type?
+                        // For now default dark theme
+                        new_win->bg_color = 0x1E1E1E; 
+                    }
+                    
+                    spawn_x += 30;
+                    spawn_y += 30;
+                    if (spawn_x > 400) spawn_x = 50;
+                    if (spawn_y > 300) spawn_y = 50;
+                    
+                    return;
+                }
+            }
+        }
+
         // If click far outside content, close?
         if (y < 80 || y > 600) {
             launcher_win->active = false;
@@ -424,6 +529,7 @@ void gui_demo_run(void) {
 
     /* 5. Demo Apps */
     window_t* w1 = wm_create_window(100, 100, 600, 400, "GIMP (Linux)");
+    if (w1) w1->on_mouse = app_window_on_mouse;
     (void)w1;
     
     while (desktop_running) {
