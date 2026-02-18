@@ -151,11 +151,34 @@ void* memmove(void* dest, const void* src, size_t n) {
     } else {
         s += n - 1;
         d += n - 1;
+
+        size_t qwords = n / 8;
+        size_t remainder = n % 8;
+
+        /* Copy remainder bytes (high to low) using byte-by-byte copy */
         __asm__ volatile (
-            "std; rep movsb; cld"
-            : "+S"(s), "+D"(d), "+c"(n)
+            "std; rep movsb"
+            : "+S"(s), "+D"(d), "+c"(remainder)
             : : "memory"
         );
+
+        /* Copy 8-byte chunks (high to low) using qword copy */
+        if (qwords > 0) {
+            /* Adjust pointers: standard 'movsq' with DF=1 reads 8 bytes starting at [RSI]
+               (i.e., [RSI]...[RSI+7]) then decrements RSI by 8.
+               Current s/d point to the highest byte of the next block. We need to point
+               to the lowest byte of that 8-byte block. */
+            s -= 7;
+            d -= 7;
+            __asm__ volatile (
+                "std; rep movsq"
+                : "+S"(s), "+D"(d), "+c"(qwords)
+                : : "memory"
+            );
+        }
+
+        /* Restore Direction Flag (required by ABI) */
+        __asm__ volatile ("cld" ::: "memory");
     }
     return dest;
 #else
