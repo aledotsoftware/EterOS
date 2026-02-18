@@ -563,44 +563,73 @@ void omni_draw_image_from_path(const char* path, int32_t x, int32_t y) {
                 dirty_mark(x, y, width, height);
 
                 if (omni_bpp == 32) {
-                    for (unsigned py = 0; py < height; py++) {
-                        int dest_y = y + py;
-                        if (dest_y < 0 || (uint32_t)dest_y >= omni_height) continue;
-    
-                        uint32_t* dest_row = omni_fb + (dest_y * omni_pitch_div4);
-    
-                        /* Process entire row at once */
-                        if (format == UPNG_RGBA8) {
-                            const uint8_t* src = buffer + (py * width * 4);
-                            for (unsigned px = 0; px < width; px++) {
-                                int dest_x = x + px;
-                                if (dest_x < 0 || (uint32_t)dest_x >= omni_width) continue;
-                                
-                                uint8_t r = src[px * 4];
-                                uint8_t g = src[px * 4 + 1];
-                                uint8_t b = src[px * 4 + 2];
-                                uint8_t a = src[px * 4 + 3];
-                                
-                                if (a < 10) continue;
-                                
-                                uint32_t color = (0xFF << 24) | (r << 16) | (g << 8) | b;
-                                if (a > 240) {
-                                    dest_row[dest_x] = color;
-                                } else {
-                                    dest_row[dest_x] = _alpha_blend(dest_row[dest_x], color, a);
+                    /* ⚡ BOLT Optimization: Pre-calculate clipping bounds to remove per-pixel checks */
+                    int32_t img_w = (int32_t)width;
+                    int32_t img_h = (int32_t)height;
+
+                    /* Vertical clipping (using int64_t to prevent overflow) */
+                    int32_t start_y = 0;
+                    int32_t end_y = img_h;
+
+                    if (y < 0) start_y = -y;
+
+                    if ((int64_t)y + img_h > omni_height) {
+                        end_y = (int32_t)((int64_t)omni_height - y);
+                    }
+
+                    /* Horizontal clipping */
+                    int32_t start_x = 0;
+                    int32_t end_x = img_w;
+
+                    if (x < 0) start_x = -x;
+
+                    if ((int64_t)x + img_w > omni_width) {
+                        end_x = (int32_t)((int64_t)omni_width - x);
+                    }
+
+                    if (start_y < end_y && start_x < end_x) {
+                        for (int py = start_y; py < end_y; py++) {
+                            int dest_y = y + py;
+                            /* No check needed: dest_y is guaranteed valid */
+
+                            uint32_t* dest_row = omni_fb + (dest_y * omni_pitch_div4);
+
+                            /* Process clipped row */
+                            if (format == UPNG_RGBA8) {
+                                const uint8_t* src_row_start = buffer + (py * width * 4);
+                                for (int px = start_x; px < end_x; px++) {
+                                    int dest_x = x + px;
+                                    /* No check needed: dest_x is guaranteed valid */
+
+                                    const uint8_t* src = src_row_start + (px * 4);
+                                    uint8_t a = src[3];
+
+                                    if (a < 10) continue;
+
+                                    uint8_t r = src[0];
+                                    uint8_t g = src[1];
+                                    uint8_t b = src[2];
+
+                                    uint32_t color = (0xFF << 24) | (r << 16) | (g << 8) | b;
+                                    if (a > 240) {
+                                        dest_row[dest_x] = color;
+                                    } else {
+                                        dest_row[dest_x] = _alpha_blend(dest_row[dest_x], color, a);
+                                    }
                                 }
-                            }
-                        } else if (format == UPNG_RGB8) {
-                            const uint8_t* src = buffer + (py * width * 3);
-                            for (unsigned px = 0; px < width; px++) {
-                                int dest_x = x + px;
-                                if (dest_x < 0 || (uint32_t)dest_x >= omni_width) continue;
-                                
-                                uint32_t color = (0xFF << 24) | 
-                                                 (src[px * 3] << 16) | 
-                                                 (src[px * 3 + 1] << 8) | 
-                                                 src[px * 3 + 2];
-                                dest_row[dest_x] = color;
+                            } else if (format == UPNG_RGB8) {
+                                const uint8_t* src_row_start = buffer + (py * width * 3);
+                                for (int px = start_x; px < end_x; px++) {
+                                    int dest_x = x + px;
+                                    /* No check needed */
+
+                                    const uint8_t* src = src_row_start + (px * 3);
+                                    uint32_t color = (0xFF << 24) |
+                                                     (src[0] << 16) |
+                                                     (src[1] << 8) |
+                                                     src[2];
+                                    dest_row[dest_x] = color;
+                                }
                             }
                         }
                     }
