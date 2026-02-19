@@ -58,6 +58,16 @@ void close_fs(fs_node_t *node);
 struct dirent *readdir_fs(fs_node_t *node, uint32_t index);
 fs_node_t *finddir_fs(fs_node_t *node, char *name);
 
+/**
+ * Resolves a path to a filesystem node.
+ *
+ * @param root The root node to start the search from (usually fs_root).
+ * @param path The path string to look up.
+ * @return A pointer to the found fs_node_t, or NULL if not found.
+ *
+ * @note The returned node is allocated with kmalloc() and MUST be freed
+ *       by the caller using kfree() when it is no longer needed to prevent memory leaks.
+ */
 fs_node_t *vfs_lookup(fs_node_t *root, const char *path);
 
 extern fs_node_t *fs_root;

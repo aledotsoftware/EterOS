@@ -1,0 +1,176 @@
+#define __ETEROS_HOST_TEST__ 1
+#define ETEROS_STRING_H
+#define ETEROS_MM_H
+#define FS_VFS_H
+#define ETEROS_TYPES_H
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <assert.h>
+
+/* Types (matches include/fs/vfs.h and types.h) */
+typedef uint32_t uint32_t;
+typedef uint8_t  uint8_t;
+typedef int32_t  int32_t;
+typedef int64_t  int64_t;
+typedef uint64_t uint64_t;
+typedef int64_t  time_t;
+
+#define FS_FILE        0x01
+#define FS_DIRECTORY   0x02
+#define FS_CHARDEVICE  0x03
+#define FS_BLOCKDEVICE 0x04
+#define FS_PIPE        0x05
+#define FS_SYMLINK     0x06
+#define FS_MOUNTPOINT  0x08
+
+struct fs_node;
+struct dirent {
+    char name[128];
+    uint32_t inode;
+};
+
+typedef uint32_t (*read_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);
+typedef uint32_t (*write_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);
+typedef void (*open_type_t)(struct fs_node*);
+typedef void (*close_type_t)(struct fs_node*);
+typedef struct dirent * (*readdir_type_t)(struct fs_node*, uint32_t);
+typedef struct fs_node * (*finddir_type_t)(struct fs_node*, char *name);
+
+typedef struct fs_node {
+    char name[128];
+    uint32_t mask;
+    uint32_t uid;
+    uint32_t gid;
+    uint32_t flags;
+    uint32_t inode;
+    uint32_t length;
+    uint32_t impl;
+    time_t   atime;
+    time_t   mtime;
+    time_t   ctime;
+    read_type_t read;
+    write_type_t write;
+    open_type_t open;
+    close_type_t close;
+    readdir_type_t readdir;
+    finddir_type_t finddir;
+    struct fs_node *ptr;
+} fs_node_t;
+
+/* Externs from vfs.c */
+extern fs_node_t *fs_root;
+extern fs_node_t *vfs_lookup(fs_node_t *root, const char *path);
+
+/* Global Tracking */
+int kmalloc_count = 0;
+int kfree_count = 0;
+
+void* kmalloc(size_t size) {
+    kmalloc_count++;
+    void* ptr = malloc(size);
+    return ptr;
+}
+
+void kfree(void* ptr) {
+    if (!ptr) return;
+    kfree_count++;
+    free(ptr);
+}
+
+/* Helper for finding root */
+fs_node_t* finddir_fs(fs_node_t* node, char* name);
+
+/* Include Code Under Test */
+#include "../kernel/fs/vfs.c"
+
+/* Mock FS Implementation */
+fs_node_t* mock_finddir(fs_node_t* node, char* name) {
+    (void)node;
+    fs_node_t* new_node = (fs_node_t*)kmalloc(sizeof(fs_node_t));
+    if (!new_node) return NULL;
+    memset(new_node, 0, sizeof(fs_node_t));
+    strncpy(new_node->name, name, 127);
+    new_node->flags = FS_DIRECTORY;
+    new_node->finddir = mock_finddir;
+    return new_node;
+}
+
+int main() {
+    printf("Starting VFS Leak Test...\n");
+
+    /* Setup Root */
+    fs_root = (fs_node_t*)malloc(sizeof(fs_node_t));
+    memset(fs_root, 0, sizeof(fs_node_t));
+    fs_root->flags = FS_DIRECTORY;
+    fs_root->finddir = mock_finddir;
+    strcpy(fs_root->name, "root");
+
+    /* Test 1: Lookup single level */
+    printf("\nTest 1: Lookup '/a'...\n");
+    kmalloc_count = 0;
+    kfree_count = 0;
+    fs_node_t* node = vfs_lookup(fs_root, "/a");
+
+    if (node) {
+        printf("Result: Found node '%s'\n", node->name);
+        printf("Stats: Alloc=%d, Free=%d\n", kmalloc_count, kfree_count);
+        if (kmalloc_count != 1 || kfree_count != 0) {
+            printf("FAIL: Expected 1 alloc, 0 frees.\n");
+            return 1;
+        }
+        kfree(node);
+    } else {
+        printf("FAIL: Node not found.\n");
+        return 1;
+    }
+
+    /* Test 2: Lookup multi level */
+    printf("\nTest 2: Lookup '/a/b/c'...\n");
+    kmalloc_count = 0;
+    kfree_count = 0;
+
+    node = vfs_lookup(fs_root, "/a/b/c");
+
+    if (node) {
+        printf("Result: Found node '%s'\n", node->name);
+        printf("Stats: Alloc=%d, Free=%d\n", kmalloc_count, kfree_count);
+
+        if (kmalloc_count != 3) {
+             printf("FAIL: Expected 3 allocs (A, B, C). Got %d.\n", kmalloc_count);
+             return 1;
+        }
+        if (kfree_count != 2) {
+             printf("FAIL: Expected 2 frees (A, B). Got %d.\n", kfree_count);
+             return 1;
+        }
+
+        kfree(node);
+    } else {
+        printf("FAIL: Node not found.\n");
+        return 1;
+    }
+
+    /* Test 3: Root lookup */
+    printf("\nTest 3: Lookup '/'...\n");
+    kmalloc_count = 0;
+    kfree_count = 0;
+    node = vfs_lookup(fs_root, "/");
+    if (node) {
+         printf("Stats: Alloc=%d, Free=%d\n", kmalloc_count, kfree_count);
+         if (kmalloc_count != 1 || kfree_count != 0) {
+             printf("FAIL: Expected 1 alloc, 0 free.\n");
+             return 1;
+         }
+         kfree(node);
+    } else {
+         printf("FAIL: Root not found.\n");
+         return 1;
+    }
+
+    printf("\nPASS: All VFS tests passed.\n");
+    free(fs_root);
+    return 0;
+}
