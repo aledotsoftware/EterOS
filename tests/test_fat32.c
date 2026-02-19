@@ -56,6 +56,12 @@ int mock_read_sector(uint32_t sector, uint8_t* buffer) {
     return 0;
 }
 
+int mock_write_sector(uint32_t sector, const uint8_t* buffer) {
+    if (sector >= TOTAL_SECTORS) return -1;
+    memcpy(&disk_image[sector * SECTOR_SIZE], buffer, SECTOR_SIZE);
+    return 0;
+}
+
 /* Helpers to setup disk */
 void setup_disk() {
     memset(disk_image, 0, sizeof(disk_image));
@@ -100,7 +106,7 @@ void test_fat32_read() {
     setup_disk();
 
     fat32_volume_t vol;
-    int res = fat32_init(&vol, mock_read_sector, 0);
+    int res = fat32_init(&vol, mock_read_sector, mock_write_sector, 0);
     if (res != 0) {
         printf("FAILED: fat32_init returned error %d\n", res);
         exit(1);
@@ -129,7 +135,7 @@ void test_fat32_not_found() {
     setup_disk();
 
     fat32_volume_t vol;
-    fat32_init(&vol, mock_read_sector, 0);
+    fat32_init(&vol, mock_read_sector, mock_write_sector, 0);
 
     char buffer[100];
     int res = fat32_read_file(&vol, "NONEXIST.ENT", buffer, sizeof(buffer));
@@ -145,15 +151,109 @@ void test_fat32_list() {
     printf("Running test_fat32_list...\n");
     setup_disk();
     fat32_volume_t vol;
-    fat32_init(&vol, mock_read_sector, 0);
+    fat32_init(&vol, mock_read_sector, mock_write_sector, 0);
     fat32_list_directory(&vol);
     printf("PASSED (Check output manually if needed)\n");
+}
+
+void test_fat32_create_write_read() {
+    printf("Running test_fat32_create_write_read...\n");
+    setup_disk();
+    fat32_volume_t vol;
+    fat32_init(&vol, mock_read_sector, mock_write_sector, 0);
+
+    // Create file
+    int res = fat32_create_file(&vol, "NEW.TXT");
+    if (res != 0) {
+        printf("FAILED: fat32_create_file returned %d\n", res);
+        exit(1);
+    }
+
+    // Write file
+    const char* data = "This is a new file content.";
+    res = fat32_write_file(&vol, "NEW.TXT", data, strlen(data));
+    if (res != strlen(data)) {
+        printf("FAILED: fat32_write_file returned %d (expected %ld)\n", res, strlen(data));
+        exit(1);
+    }
+
+    // Read back
+    char buffer[100];
+    memset(buffer, 0, sizeof(buffer));
+    res = fat32_read_file(&vol, "NEW.TXT", buffer, sizeof(buffer));
+    if (res != strlen(data)) {
+        printf("FAILED: fat32_read_file returned %d\n", res);
+        exit(1);
+    }
+
+    if (strcmp(buffer, data) != 0) {
+        printf("FAILED: Read content mismatch: '%s'\n", buffer);
+        exit(1);
+    }
+
+    printf("PASSED\n");
+}
+
+void test_fat32_delete() {
+    printf("Running test_fat32_delete...\n");
+    setup_disk();
+    fat32_volume_t vol;
+    fat32_init(&vol, mock_read_sector, mock_write_sector, 0);
+
+    // Delete existing file TEST.TXT
+    int res = fat32_delete_file(&vol, "TEST.TXT");
+    if (res != 0) {
+        printf("FAILED: fat32_delete_file returned %d\n", res);
+        exit(1);
+    }
+
+    // Try to read it
+    char buffer[100];
+    res = fat32_read_file(&vol, "TEST.TXT", buffer, sizeof(buffer));
+    if (res >= 0) {
+        printf("FAILED: Should not be able to read deleted file\n");
+        exit(1);
+    }
+
+    printf("PASSED\n");
+}
+
+void test_fat32_mkdir() {
+    printf("Running test_fat32_mkdir...\n");
+    setup_disk();
+    fat32_volume_t vol;
+    fat32_init(&vol, mock_read_sector, mock_write_sector, 0);
+
+    // Create directory
+    int res = fat32_create_directory(&vol, "SUBDIR");
+    if (res != 0) {
+        printf("FAILED: fat32_create_directory returned %d\n", res);
+        exit(1);
+    }
+
+    // Verify it exists in directory listing (by finding it)
+    fat32_dir_entry_t entry;
+    res = fat32_find_file(&vol, "SUBDIR", &entry);
+    if (res != 0) {
+        printf("FAILED: Could not find created directory\n");
+        exit(1);
+    }
+
+    if (!(entry.attr & ATTR_DIRECTORY)) {
+        printf("FAILED: Created entry is not a directory\n");
+        exit(1);
+    }
+
+    printf("PASSED\n");
 }
 
 int main() {
     test_fat32_read();
     test_fat32_not_found();
     test_fat32_list();
+    test_fat32_create_write_read();
+    test_fat32_delete();
+    test_fat32_mkdir();
     printf("All FAT32 tests passed!\n");
     return 0;
 }
