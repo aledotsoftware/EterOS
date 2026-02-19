@@ -94,10 +94,19 @@ typedef struct {
 typedef int (*fat32_read_sector_t)(uint32_t sector, uint8_t* buffer);
 
 /**
+ * Callback function to write a sector to disk
+ * @param sector Sector number (LBA)
+ * @param buffer Buffer containing data to write (must be at least 512 bytes)
+ * @return 0 on success, non-zero on error
+ */
+typedef int (*fat32_write_sector_t)(uint32_t sector, const uint8_t* buffer);
+
+/**
  * FAT32 Internal State
  */
 typedef struct {
     fat32_read_sector_t read_sector;
+    fat32_write_sector_t write_sector;
     uint32_t partition_lba;
     uint32_t fat_start_lba;
     uint32_t data_start_lba;
@@ -113,9 +122,9 @@ typedef struct {
  */
 
 /**
- * Initialize the FAT32 driver with a read callback
+ * Initialize the FAT32 driver with read and write callbacks
  */
-int fat32_init(fat32_volume_t* vol, fat32_read_sector_t read_func, uint32_t partition_offset);
+int fat32_init(fat32_volume_t* vol, fat32_read_sector_t read_func, fat32_write_sector_t write_func, uint32_t partition_offset);
 
 /**
  * List files in the root directory (prints to console)
@@ -130,6 +139,36 @@ void fat32_list_directory(fat32_volume_t* vol);
  * @return Bytes read, or -1 on error
  */
 int fat32_read_file(fat32_volume_t* vol, const char* filename, void* buffer, uint32_t size);
+
+/**
+ * Write a file by name to the root directory (overwrites or creates new if needed)
+ * @param filename 8.3 filename
+ * @param buffer Source buffer
+ * @param size Data size
+ * @return Bytes written, or -1 on error
+ */
+int fat32_write_file(fat32_volume_t* vol, const char* filename, const void* buffer, uint32_t size);
+
+/**
+ * Create a new empty file in the root directory
+ * @param filename 8.3 filename
+ * @return 0 on success, non-zero on error
+ */
+int fat32_create_file(fat32_volume_t* vol, const char* filename);
+
+/**
+ * Create a new directory in the root directory
+ * @param dirname 8.3 directory name
+ * @return 0 on success, non-zero on error
+ */
+int fat32_create_directory(fat32_volume_t* vol, const char* dirname);
+
+/**
+ * Delete a file or empty directory from the root directory
+ * @param filename 8.3 filename
+ * @return 0 on success, non-zero on error
+ */
+int fat32_delete_file(fat32_volume_t* vol, const char* filename);
 
 /**
  * Find a file entry in the root directory

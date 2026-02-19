@@ -52,12 +52,12 @@ gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_elf_security.c kernel/string.c -
 ./tests/test_elf_security
 rm tests/test_elf_security
 
-# Test VFS Leak
+# Test IP Aton
 echo "---------------------------------------------------"
-echo "Running test_vfs_leak..."
-gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_vfs_leak.c -o tests/test_vfs_leak
-./tests/test_vfs_leak
-rm tests/test_vfs_leak
+echo "Running test_ip_aton..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_ip_aton.c kernel/net/ip_utils.c -o tests/test_ip_aton
+./tests/test_ip_aton
+rm tests/test_ip_aton
 
 echo "---------------------------------------------------"
 echo "All tests passed!"

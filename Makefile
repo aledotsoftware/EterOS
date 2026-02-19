@@ -121,8 +121,15 @@ DOOM_ETEROS_SRCS = $(DOOM_ROOT)/doom_libc.c \
 DOOM_SRCS = $(DOOM_CORE_SRCS) $(DOOM_ETEROS_SRCS)
 
 KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
+              $(KERNEL_DIR)/klog.c               \
               $(KERNEL_DIR)/string.c             \
-              $(KERNEL_DIR)/shell.c              \
+              $(KERNEL_DIR)/shell/shell.c        \
+              $(KERNEL_DIR)/shell/commands.c     \
+              $(KERNEL_DIR)/shell/history.c      \
+              $(KERNEL_DIR)/shell/cmd_system.c   \
+              $(KERNEL_DIR)/shell/cmd_net.c      \
+              $(KERNEL_DIR)/shell/cmd_task.c     \
+              $(KERNEL_DIR)/shell/cmd_misc.c     \
               $(KERNEL_DIR)/drivers/video/vga.c  \
               $(KERNEL_DIR)/drivers/serial/serial.c \
               $(KERNEL_DIR)/drivers/input/keyboard.c \
@@ -188,11 +195,22 @@ OS_IMAGE    = $(BUILD_DIR)/eteros.img
 INITRD_IMG  = $(BUILD_DIR)/initrd.img
 INITRD_DIR  = initrd_root
 
+# ---- UEFI Configuration ----
+UEFI_DIR    = boot/$(ARCH)/uefi
+BOOT_EFI    = $(BUILD_DIR)/bootx64.efi
+UEFI_IMG    = $(BUILD_DIR)/uefi.img
+
+CFLAGS_UEFI = -ffreestanding -fno-stack-protector -fno-stack-check \
+              -fshort-wchar -mno-red-zone -maccumulate-outgoing-args \
+              -fPIC -Wall -I$(UEFI_DIR)
+
+LDFLAGS_UEFI = -nostdlib -shared -Bsymbolic -T $(UEFI_DIR)/linker.ld
+
 # =============================================================================
 # Targets
 # =============================================================================
 
-.PHONY: all boot kernel image run run-nographic debug clean dirs info userspace
+.PHONY: all boot kernel image uefi run run-nographic debug clean dirs info userspace
 
 # NOTA WINDOWS:
 # Si estás en Windows, tienes dos opciones:
@@ -303,6 +321,24 @@ ifeq ($(ARCH), x86_64)
 else
 	@echo "[IMG]  Generación de imagen para $(ARCH) no implementada."
 endif
+
+# ---- UEFI Bootloader ----
+uefi: dirs kernel initrd $(UEFI_IMG)
+
+$(BOOT_EFI): $(UEFI_DIR)/uefi_boot.c
+	@echo "[CC]   Compiling UEFI Bootloader..."
+	$(CC) $(CFLAGS_UEFI) -c $< -o $(BUILD_DIR)/uefi_boot.o
+	@echo "[LD]   Linking UEFI Bootloader..."
+	$(LD) $(LDFLAGS_UEFI) $(BUILD_DIR)/uefi_boot.o -o $(BUILD_DIR)/bootx64.so
+	@echo "[OBJCOPY] Creating PE32+ Image..."
+	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym  -j .rel \
+	           -j .rela -j .rel.* -j .rela.* -j .rel* -j .rela* \
+	           -j .reloc -O pei-x86-64 --subsystem=10 \
+	           $(BUILD_DIR)/bootx64.so $@
+
+$(UEFI_IMG): $(BOOT_EFI) $(KERNEL_BIN) $(INITRD_IMG)
+	@echo "[IMG]  Generating UEFI FAT32 Image..."
+	./tools/mkuefi.py $@ $(BOOT_EFI):EFI/BOOT/BOOTX64.EFI $(KERNEL_BIN):kernel.bin $(INITRD_IMG):initrd.img
 
 # ---- Ejecutar en QEMU ----
 run: all
