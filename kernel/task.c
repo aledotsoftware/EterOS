@@ -566,7 +566,7 @@ int task_fork(void* regs_ptr) {
     /* VFS nodes are shared pointers! Refcounting handled here. */
     for (int i = 0; i < MAX_FD; i++) {
         if (tasks[slot].fd_table[i].node) {
-            tasks[slot].fd_table[i].node->ref_count++;
+            __atomic_fetch_add(&tasks[slot].fd_table[i].node->ref_count, 1, __ATOMIC_SEQ_CST);
         }
     }
 
