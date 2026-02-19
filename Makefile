@@ -123,6 +123,8 @@ DOOM_SRCS = $(DOOM_CORE_SRCS) $(DOOM_ETEROS_SRCS)
 KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/klog.c               \
               $(KERNEL_DIR)/string.c             \
+              $(KERNEL_DIR)/stdio.c              \
+              $(KERNEL_DIR)/futex.c              \
               $(KERNEL_DIR)/shell/shell.c        \
               $(KERNEL_DIR)/shell/commands.c     \
               $(KERNEL_DIR)/shell/history.c      \
@@ -144,6 +146,7 @@ KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/apps/sysmon.c          \
               $(KERNEL_DIR)/apps/user_loader.c     \
               $(KERNEL_DIR)/drivers/pci/pci.c      \
+              $(KERNEL_DIR)/drivers/net/e1000.c    \
               $(KERNEL_DIR)/fs/initrd.c            \
               $(KERNEL_DIR)/fs/vfs.c               \
               $(KERNEL_DIR)/fs/devfs.c             \
@@ -164,10 +167,14 @@ KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/arch/x86_64/smp.c \
               $(KERNEL_DIR)/arch/x86_64/apic.c \
               $(KERNEL_DIR)/arch/x86_64/syscall.c \
+              $(KERNEL_DIR)/syscall_exec.c \
               $(KERNEL_DIR)/drivers/disk/partition.c \
               $(KERNEL_DIR)/fs/elf.c \
               $(KERNEL_DIR)/net/ip_utils.c \
               $(KERNEL_DIR)/net/stack.c \
+              $(KERNEL_DIR)/net/tcp.c \
+              $(KERNEL_DIR)/net/dhcp.c \
+              $(KERNEL_DIR)/net/dhcp_parser.c \
               $(KERNEL_DIR)/apps/wget.c \
               $(KERNEL_DIR)/apps/doom_stub.c
 
@@ -236,6 +243,7 @@ dirs:
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/arch/x86_64
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/arch/x86_64/boot
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/arch/xtensa
+	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/shell
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/drivers/timer
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/drivers/rtc
 	@mkdir -p $(BUILD_DIR)/$(KERNEL_DIR)/mm
@@ -293,6 +301,7 @@ userspace:
 	$(MAKE) -C userspace
 	@mkdir -p $(INITRD_DIR)
 	cp userspace/test.elf $(INITRD_DIR)/
+	cp userspace/test_exec.elf $(INITRD_DIR)/
 
 # ---- Initrd ----
 initrd: userspace $(INITRD_IMG)

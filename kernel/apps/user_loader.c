@@ -24,11 +24,15 @@ void user_loader_entry(void) {
     /* Let's try "test.elf" relative to root. */
 
     /* Load PIE binaries at 0x200000000 to avoid identity map conflicts */
-    entry_point = elf_load_file("test.elf", 0x200000000);
+    entry_point = elf_load_file("test_exec.elf", 0x200000000);
 
     if (entry_point == 0) {
-        /* Try /test.elf */
-        entry_point = elf_load_file("/test.elf", 0x200000000);
+        /* Try /test_exec.elf */
+        entry_point = elf_load_file("/test_exec.elf", 0x200000000);
+    }
+
+    if (entry_point == 0) {
+        entry_point = elf_load_file("test.elf", 0x200000000);
     }
 
     if (entry_point != 0) {

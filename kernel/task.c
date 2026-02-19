@@ -102,6 +102,7 @@ void scheduler_init(void) {
     tasks[0].signal_mask = 0;
     tasks[0].signal_pending = 0;
     memset(tasks[0].signal_handlers, 0, sizeof(tasks[0].signal_handlers));
+    memset(tasks[0].signal_restorers, 0, sizeof(tasks[0].signal_restorers));
 
     /* Linux Init */
     tasks[0].brk = 0;
@@ -184,6 +185,7 @@ int task_create(const char* name, void (*entry)(void)) {
     tasks[slot].signal_mask = 0;
     tasks[slot].signal_pending = 0;
     memset(tasks[slot].signal_handlers, 0, sizeof(tasks[slot].signal_handlers));
+    memset(tasks[slot].signal_restorers, 0, sizeof(tasks[slot].signal_restorers));
 
     /* Linux Init */
     tasks[slot].brk = 0;
@@ -327,6 +329,11 @@ void schedule(void) {
     /* Restore TLS state */
     wrmsr(MSR_FS_BASE, tasks[next].fs_base);
     wrmsr(MSR_KERNEL_GS_BASE, tasks[next].gs_base);
+
+    /* Switch Address Space */
+    if (tasks[next].cr3 != 0 && tasks[next].cr3 != tasks[old].cr3) {
+        vmm_load_pml4(tasks[next].cr3);
+    }
 
     context_switch(&tasks[old].rsp, tasks[next].rsp);
 
@@ -542,6 +549,7 @@ int task_fork(void* regs_ptr) {
 
     tasks[slot].signal_mask = parent->signal_mask;
     memcpy(tasks[slot].signal_handlers, parent->signal_handlers, sizeof(parent->signal_handlers));
+    memcpy(tasks[slot].signal_restorers, parent->signal_restorers, sizeof(parent->signal_restorers));
     tasks[slot].brk = parent->brk;
     tasks[slot].fs_base = parent->fs_base;
     tasks[slot].gs_base = parent->gs_base;
@@ -585,4 +593,73 @@ int task_fork(void* regs_ptr) {
     /* ... log pid ... */
 
     return tasks[slot].id;
+}
+
+#include <sys/signal.h>
+
+#define SIG_DFL ((void (*)(int))0)
+#define SIG_IGN ((void (*)(int))1)
+
+void task_handle_signals(struct syscall_regs* regs) {
+    task_t* current = task_get_current();
+    if (!current) return;
+    if (current->signal_pending == 0) return;
+
+    for (int sig = 1; sig <= 31; sig++) {
+        if ((current->signal_pending & (1 << sig)) && !(current->signal_mask & (1 << sig))) {
+
+            /* Clear signal from pending */
+            current->signal_pending &= ~(1 << sig);
+
+            void (*handler)(int) = current->signal_handlers[sig];
+
+            /* Default Actions */
+            if (handler == SIG_DFL) {
+                if (sig == SIGKILL || sig == SIGSEGV || sig == SIGTERM || sig == SIGINT || sig == SIGILL) {
+                     task_exit();
+                }
+                /* Ignore others like SIGCHLD, SIGWINCH, etc. */
+                continue;
+            }
+            if (handler == SIG_IGN) continue;
+
+            /* User Handler */
+            /* Setup Stack Frame for Signal Handler */
+            /* We push 'regs' (context), RSP, and return address (restorer) */
+
+            uint64_t old_sp = current->user_rsp;
+            uint64_t sp = old_sp - 128; /* Red Zone */
+            sp &= ~0xF; /* Align */
+
+            /* Push Saved RSP */
+            sp -= 8;
+            if (!vmm_is_user_page(sp)) { task_exit(); return; }
+            *(uint64_t*)sp = old_sp;
+
+            /* Push Context */
+            sp -= sizeof(struct syscall_regs);
+            memcpy((void*)sp, regs, sizeof(struct syscall_regs));
+
+            /* Push Return Address (Restorer) */
+            sp -= 8;
+            void (*restorer)(void) = current->signal_restorers[sig];
+            if (restorer) {
+                *(uint64_t*)sp = (uint64_t)restorer;
+            } else {
+                *(uint64_t*)sp = 0; /* Will crash if returns */
+            }
+
+            /* Jump to Handler */
+            /* Syscall saves RIP to RCX, not RIP in regs */
+            regs->rcx = (uint64_t)handler;
+            regs->rdi = sig;
+
+            /* Update User Stack */
+            current->user_rsp = sp;
+            cpu_info_t* cpu = get_current_cpu();
+            if (cpu) cpu->user_stack_scratch = sp;
+
+            return; /* Handle one signal at a time */
+        }
+    }
 }

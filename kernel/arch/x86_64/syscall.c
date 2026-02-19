@@ -24,6 +24,8 @@
 #include <futex.h>
 
 extern void syscall_entry(void);
+extern int64_t sys_execve(const char* path, char* const argv[], char* const envp[], struct syscall_regs* regs);
+extern void task_handle_signals(struct syscall_regs* regs);
 
 /* Definition of per-cpu data removed - handled by smp.c */
 
@@ -724,13 +726,14 @@ static int64_t sys_rt_sigaction(int sig, const struct kernel_sigaction* act,
     if (oldact) {
         oldact->handler = current->signal_handlers[sig];
         oldact->flags = 0;
-        oldact->restorer = 0;
+        oldact->restorer = current->signal_restorers[sig];
         oldact->mask = 0;
     }
 
     /* Install new action */
     if (act) {
         current->signal_handlers[sig] = act->handler;
+        current->signal_restorers[sig] = act->restorer;
     }
 
     return 0;
@@ -762,9 +765,24 @@ static int64_t sys_rt_sigprocmask(int how, const uint64_t* set, uint64_t* oldset
     return 0;
 }
 
-static int64_t sys_rt_sigreturn(void) {
-    /* Minimal stub - real implementation would restore signal frame */
-    return 0;
+static int64_t sys_rt_sigreturn(struct syscall_regs* regs) {
+    task_t* current = task_get_current();
+    uint64_t user_sp = current->user_rsp;
+
+    if (!vmm_is_user_page(user_sp)) return -EFAULT;
+
+    struct syscall_regs saved_regs;
+    memcpy(&saved_regs, (void*)user_sp, sizeof(struct syscall_regs));
+
+    *regs = saved_regs;
+
+    /* Restore RSP */
+    uint64_t saved_rsp = *(uint64_t*)(user_sp + sizeof(struct syscall_regs));
+    current->user_rsp = saved_rsp;
+    cpu_info_t* cpu = get_current_cpu();
+    if (cpu) cpu->user_stack_scratch = saved_rsp;
+
+    return regs->rax;
 }
 
 /* ========================================================================= */
@@ -928,6 +946,8 @@ static void syscall_native_handler(struct syscall_regs* regs) {
         ret = (uint64_t)sys_brk((uint64_t)regs->rdi);
     } else if (regs->rax == SYS_fork) {
         ret = (uint64_t)task_fork((void*)regs);
+    } else if (regs->rax == SYS_execve) {
+        ret = (uint64_t)sys_execve((const char*)regs->rdi, (char* const*)regs->rsi, (char* const*)regs->rdx, regs);
     } else if (regs->rax == 158) { /* SYS_arch_prctl is 158 */
         ret = (uint64_t)sys_arch_prctl((int)regs->rdi, (uint64_t)regs->rsi);
     } else if (regs->rax == SYS_uname) {
@@ -955,7 +975,7 @@ static void syscall_native_handler(struct syscall_regs* regs) {
         ret = (uint64_t)sys_rt_sigprocmask((int)regs->rdi, (const uint64_t*)regs->rsi,
                                             (uint64_t*)regs->rdx, (size_t)regs->r10);
     } else if (regs->rax == SYS_rt_sigreturn) {
-        ret = (uint64_t)sys_rt_sigreturn();
+        ret = (uint64_t)sys_rt_sigreturn(regs);
     } else if (regs->rax == SYS_nanosleep) {
         ret = (uint64_t)sys_nanosleep((const struct timespec*)regs->rdi, (struct timespec*)regs->rsi);
     } else if (regs->rax == SYS_access) {
@@ -1028,4 +1048,7 @@ void syscall_handler(struct syscall_regs* regs) {
     } else {
         syscall_native_handler(regs);
     }
+
+    /* Handle Pending Signals */
+    task_handle_signals(regs);
 }

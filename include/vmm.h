@@ -89,4 +89,22 @@ int vmm_handle_page_fault(uint64_t addr, uint64_t error_code);
  */
 int vmm_is_user_page(uint64_t virt_addr);
 
+/**
+ * Carga el valor de CR3 (PML4 address).
+ */
+void vmm_load_pml4(uint64_t phys);
+
+/**
+ * Crea un nuevo PML4 (Address Space) copiando solo los mapeos del Kernel.
+ * @return Dirección física del nuevo PML4.
+ */
+uint64_t vmm_create_pml4(void);
+
+/**
+ * Destruye un PML4 (Address Space), liberando todas las tablas y páginas de usuario.
+ * NO libera páginas de kernel.
+ * @param pml4_phys Dirección física del PML4 a destruir.
+ */
+void vmm_destroy_pml4(uint64_t pml4_phys);
+
 #endif /* ETEROS_VMM_H */

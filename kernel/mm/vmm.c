@@ -16,7 +16,9 @@
 typedef uint64_t pt_entry_t;
 
 /* Puntero a la tabla PML4 activa */
-static pt_entry_t* pml4 = (pt_entry_t*)BOOT_PML4_ADDR;
+/* static pt_entry_t* pml4 = (pt_entry_t*)BOOT_PML4_ADDR; */
+/* NOTA: Ya no usamos la variable estática 'pml4' porque puede estar desactualizada.
+   Usamos CR3 directamente. */
 
 /* Invalida una página en el TLB */
 static inline void invlpg(uint64_t addr) {
@@ -24,8 +26,14 @@ static inline void invlpg(uint64_t addr) {
 }
 
 /* Recarga CR3 (flush completo de TLB - costoso) */
-static inline void load_cr3(uint64_t pml4_addr) {
+void vmm_load_pml4(uint64_t pml4_addr) {
     __asm__ volatile("mov %0, %%cr3" : : "r" (pml4_addr) : "memory");
+}
+
+uint64_t vmm_get_pml4(void) {
+    uint64_t cr3;
+    __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
+    return cr3;
 }
 
 /*
@@ -43,7 +51,6 @@ static pt_entry_t* get_next_table(pt_entry_t* table, uint64_t index, int alloc) 
     
         /* La tabla existe, devolver su dirección virtual (Identity Mapping) */
         /* NOTA: Como usamos Identity Mapping para el kernel, Physical == Virtual */
-        /* En un kernel Higher Half, necesitaríamos convertir Phys -> Virt aquí */
         return (pt_entry_t*)(table[index] & PAGE_ADDR_MASK);
     }
 
@@ -68,17 +75,14 @@ static pt_entry_t* get_next_table(pt_entry_t* table, uint64_t index, int alloc) 
 
 void vmm_init(void) {
     serial_write_string("[VMM] Inicializando Gestor de Memoria Virtual...\n");
-    
-    /* El bootloader ya configuró un Identity Mapping básico (0-4MB o 0-8MB con Huge Pages) */
-    /* Por ahora, seguimos usando ese PML4. */
-    /* En el futuro, aquí crearíamos un nuevo PML4 limpio y cambiaríamos a él. */
-    
-    serial_write_string("[VMM] Usando PML4 del bootloader en 0x70000\n");
+    serial_write_string("[VMM] Usando PML4 actual (CR3)\n");
 }
 
 int vmm_map_page(uint64_t phys_addr, uint64_t virt_addr, uint64_t flags) {
     /* Navegar la jerarquía: PML4 -> PDPT -> PD -> PT */
     
+    pt_entry_t* pml4 = (pt_entry_t*)(vmm_get_pml4() & PAGE_ADDR_MASK);
+
     uint64_t pml4_idx = PML4_INDEX(virt_addr);
     uint64_t pdpt_idx = PDPT_INDEX(virt_addr);
     uint64_t pd_idx   = PD_INDEX(virt_addr);
@@ -103,6 +107,8 @@ int vmm_map_page(uint64_t phys_addr, uint64_t virt_addr, uint64_t flags) {
 }
 
 void vmm_unmap_page(uint64_t virt_addr) {
+    pt_entry_t* pml4 = (pt_entry_t*)(vmm_get_pml4() & PAGE_ADDR_MASK);
+
     uint64_t pml4_idx = PML4_INDEX(virt_addr);
     uint64_t pdpt_idx = PDPT_INDEX(virt_addr);
     uint64_t pd_idx   = PD_INDEX(virt_addr);
@@ -124,6 +130,8 @@ void vmm_unmap_page(uint64_t virt_addr) {
 }
 
 uint64_t vmm_virt_to_phys(uint64_t virt_addr) {
+    pt_entry_t* pml4 = (pt_entry_t*)(vmm_get_pml4() & PAGE_ADDR_MASK);
+
     uint64_t pml4_idx = PML4_INDEX(virt_addr);
     uint64_t pdpt_idx = PDPT_INDEX(virt_addr);
     uint64_t pd_idx   = PD_INDEX(virt_addr);
@@ -158,24 +166,10 @@ int hal_mem_map(uint64_t phys_addr, uint64_t virt_addr, uint32_t flags) {
     if (flags & HAL_MEM_USER) {
         arch_flags |= PAGE_USER;
     }
-
-    /*
-     * NX (No-Execute) Handling:
-     * If HAL_MEM_EXEC is NOT set, we should theoretically set PAGE_NO_EXEC.
-     * However, enabling NX requires EFER.NXE to be set.
-     * For now, we will be permissive to avoid breaking legacy code that
-     * forgets HAL_MEM_EXEC.
-     *
-     * Strict mode would be:
-     * if (!(flags & HAL_MEM_EXEC)) arch_flags |= PAGE_NO_EXEC;
-     */
-
     if (flags & HAL_MEM_CACHE_DISABLE) {
-        /* PCD (Page Cache Disable) is usually bit 4 */
         arch_flags |= 0x10;
     }
 
-    /* Call the architecture specific mapper */
     return vmm_map_page(phys_addr, virt_addr, arch_flags);
 }
 
@@ -186,10 +180,6 @@ int hal_mem_unmap(uint64_t virt_addr) {
 
 uint64_t hal_mem_get_phys(uint64_t virt_addr) {
     return vmm_virt_to_phys(virt_addr);
-}
-
-uint64_t vmm_get_pml4(void) {
-    return (uint64_t)pml4;
 }
 
 static void clone_pt_recursive(pt_entry_t* dest, pt_entry_t* src, int level, int cow) {
@@ -261,8 +251,11 @@ uint64_t vmm_clone_pml4(int cow) {
     if (!new_pml4) return 0;
     memset(new_pml4, 0, PAGE_SIZE);
 
+    /* Use current PML4 as source */
+    pt_entry_t* current_pml4 = (pt_entry_t*)(vmm_get_pml4() & PAGE_ADDR_MASK);
+
     /* Start recursion from Level 4 */
-    clone_pt_recursive(new_pml4, pml4, 4, cow);
+    clone_pt_recursive(new_pml4, current_pml4, 4, cow);
 
     /* If we modified current tables (CoW), we must flush TLB */
     if (cow) {
@@ -272,6 +265,72 @@ uint64_t vmm_clone_pml4(int cow) {
     }
 
     return (uint64_t)new_pml4;
+}
+
+uint64_t vmm_create_pml4(void) {
+    pt_entry_t* new_pml4 = (pt_entry_t*)pmm_alloc_page();
+    if (!new_pml4) return 0;
+    memset(new_pml4, 0, PAGE_SIZE);
+
+    pt_entry_t* boot_pml4 = (pt_entry_t*)BOOT_PML4_ADDR;
+
+    /* Copy Higher Half Kernel (256-511) */
+    for (int i = 256; i < 512; i++) {
+         new_pml4[i] = boot_pml4[i];
+    }
+
+    /* Identity Map (0-4MB or 0-8GB) resides in pml4[0] -> pdpt[0..7] */
+    /* We MUST allocate a new PDPT for index 0 to separate User space (index >= 8) */
+    pt_entry_t* new_pdpt = (pt_entry_t*)pmm_alloc_page();
+    if (!new_pdpt) {
+         pmm_free_page(new_pml4);
+         return 0;
+    }
+    memset(new_pdpt, 0, PAGE_SIZE);
+
+    /* Link new PDPT to new PML4[0] */
+    new_pml4[0] = (uint64_t)new_pdpt | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
+
+    /* Copy Kernel Identity Map (indices 0-7 of PDPT) */
+    if (boot_pml4[0] & PAGE_PRESENT) {
+         pt_entry_t* boot_pdpt = (pt_entry_t*)(boot_pml4[0] & PAGE_ADDR_MASK);
+         for (int i = 0; i < 8; i++) {
+             new_pdpt[i] = boot_pdpt[i];
+         }
+    }
+
+    return (uint64_t)new_pml4;
+}
+
+static void destroy_level(pt_entry_t* table, int level) {
+    for (int i = 0; i < 512; i++) {
+         if (!(table[i] & PAGE_PRESENT)) continue;
+
+         /* Skip Kernel Mappings */
+         if (level == 4 && i >= 256) continue; /* Higher Half */
+         if (level == 3 && i < 8) continue;    /* Identity Map */
+
+         uint64_t child_phys = table[i] & PAGE_ADDR_MASK;
+         pt_entry_t* child = (pt_entry_t*)child_phys;
+
+         if (level > 1) {
+             destroy_level(child, level - 1);
+             /* Free the table page */
+             pmm_free_page(child);
+         } else {
+             /* Level 1: Page Table. Entries are pages. */
+             /* Check PAGE_USER bit just in case */
+             if (table[i] & PAGE_USER) {
+                 pmm_free_page((void*)child_phys);
+             }
+         }
+    }
+}
+
+void vmm_destroy_pml4(uint64_t pml4_phys) {
+     pt_entry_t* pml4 = (pt_entry_t*)pml4_phys;
+     destroy_level(pml4, 4);
+     pmm_free_page(pml4);
 }
 
 int vmm_handle_page_fault(uint64_t addr, uint64_t error_code) {
@@ -288,6 +347,8 @@ int vmm_handle_page_fault(uint64_t addr, uint64_t error_code) {
     /* Handle CoW: Write + Present + User */
     if (present && write && user) {
         /* Walk to find the entry */
+        pt_entry_t* pml4 = (pt_entry_t*)(vmm_get_pml4() & PAGE_ADDR_MASK);
+
         uint64_t pml4_idx = PML4_INDEX(addr);
         uint64_t pdpt_idx = PDPT_INDEX(addr);
         uint64_t pd_idx   = PD_INDEX(addr);
@@ -336,12 +397,7 @@ int vmm_handle_page_fault(uint64_t addr, uint64_t error_code) {
 }
 
 int vmm_is_user_page(uint64_t virt_addr) {
-    /* Read CR3 to get current PML4 physical address */
-    uint64_t cr3;
-    __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
-
-    /* In Identity Mapping, Phys == Virt */
-    pt_entry_t* pml4 = (pt_entry_t*)(cr3 & PAGE_ADDR_MASK);
+    pt_entry_t* pml4 = (pt_entry_t*)(vmm_get_pml4() & PAGE_ADDR_MASK);
 
     uint64_t pml4_idx = PML4_INDEX(virt_addr);
     uint64_t pdpt_idx = PDPT_INDEX(virt_addr);

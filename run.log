@@ -1,0 +1,65 @@
+[USER] Compilando userspace...
+make -C userspace
+make[1]: Entering directory '/app/userspace'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/app/userspace'
+cp userspace/test.elf initrd_root/
+cp userspace/test_exec.elf initrd_root/
+[IMG]  Generando imagen de disco...
+dd if=/dev/zero of=build/eteros.img bs=512 count=2880 2>/dev/null
+dd if=build/boot.bin of=build/eteros.img bs=512 conv=notrunc 2>/dev/null
+dd if=build/kernel.bin of=build/eteros.img bs=512 seek=17 conv=notrunc 2>/dev/null
+dd if=build/initrd.img of=build/eteros.img bs=512 seek=529 conv=notrunc 2>/dev/null
+[IMG]  Imagen generada: build/eteros.img (4489750 bytes)
+
+================================================
+  eterOS construido exitosamente! (ARCH=x86_64)
+  Imagen: build/eteros.img
+  Ejecutar: make run
+================================================
+
+[QEMU] Iniciando eterOS (modo texto)...
+qemu-system-x86_64 -drive format=raw,file=build/eteros.img,index=0,if=ide,media=disk \
+        -serial mon:stdio                             \
+        -m 128M                                       \
+        -nographic                                    \
+        -no-reboot                                    \
+        -no-shutdown
+c[?7l[2J[0mSeaBIOS (version 1.16.3-debian-1.16.3-2)
+
+
+iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+06FCAF60+06F0AF60 CA00
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...
+
+
+Booting from Hard Disk...
+[eterOS] Bootloader Stage 1
+  Cargando Stage 2... OK
+[eterOS] Stage 2 activo
+  Cargando Kernel...   Long Mode: Soportado
+  Memoria detectada (E820)
+  Cargando Kernel...   Cargando Initrd...   Configurando VBE 1024x768...[01;11H[01;22H[FB] LFB Address: 0x0x00000000FD000000
+[GDT] Inicializando GDT y TSS...
+[GDT] GDT cargada. TSS activa.
+[eterOS] IDT cargada (256 vectores).
+[SYSCALL] Initializing MSRs for x86_64...
+[SYSCALL] x86_64 mechanism enabled.
+[eterOS] PIT configurado a ~100 Hz.
+[INFO ] HAL Initialized.
+[INFO ] HAL Initialized.
+[ACPI] Detecting System Hardware...
+[ACPI] MADT en: 0x0x0000000007FE1B7A LAPIC Addr: 0x0x00000000FEE00000
+[ACPI] CPU Found! Index: 0 APIC ID: 0
+[ACPI] I/O APIC Found! Addr: 0x0x00000000FEC00000
+[ACPI] Total CPUs detected: 1
+[SMP] BSP (CPU 0) Initialized. GS_BASE set.
+[APIC] Initializing Local APIC at 0xFFFFFFFFFEE00000
+[SMP] Single CPU system detected, skipping SMP boot.
+[PMM] Region: Base=0x0x0000000000000000 Len=0x0x000000000009FC00 Type=1
+[PMM] Region: Base=0x0x000000000009FC00 Len=0x0x0000000000000400 Type=2
+[PMM] Region: Base=0x0x00000000000F0000 Len=0x0x0000000000010000 Type=2
+[PMM] Region: Base=0x0x0000000000100000 Len=0x0x0000000007EE0000 Type=1
+[PMM] Region: Base=0x0x0000000007FE0000 Len=0x0x0000000000020000 Type=2
+[PMM] Region: Base=0x0x00000000FFFC0000 Len=0x0x0000000000040000 Type=2
+[PMM] Region: Base=0x0x000000FD00000000 Len=0x0x0000000300000000 Type=2
+qemu-system-x86_64: terminating on signal 15 from pid 7328 (make)
