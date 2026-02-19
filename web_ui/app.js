@@ -281,7 +281,7 @@ function spawnApp(name, type, customContent = null) {
             <div class="window-controls">
                 <div class="control focus" title="Modo Focus" role="button" aria-label="Cambiar a modo enfoque" tabindex="0" onclick="toggleFocusMode(this)" onkeydown="if(event.key==='Enter') toggleFocusMode(this)"></div>
                 <div class="control minimize" role="button" aria-label="Minimizar ventana" tabindex="0" onclick="minimizeWindow(this)" onkeydown="if(event.key==='Enter') minimizeWindow(this)"></div>
-                <div class="control maximize" role="button" aria-label="Maximizar ventana" tabindex="0" onmouseover="showSnapOverlay(this)" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
+                <div class="control maximize" role="button" aria-label="Maximizar ventana" tabindex="0" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
                     <div class="snap-menu">
                         <div class="snap-option layout-split" role="button" aria-label="Dividir izquierda 50%" tabindex="0" onclick="snapWindow(this, 'left-50', event)" onkeydown="if(event.key==='Enter') snapWindow(this, 'left-50', event)">
                             <div class="snap-box"></div><div class="snap-box"></div>
@@ -465,10 +465,6 @@ function toggleFocusMode(btn) {
     } else {
         win.style.zIndex = ++zIndexCounter;
     }
-}
-
-function showSnapOverlay(btn) {
-    // CSS handle the hover
 }
 
 function snapWindow(btn, region, e) {
