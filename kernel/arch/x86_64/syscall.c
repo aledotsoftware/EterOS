@@ -455,11 +455,7 @@ static int64_t sys_close(int fd) {
     if (!current->fd_table[fd].node) return -EBADF;
 
     fs_node_t* node = current->fd_table[fd].node;
-    if (node->ref_count > 0) {
-        node->ref_count--;
-    }
-
-    if (node->ref_count == 0) {
+    if (__atomic_sub_fetch(&node->ref_count, 1, __ATOMIC_SEQ_CST) == 0) {
         close_fs(node);
         /* Free the node memory (vfs_lookup allocates it) */
         kfree(node);
@@ -689,7 +685,7 @@ static int64_t sys_dup2(int oldfd, int newfd) {
     */
     current->fd_table[newfd].node = current->fd_table[oldfd].node;
     if (current->fd_table[newfd].node) {
-        current->fd_table[newfd].node->ref_count++;
+        __atomic_fetch_add(&current->fd_table[newfd].node->ref_count, 1, __ATOMIC_SEQ_CST);
     }
 
     current->fd_table[newfd].offset = current->fd_table[oldfd].offset;
