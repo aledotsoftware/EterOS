@@ -1,0 +1,111 @@
+#ifndef __ETEROS_HOST_TEST__
+#define __ETEROS_HOST_TEST__
+#endif
+
+typedef __builtin_va_list __gnuc_va_list;
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <assert.h>
+
+/* Mock types */
+#include "../include/types.h"
+#include "../include/fs/vfs.h"
+#include "../include/mm.h"
+#include "../include/hal.h"
+#include "../include/fs/initrd.h"
+
+/* Mock HAL Console */
+void hal_console_write(const char* str) {
+    // Silence output or log if needed
+    // printf("%s", str);
+}
+
+/* Mock Memory Management */
+static uint8_t heap[1024 * 1024];
+static size_t heap_idx = 0;
+
+void* kmalloc(size_t size) {
+    if (heap_idx + size > sizeof(heap)) return NULL;
+    void* ptr = &heap[heap_idx];
+    /* Align to 16 bytes for safety */
+    size = (size + 15) & ~15;
+    heap_idx += size;
+    return ptr;
+}
+
+void kfree(void* ptr) {
+    (void)ptr;
+}
+
+/* Mock other FS inits */
+fs_node_t* devfs_init(void) { return (fs_node_t*)kmalloc(sizeof(fs_node_t)); }
+fs_node_t* procfs_init(void) { return (fs_node_t*)kmalloc(sizeof(fs_node_t)); }
+
+/* Include string implementation */
+#include "../kernel/string.c"
+
+/* Include source under test */
+#include "../kernel/fs/initrd.c"
+
+void test_initrd_oob_read() {
+    printf("Running test_initrd_oob_read...\n");
+    heap_idx = 0;
+
+    // Create a fake initrd image
+    // [Header] [FileHeaders...] [Data...]
+    static uint8_t image[4096];
+    memset(image, 0, sizeof(image));
+
+    initrd_header_t* header = (initrd_header_t*)image;
+    memcpy(header->magic, "INIT", 4);
+    header->count = 1;
+
+    initrd_file_header_t* file_header = (initrd_file_header_t*)(image + sizeof(initrd_header_t));
+    strlcpy(file_header->name, "exploit.txt", 64);
+    file_header->size = 100;
+    // Malicious offset! Points to 10000 bytes past start (outside 4096 buffer)
+    file_header->offset = 10000;
+
+    // Initialize
+    // Pass size=4096
+    fs_node_t* root = initialise_initrd((uint64_t)image, sizeof(image));
+    if (!root) {
+        printf("FAILED: initialise_initrd returned NULL (unexpected for test setup)\n");
+        exit(1);
+    }
+
+    // Find the file
+    fs_node_t* file = initrd_finddir(root, "exploit.txt");
+    if (!file) {
+        printf("FAILED: Could not find exploit.txt\n");
+        exit(1);
+    }
+
+    // Try to read
+    uint8_t buffer[100];
+    memset(buffer, 0xAA, sizeof(buffer));
+
+    // In vulnerable code, this reads from image + 10000.
+    // Since image is static, image+10000 is likely valid memory in the process (bss/data segment padding).
+    // It will return 100 bytes of garbage.
+
+    uint32_t read_size = initrd_read(file, 0, 100, buffer);
+
+    printf("Read size: %d\n", read_size);
+
+    // After fix, read_size should be 0 because offset is out of bounds.
+    if (read_size != 0) {
+        printf("VULNERABILITY CONFIRMED: Read %d bytes from out-of-bounds offset!\n", read_size);
+        exit(1); // Fail
+    }
+
+    printf("PASSED: Read correctly blocked.\n");
+}
+
+int main() {
+    test_initrd_oob_read();
+    return 0;
+}

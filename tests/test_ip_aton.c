@@ -1,3 +1,6 @@
+/* Fix for conflict between kernel headers and system headers during test */
+typedef __builtin_va_list __gnuc_va_list;
+
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>

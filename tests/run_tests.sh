@@ -34,7 +34,7 @@ rm tests/test_rtc
 # Test FAT32
 echo "---------------------------------------------------"
 echo "Running test_fat32..."
-gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_fat32.c kernel/string.c -o tests/test_fat32
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_fat32.c -o tests/test_fat32
 ./tests/test_fat32
 rm tests/test_fat32
 
@@ -58,6 +58,13 @@ echo "Running test_ip_aton..."
 gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_ip_aton.c kernel/net/ip_utils.c -o tests/test_ip_aton
 ./tests/test_ip_aton
 rm tests/test_ip_aton
+
+# Test Initrd Security
+echo "---------------------------------------------------"
+echo "Running test_initrd_security..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_initrd_security.c -o tests/test_initrd_security
+./tests/test_initrd_security
+rm tests/test_initrd_security
 
 echo "---------------------------------------------------"
 echo "All tests passed!"

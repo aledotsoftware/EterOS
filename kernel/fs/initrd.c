@@ -15,6 +15,7 @@ typedef struct {
 
 /* Global state */
 static uint8_t* initrd_start = NULL;
+static uint32_t initrd_image_size = 0;
 static uint32_t file_count = 0;
 static initrd_file_header_t* file_headers = NULL;
 static fs_node_t *initrd_root = NULL;             /* The root directory node */
@@ -26,10 +27,24 @@ static struct dirent dirent; /* Static dirent for readdir */
 
 uint32_t initrd_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     initrd_file_header_t header = file_headers[node->inode];
+
+    /* Check logical file bounds */
     if (offset > header.size)
         return 0;
     if (offset + size > header.size)
         size = header.size - offset;
+
+    /* Check physical initrd bounds (Security) */
+    if (header.offset >= initrd_image_size)
+        return 0;
+
+    /* Use uint64_t to prevent overflow during check */
+    if ((uint64_t)header.offset + offset >= initrd_image_size)
+        return 0;
+
+    /* Truncate if read goes beyond initrd image end */
+    if ((uint64_t)header.offset + offset + size > initrd_image_size)
+        size = initrd_image_size - (header.offset + offset);
 
     memcpy(buffer, (uint8_t*)(initrd_start + header.offset + offset), size);
     return size;
@@ -133,7 +148,14 @@ fs_node_t *initialise_initrd(uint64_t start_addr, uint32_t size) {
         return NULL;
     }
 
+    /* Basic size check */
+    if (size < sizeof(initrd_header_t)) {
+        hal_console_write("[INITRD] Error: Image too small.\n");
+        return NULL;
+    }
+
     initrd_start = (uint8_t*)start_addr;
+    initrd_image_size = size;
 
     /* Verify Magic */
     initrd_header_t* header = (initrd_header_t*)initrd_start;
@@ -144,6 +166,15 @@ fs_node_t *initialise_initrd(uint64_t start_addr, uint32_t size) {
     }
 
     file_count = header->count;
+
+    /* Verify that file headers table fits in the image */
+    uint64_t headers_end = sizeof(initrd_header_t) + (uint64_t)file_count * sizeof(initrd_file_header_t);
+    if (headers_end > size) {
+        hal_console_write("[INITRD] Error: File headers table exceeds image size.\n");
+        initrd_start = NULL;
+        return NULL;
+    }
+
     file_headers = (initrd_file_header_t*)(initrd_start + sizeof(initrd_header_t));
 
     hal_console_write("[INITRD] Initialized at 0x");
@@ -189,6 +220,10 @@ void* initrd_read_file(const char* name, uint32_t* size) {
     if (!initrd_start) return NULL;
     for (uint32_t i = 0; i < file_count; i++) {
         if (strcmp(file_headers[i].name, name) == 0) {
+            /* Security check: File must be within initrd bounds */
+            if (file_headers[i].offset >= initrd_image_size) return NULL;
+            if ((uint64_t)file_headers[i].offset + file_headers[i].size > initrd_image_size) return NULL;
+
             if (size) *size = file_headers[i].size;
             return (void*)(initrd_start + file_headers[i].offset);
         }

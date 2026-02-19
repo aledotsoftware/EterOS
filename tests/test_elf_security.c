@@ -1,4 +1,8 @@
 #define _GNU_SOURCE
+
+/* Fix for conflict between kernel headers and system headers during test */
+typedef __builtin_va_list __gnuc_va_list;
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
