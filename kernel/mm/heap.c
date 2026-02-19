@@ -11,6 +11,7 @@
 #include "../../include/mm.h"
 #include "../../include/serial.h"
 #include "../../include/pmm.h" /* Para PAGE_ALIGN_UP y PAGE_SIZE */
+#include "../../include/lock.h"
 
 /* ========================================================================= */
 /* Configuración del Heap                                                    */
@@ -41,6 +42,7 @@ static block_header_t* heap_start = NULL;
 static block_header_t* last_alloc = NULL; /* Puntero para Next-Fit strategy */
 static size_t memory_used = 0;
 static size_t memory_total = 0;
+static spinlock_t heap_lock = 0;
 
 /* ========================================================================= */
 /* Helpers                                                                   */
@@ -156,15 +158,23 @@ void mm_init(boot_info_t* boot_info) {
 
 void* kmalloc(size_t size) {
     if (size == 0) return NULL;
-    if (!heap_start) return NULL; /* Heap no inicializado */
+
+    spin_lock(&heap_lock);
+
+    if (!heap_start) {
+        spin_unlock(&heap_lock);
+        return NULL; /* Heap no inicializado */
+    }
 
     /* Overflow check: prevent align() wrap-around and excessive size */
     if (size > SIZE_MAX - HEAP_ALIGNMENT - sizeof(block_header_t)) {
+        spin_unlock(&heap_lock);
         return NULL;
     }
 
     /* Safety check: prevent allocation larger than total heap size */
     if (size > memory_total) {
+        spin_unlock(&heap_lock);
         return NULL;
     }
 
@@ -202,6 +212,7 @@ void* kmalloc(size_t size) {
             
             curr->is_free = 0;
             memory_used += curr->size + sizeof(block_header_t);
+            spin_unlock(&heap_lock);
             return (void*)((uintptr_t)curr + sizeof(block_header_t));
         }
 
@@ -211,29 +222,39 @@ void* kmalloc(size_t size) {
         }
     } while (curr != start_block); /* Stop if we've looped back to start */
     
+    spin_unlock(&heap_lock);
     serial_write_string("[MM] CRITICAL: Out of Memory!\n");
     return NULL;
 }
 
 void kfree(void* ptr) {
     if (!ptr) return;
-    if (!heap_start) return;
+
+    spin_lock(&heap_lock);
+
+    if (!heap_start) {
+        spin_unlock(&heap_lock);
+        return;
+    }
 
     block_header_t* block = (block_header_t*)((uintptr_t)ptr - sizeof(block_header_t));
     
     /* Validación dinámica de rango */
     if ((void*)block < (void*)heap_start || (void*)block >= (void*)((uintptr_t)heap_start + memory_total)) {
+        spin_unlock(&heap_lock);
         serial_write_string("[MM] Error: kfree of invalid address\n");
         return;
     }
 
     /* Verificar Magic Number */
     if (block->magic != HEAP_MAGIC) {
+        spin_unlock(&heap_lock);
         serial_write_string("[MM] Error: kfree of invalid address (bad magic)\n");
         return;
     }
 
     if (block->is_free) {
+        spin_unlock(&heap_lock);
         serial_write_string("[MM] Warning: Double free detected\n");
         return;
     }
@@ -272,6 +293,7 @@ void kfree(void* ptr) {
         /* block is now merged into prev, so we don't need to update block pointer
            for subsequent operations as we are done. */
     }
+    spin_unlock(&heap_lock);
 }
 
 void* kcalloc(size_t num, size_t size) {
@@ -292,17 +314,24 @@ void* krealloc(void* ptr, size_t size) {
     /* Get block header */
     block_header_t* block = (block_header_t*)((uintptr_t)ptr - sizeof(block_header_t));
     
+    spin_lock(&heap_lock);
+
     /* Sanity check */
     if (block->magic != HEAP_MAGIC) {
+        spin_unlock(&heap_lock);
         serial_write_string("[MM] Error: krealloc of invalid address\n");
         return NULL;
     }
 
+    size_t current_size = block->size;
+
     /* If current block is large enough, return it (we don't split for now) */
     /* Alignment is already handled in allocation size, so block->size is usable */
-    if (block->size >= size) {
+    if (current_size >= size) {
+        spin_unlock(&heap_lock);
         return ptr;
     }
+    spin_unlock(&heap_lock);
 
     /* Allocate new block */
     void* new_ptr = kmalloc(size);
@@ -311,7 +340,7 @@ void* krealloc(void* ptr, size_t size) {
     /* Copy old data */
     /* We copy only the data we had (block->size) or the new size, whichever is smaller? */
     /* Since we are expanding, we copy block->size. */
-    memcpy(new_ptr, ptr, block->size);
+    memcpy(new_ptr, ptr, current_size);
 
     /* Free old block */
     kfree(ptr);

@@ -18,10 +18,10 @@ int network_ready = 0;
 socket_entry_t socket_table[MAX_SOCKETS];
 
 /* Forward Declarations */
-void tcp_input(socket_entry_t* sock, struct tcp_header* tcp, int len, uint32_t src_ip);
-int tcp_connect(socket_entry_t* sock, uint32_t dest_ip, uint16_t dest_port);
-int tcp_send(socket_entry_t* sock, const void* data, int len);
-int tcp_close(socket_entry_t* sock);
+void eter_tcp_input(socket_entry_t* sock, struct tcp_header* tcp, int len, uint32_t src_ip);
+int eter_tcp_connect(socket_entry_t* sock, uint32_t dest_ip, uint16_t dest_port);
+int eter_tcp_send(socket_entry_t* sock, const void* data, int len);
+int eter_tcp_close(socket_entry_t* sock);
 
 /* Checksum helper for IP/TCP */
 uint16_t net_checksum(void* vdata, size_t length) {
@@ -142,7 +142,7 @@ void net_poll(void) {
                                 }
                             }
 
-                            tcp_input(s, tcp, tcp_len, ip->src);
+                            eter_tcp_input(s, tcp, tcp_len, ip->src);
                             break;
                         }
                     }
@@ -241,14 +241,14 @@ int net_connect(socket_t sock, const struct sockaddr_in* addr, int addrlen) {
         s->local_port = 49152 + (timer_get_ticks() % 16384);
     }
 
-    return tcp_connect(s, addr->sin_addr, ntohs(addr->sin_port));
+    return eter_tcp_connect(s, addr->sin_addr, ntohs(addr->sin_port));
 }
 
 int net_send(socket_t sock, const void* buf, int len, int flags) {
     (void)flags;
     socket_entry_t* s = get_socket(sock);
     if (!s) return -1;
-    return tcp_send(s, buf, len);
+    return eter_tcp_send(s, buf, len);
 }
 
 int net_recv(socket_t sock, void* buf, int len, int flags) {
@@ -284,7 +284,7 @@ int net_close(socket_t sock) {
     socket_entry_t* s = get_socket(sock);
     if (!s) return -1;
 
-    tcp_close(s);
+    eter_tcp_close(s);
 
     /* Allow socket to be reused? Wait for TCP state machine to finish */
     return 0;

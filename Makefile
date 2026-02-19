@@ -161,10 +161,15 @@ KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/fs/elf.c \
               $(KERNEL_DIR)/net/ip_utils.c \
               $(KERNEL_DIR)/net/stack.c \
+              $(KERNEL_DIR)/drivers/net/e1000.c \
+              $(KERNEL_DIR)/net/tcp.c \
+              $(KERNEL_DIR)/net/raw_tcp.c \
+              $(KERNEL_DIR)/net/dhcp.c \
+              $(KERNEL_DIR)/net/dhcp_parser.c \
               $(KERNEL_DIR)/apps/wget.c \
               $(KERNEL_DIR)/apps/doom_stub.c \
-              $(LWIP_SRCS) \
-              $(DOOM_SRCS)
+              $(LWIP_SRCS)
+              # $(DOOM_SRCS) - Disabled due to missing sources
 
 KERNEL_ASM_SRCS = $(KERNEL_DIR)/arch/x86_64/context_switch.asm \
                   $(KERNEL_DIR)/arch/x86_64/gdt_flush.asm \

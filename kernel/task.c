@@ -145,6 +145,11 @@ int task_create(const char* name, void (*entry)(void)) {
     int slot = -1;
     for (int i = 0; i < MAX_TASKS; i++) {
         if (tasks[i].state == TASK_DEAD || (i >= task_count && tasks[i].state == 0)) {
+            /* Lazy cleanup: Si reusamos un slot de una tarea muerta que no pudo liberar su stack (e.g. self-kill), liberarlo ahora */
+            if (tasks[i].stack_base) {
+                kfree(tasks[i].stack_base);
+                tasks[i].stack_base = NULL;
+            }
             slot = i;
             break;
         }
@@ -438,20 +443,39 @@ int task_get_count(void) {
 int task_kill(uint32_t pid) {
     if (pid == 0) return -1; /* No matar kernel */
     
+    spin_lock(&sched_lock);
+
     for (int i = 1; i < task_count; i++) {
         if (tasks[i].id == pid && tasks[i].state != TASK_DEAD) {
+            /* Si no es la tarea actual, podemos liberar su stack inmediatamente */
+            if (i != current_task) {
+                /* SMP Safety: Solo liberar si NO está corriendo en otro CPU */
+                if (tasks[i].state != TASK_RUNNING) {
+                    if (tasks[i].stack_base) {
+                        kfree(tasks[i].stack_base);
+                        tasks[i].stack_base = NULL;
+                    }
+                }
+                /* Si está RUNNING, solo marcamos DEAD. El stack se liberará lazily en task_create/fork */
+            }
+
             tasks[i].state = TASK_DEAD;
             serial_write_string("[SCHED] Killed task PID ");
             /* TODO: Convert PID to string properly */
             serial_write_string("\n");
             
             if (i == current_task) {
+                spin_unlock(&sched_lock);
                 schedule(); /* Yield if killing self */
+                /* Unreachable */
+            } else {
+                spin_unlock(&sched_lock);
             }
             return 0;
         }
     }
 
+    spin_unlock(&sched_lock);
     return -1;
 }
 
@@ -495,6 +519,11 @@ int task_fork(void* regs_ptr) {
     int slot = -1;
     for (int i = 0; i < MAX_TASKS; i++) {
         if (tasks[i].state == TASK_DEAD || (i >= task_count && tasks[i].state == 0)) {
+            /* Lazy cleanup */
+            if (tasks[i].stack_base) {
+                kfree(tasks[i].stack_base);
+                tasks[i].stack_base = NULL;
+            }
             slot = i;
             break;
         }

@@ -79,7 +79,7 @@ static int tcp_send_packet(socket_entry_t* sock, const void* payload, int len, i
     return e1000_send_packet(buffer, sizeof(struct ethernet_header) + sizeof(struct ip_header) + sizeof(struct tcp_header) + len);
 }
 
-void tcp_input(socket_entry_t* sock, struct tcp_header* tcp, int len, uint32_t src_ip) {
+void eter_tcp_input(socket_entry_t* sock, struct tcp_header* tcp, int len, uint32_t src_ip) {
     (void)src_ip;
     uint32_t seq = ntohl(tcp->seq);
     uint32_t ack = ntohl(tcp->ack_seq);
@@ -148,7 +148,7 @@ void tcp_input(socket_entry_t* sock, struct tcp_header* tcp, int len, uint32_t s
     }
 }
 
-int tcp_connect(socket_entry_t* sock, uint32_t dest_ip, uint16_t dest_port) {
+int eter_tcp_connect(socket_entry_t* sock, uint32_t dest_ip, uint16_t dest_port) {
     sock->remote_ip = dest_ip;
     sock->remote_port = dest_port;
     sock->seq_num = 0x1000 + (timer_get_ticks() & 0xFFFF);
@@ -180,7 +180,7 @@ int tcp_connect(socket_entry_t* sock, uint32_t dest_ip, uint16_t dest_port) {
     return 0;
 }
 
-int tcp_send(socket_entry_t* sock, const void* data, int len) {
+int eter_tcp_send(socket_entry_t* sock, const void* data, int len) {
     if (sock->state != SOCKET_STATE_ESTABLISHED) return -1;
 
     /* Simple Send: PSH+ACK */
@@ -190,7 +190,7 @@ int tcp_send(socket_entry_t* sock, const void* data, int len) {
     return len;
 }
 
-int tcp_close(socket_entry_t* sock) {
+int eter_tcp_close(socket_entry_t* sock) {
     if (sock->state == SOCKET_STATE_ESTABLISHED) {
         sock->state = SOCKET_STATE_FIN_WAIT1;
         tcp_send_packet(sock, NULL, 0, TCP_FIN | TCP_ACK);
