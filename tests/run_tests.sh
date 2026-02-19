@@ -52,6 +52,13 @@ gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_elf_security.c kernel/string.c -
 ./tests/test_elf_security
 rm tests/test_elf_security
 
+# Test VFS Leak
+echo "---------------------------------------------------"
+echo "Running test_vfs_leak..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_vfs_leak.c -o tests/test_vfs_leak
+./tests/test_vfs_leak
+rm tests/test_vfs_leak
+
 echo "---------------------------------------------------"
 echo "All tests passed!"
 
