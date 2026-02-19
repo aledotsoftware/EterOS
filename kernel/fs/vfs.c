@@ -40,13 +40,26 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
     return 0;
 }
 
+/**
+ * Resolves a path to a filesystem node.
+ *
+ * @param root The root node to start the search from (usually fs_root).
+ * @param path The path string to look up.
+ * @return A pointer to the found fs_node_t, or NULL if not found.
+ *
+ * @note The returned node is allocated with kmalloc() and MUST be freed
+ *       by the caller using kfree() when it is no longer needed to prevent memory leaks.
+ */
 fs_node_t *vfs_lookup(fs_node_t *root, const char *path) {
     if (!root || !path) return 0;
 
     /* Handle root path specially */
     if (path[0] == '/' && path[1] == '\0') {
         fs_node_t* clone = (fs_node_t*)kmalloc(sizeof(fs_node_t));
-        if (clone) memcpy(clone, root, sizeof(fs_node_t));
+        if (clone) {
+            memcpy(clone, root, sizeof(fs_node_t));
+            clone->ref_count = 1;
+        }
         return clone;
     }
 
@@ -55,7 +68,10 @@ fs_node_t *vfs_lookup(fs_node_t *root, const char *path) {
     if (!path[0]) {
         /* Duplicate of handle root path case but for safety */
         fs_node_t* clone = (fs_node_t*)kmalloc(sizeof(fs_node_t));
-        if (clone) memcpy(clone, root, sizeof(fs_node_t));
+        if (clone) {
+            memcpy(clone, root, sizeof(fs_node_t));
+            clone->ref_count = 1;
+        }
         return clone;
     }
 

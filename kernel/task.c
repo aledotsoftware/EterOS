@@ -520,7 +520,11 @@ int task_fork(void* regs_ptr) {
 
     /* 4. Clone Address Space (CoW) */
     /* Use current task's CR3, not necessarily kernel's CR3 */
-    tasks[slot].cr3 = vmm_clone_pml4(1);
+    /*
+     * NOTE: VMM CoW handler is incomplete/unreliable. We use Deep Copy (0)
+     * instead of CoW (1) to prevent memory corruption and crashes on write.
+     */
+    tasks[slot].cr3 = vmm_clone_pml4(0);
 
     /* 5. Copy Task Struct Fields */
     task_t* parent = task_get_current();
@@ -529,7 +533,12 @@ int task_fork(void* regs_ptr) {
 
     /* POSIX/Linux Fields */
     memcpy(tasks[slot].fd_table, parent->fd_table, sizeof(parent->fd_table));
-    /* NOTE: VFS nodes are shared pointers! Refcounting needed but missing. */
+    /* VFS nodes are shared pointers! Refcounting handled here. */
+    for (int i = 0; i < MAX_FD; i++) {
+        if (tasks[slot].fd_table[i].node) {
+            tasks[slot].fd_table[i].node->ref_count++;
+        }
+    }
 
     tasks[slot].signal_mask = parent->signal_mask;
     memcpy(tasks[slot].signal_handlers, parent->signal_handlers, sizeof(parent->signal_handlers));

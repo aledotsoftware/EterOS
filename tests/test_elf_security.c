@@ -160,6 +160,10 @@ uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffe
     return 0;
 }
 
+void kfree(void* ptr) {
+    (void)ptr;
+}
+
 /* Now include the code under test */
 #include "../kernel/fs/elf.c"
 
