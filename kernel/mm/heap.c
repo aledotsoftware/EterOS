@@ -299,6 +299,7 @@ void kfree(void* ptr) {
 void* kcalloc(size_t num, size_t size) {
     if (num > 0 && size > SIZE_MAX / num) return NULL;
     size_t total = num * size;
+    /* kmalloc already locks, so this is safe */
     void* ptr = kmalloc(total);
     if (ptr) memset(ptr, 0, total);
     return ptr;
@@ -306,8 +307,12 @@ void* kcalloc(size_t num, size_t size) {
 
 void* krealloc(void* ptr, size_t size) {
     if (!ptr) return kmalloc(size);
+
+    spin_lock(&heap_lock);
+
     if (size == 0) {
-        kfree(ptr);
+        _kfree(ptr);
+        spin_unlock(&heap_lock);
         return NULL;
     }
 
@@ -317,27 +322,32 @@ void* krealloc(void* ptr, size_t size) {
     /* Sanity check */
     if (block->magic != HEAP_MAGIC) {
         serial_write_string("[MM] Error: krealloc of invalid address\n");
+        spin_unlock(&heap_lock);
         return NULL;
     }
 
     /* If current block is large enough, return it (we don't split for now) */
     /* Alignment is already handled in allocation size, so block->size is usable */
     if (block->size >= size) {
+        spin_unlock(&heap_lock);
         return ptr;
     }
 
-    /* Allocate new block */
-    void* new_ptr = kmalloc(size);
-    if (!new_ptr) return NULL;
+    /* Allocate new block using internal unlocked allocator */
+    void* new_ptr = _kmalloc(size);
+    if (!new_ptr) {
+        spin_unlock(&heap_lock);
+        return NULL;
+    }
 
     /* Copy old data */
-    /* We copy only the data we had (block->size) or the new size, whichever is smaller? */
-    /* Since we are expanding, we copy block->size. */
+    /* We copy only the data we had (block->size) */
     memcpy(new_ptr, ptr, block->size);
 
-    /* Free old block */
-    kfree(ptr);
+    /* Free old block using internal unlocked deallocator */
+    _kfree(ptr);
 
+    spin_unlock(&heap_lock);
     return new_ptr;
 }
 

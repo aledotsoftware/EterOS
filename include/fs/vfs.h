@@ -2,6 +2,7 @@
 #define FS_VFS_H
 
 #include <types.h>
+#include <lock.h>
 
 #define FS_FILE        0x01
 #define FS_DIRECTORY   0x02
@@ -46,6 +47,7 @@ typedef struct fs_node {
     unlink_type_t unlink;
     struct fs_node *ptr; /* Used by mountpoints and symlinks */
     uint32_t ref_count;   /* Reference counting for shared nodes */
+    spinlock_t lock;      /* SMP lock for this node */
 } fs_node_t;
 
 struct dirent {
