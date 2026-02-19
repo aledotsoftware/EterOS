@@ -21,6 +21,7 @@
 #include <lock.h>
 #include <timer.h>
 #include <vmm.h>
+#include <futex.h>
 
 extern void syscall_entry(void);
 
@@ -647,19 +648,17 @@ static int64_t sys_stat(const char* path, struct stat* buf) {
 }
 
 static int64_t sys_futex(uint32_t *uaddr, int op, uint32_t val, void *timeout, uint32_t *uaddr2, uint32_t val3) {
-    (void)timeout; (void)uaddr2; (void)val3;
+    (void)uaddr2; (void)val3;
 
-    /* FUTEX_WAIT = 0 */
-    if (op == 0) {
-        if (uaddr && *uaddr == val) {
-             /* We should sleep on a queue, but we just yield for now. */
-             task_yield();
-             return 0; /* Spurious wakeup */
-        } else {
-             return -EAGAIN;
-        }
+    int cmd = op & FUTEX_CMD_MASK;
+
+    if (cmd == FUTEX_WAIT) {
+        return futex_wait(uaddr, val, timeout);
+    } else if (cmd == FUTEX_WAKE) {
+        return futex_wake(uaddr, (int)val);
     }
-    return 0;
+
+    return -ENOSYS;
 }
 
 static int64_t sys_dup2(int oldfd, int newfd) {

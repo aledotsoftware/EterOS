@@ -27,6 +27,7 @@
 #include <net/e1000.h>
 #include <acpi.h>
 #include <apic.h>
+#include <futex.h>
 
 /* Compatibility for legacy apps */
 extern int network_ready;
@@ -188,6 +189,9 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* ---- 7. Inicializar Scheduler ---- */
     hal_console_write("  [INIT] Scheduler Round-Robin\n");
     scheduler_init();
+
+    /* ---- 7.1 Inicializar Futex ---- */
+    futex_init();
 
     /* ---- 7.5 Lanzar Test de Espacio de Usuario ---- */
     hal_console_write("  [INIT] Lanzando User Mode Test...\n");
