@@ -37,3 +37,7 @@
 ## 2026-11-15 - [The Invisible Tab Trap]
 **Learning:** Placing interactive elements inside a container that is only revealed on hover creates a "black hole" for keyboard users. They tab into the container, focus disappears, and they are trapped in invisible controls.
 **Action:** Use `:focus-within` on the parent container to reveal hidden interactive children, ensuring keyboard users can see what they are navigating.
+
+## 2026-12-05 - [Focus Management in Web-based OS]
+**Learning:** Standard web focus flow (tabbing sequentially) breaks the illusion of a desktop environment. Explicitly managing focus (e.g., auto-focusing menu items on open, handling Escape to return focus) is critical to make the interface feel like an OS, not just a webpage.
+**Action:** Always implement explicit focus entry/exit logic for overlay components (menus, windows, launchers).
