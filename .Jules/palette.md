@@ -41,3 +41,7 @@
 ## 2026-12-05 - [Focus Management in Web-based OS]
 **Learning:** Standard web focus flow (tabbing sequentially) breaks the illusion of a desktop environment. Explicitly managing focus (e.g., auto-focusing menu items on open, handling Escape to return focus) is critical to make the interface feel like an OS, not just a webpage.
 **Action:** Always implement explicit focus entry/exit logic for overlay components (menus, windows, launchers).
+
+## 2026-02-17 - [The Sound of Silence]
+**Learning:** In search interfaces (like an app launcher), a lack of results without explicit feedback creates ambiguity ("Is it broken? Is it loading?"). An illustrated empty state with helpful guidance transforms frustration into a clear system status.
+**Action:** Always implement a friendly "No results found" view for filterable lists or search results.

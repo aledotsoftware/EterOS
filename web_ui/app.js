@@ -161,16 +161,23 @@ function toggleLauncher() {
 function filterApps() {
     const query = document.getElementById('launcher-search').value.toLowerCase();
     const items = document.querySelectorAll('.launcher-item');
+    let hasResults = false;
 
     items.forEach(item => {
         const name = item.querySelector('span').innerText.toLowerCase();
         const tag = item.querySelector('.tag').innerText.toLowerCase();
         if (name.includes(query) || tag.includes(query)) {
             item.style.display = 'flex';
+            hasResults = true;
         } else {
             item.style.display = 'none';
         }
     });
+
+    const emptyState = document.getElementById('launcher-empty-state');
+    if (emptyState) {
+        emptyState.style.display = hasResults ? 'none' : 'flex';
+    }
 }
 
 function toggleControlCenter(e) {
