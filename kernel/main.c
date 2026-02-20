@@ -38,6 +38,7 @@
 #include <apic.h>
 #include <futex.h>
 #include <sem.h>
+#include <serial.h>
 
 /* ========================================================================= */
 /* Constantes del Sistema                                                    */
@@ -119,13 +120,9 @@ void __attribute__((section(".text.boot"))) kmain(void) {
 
     /* ---- 3. Inicializar Memory Managers (Solo Tier 2+) ---- */
     #if ETEROS_TIER >= 2
-        /* Block Cache */
         #include <fs/bcache.h>
-        bcache_init();
 
         /* Memory Management Unit (Paging/MPU) */
-        /* Nota: pmm_init y vmm_init suelen ser específicos de la arquitectura
-           o requieren boot_info. Por ahora los mantenemos aquí si hay MMU. */
 
         #if defined(ARCH_X86_64)
             /* x86 specific PMM init (uses E820) */
@@ -139,13 +136,18 @@ void __attribute__((section(".text.boot"))) kmain(void) {
         /* Heap Manager (Generic) */
         mm_init(boot_info);
 
-        /* Inicializar Subsistema Gráfico (FrameBuffer + Dirty Rects) */
-        /* Nota: Requiere mm_init para el doble buffer */
+        /* Block Cache (requires heap/kmalloc) */
+        bcache_init();
+
+        /* Now that PMM, VMM, and heap are ready, switch console to framebuffer */
         if (boot_info && boot_info->fb_addr != 0) {
+            terminal_switch_to_framebuffer(boot_info);
+
+            /* Inicializar Subsistema Gráfico (FrameBuffer + Dirty Rects) */
             gfx_init(boot_info);
 
-            /* Dibujar algo de prueba */
-            gfx_fill_rect(0, 0, 1024, 768, 0x002040); // Fondo azul oscuro
+            /* Dibujar fondo */
+            gfx_fill_rect(0, 0, 1024, 768, 0x002040);
             gfx_present();
         }
     #endif

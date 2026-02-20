@@ -19,6 +19,7 @@ static uint32_t* active_buffer = 0;
 
 void framebuffer_init(boot_info_t* info) {
     if (!info || !info->fb_addr) return;
+    if (fb_buffer) return; /* Already initialized */
 
     fb_width = info->fb_width;
     fb_height = info->fb_height;

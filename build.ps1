@@ -257,8 +257,12 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\fs\vfs.c",
     "$KERNEL_DIR\fs\devfs.c",
     "$KERNEL_DIR\fs\procfs.c",
-
+    "$KERNEL_DIR\fs\bcache.c",
+    "$KERNEL_DIR\fs\jfs.c",
     "$KERNEL_DIR\drivers\disk\partition.c",
+    "$KERNEL_DIR\drivers\input\input.c",
+    "$KERNEL_DIR\drivers\tty.c",
+    "$KERNEL_DIR\gfx\gfx.c",
     "$KERNEL_DIR\fs\elf.c"
 )
 
@@ -272,6 +276,7 @@ if ($Arch -eq "x86_64") {
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\acpi.c"
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\smp.c"
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\apic.c"
+    $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\pat.c"
     $KERNEL_SRCS += "$KERNEL_DIR\arch\x86_64\boot\nvram.c"
 }
 elseif ($Arch -eq "aarch64") {
@@ -320,6 +325,8 @@ function Initialize-BuildDirs {
         "$BUILD_DIR\$KERNEL_DIR\fs",
         "$BUILD_DIR\$KERNEL_DIR\shell",
         "$BUILD_DIR\$KERNEL_DIR\ui",
+        "$BUILD_DIR\$KERNEL_DIR\gfx",
+        "$BUILD_DIR\$KERNEL_DIR\drivers",
         "$BUILD_DIR\$KERNEL_DIR\arch\$Arch\boot"
     )
     foreach ($d in $dirs) {

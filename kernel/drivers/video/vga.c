@@ -111,29 +111,40 @@ void terminal_initialize(boot_info_t* info) {
     terminal_color  = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     terminal_buffer = (volatile uint16_t*)VGA_BUFFER_ADDR;
 
-    /* Solo reconfigurar si se pasa nueva info de booteo */
-    if (info) {
-        if (info->signature == 0x544F424B && info->fb_addr != 0) {
-            use_framebuffer = true;
-            framebuffer_init(info);
-        } else {
-            use_framebuffer = false;
-        }
-    }
-    
-    /* Inicializar/Limpiar backend activo */
-    if (use_framebuffer) {
-        framebuffer_clear(fb_bg);
-    } else {
-        /* Limpiar toda la pantalla VGA */
-        vga_buffer_offset = 0;
-        vga_set_start_address(0);
-        terminal_buffer = (volatile uint16_t*)VGA_BUFFER_ADDR;
+    /*
+     * IMPORTANT: We do NOT initialize the framebuffer here because
+     * framebuffer_init() calls hal_mem_map() which requires PMM to be
+     * initialized first. During hal_init(), PMM is not yet ready.
+     *
+     * Instead, we always start in VGA text mode. The framebuffer will
+     * be activated later by gfx_init() -> framebuffer_init() after
+     * PMM, VMM, and the heap are all initialized.
+     */
+    use_framebuffer = false;
 
-        memset16((uint16_t*)terminal_buffer, vga_entry(' ', terminal_color), VGA_SIZE);
-        vga_enable_cursor();
-        vga_update_cursor();
-    }
+    /* Limpiar toda la pantalla VGA */
+    vga_buffer_offset = 0;
+    vga_set_start_address(0);
+    terminal_buffer = (volatile uint16_t*)VGA_BUFFER_ADDR;
+
+    memset16((uint16_t*)terminal_buffer, vga_entry(' ', terminal_color), VGA_SIZE);
+    vga_enable_cursor();
+    vga_update_cursor();
+}
+
+/* Switch terminal from VGA text mode to Framebuffer mode.
+ * Must be called AFTER PMM, VMM, and mm_init are done. */
+void terminal_switch_to_framebuffer(boot_info_t* info) {
+    if (!info) return;
+    if (info->signature != 0x544F424B || info->fb_addr == 0) return;
+
+    framebuffer_init(info);
+    use_framebuffer = true;
+    framebuffer_clear(fb_bg);
+
+    /* Re-position cursor to top */
+    terminal_row = 0;
+    terminal_col = 0;
 }
 
 void terminal_set_color(uint8_t color) {

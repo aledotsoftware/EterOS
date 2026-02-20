@@ -89,13 +89,20 @@ static void pmm_mark_region_free(uint64_t base, uint64_t size) {
 /* ========================================================================= */
 
 void pmm_init(void) {
+    serial_write_string("[PMM] Inicializando Gestor de Memoria Fisica...\n");
     terminal_write_string("[PMM] Inicializando Gestor de Memoria Fisica...\n");
 
     /* 1. Leer mapa E820 para calcular RAM Total */
     struct memory_map* mem_map = (struct memory_map*)MEM_MAP_ADDR;
     
     /* Sanity Check básico: count debe ser razonable (>0, <100) */
+    char dbg[64];
+    serial_write_string("[PMM] E820 entry_count raw = ");
+    itoa_s((int)mem_map->entry_count, dbg, sizeof(dbg), 10);
+    serial_write_string(dbg);
+    serial_write_string("\n");
     if (mem_map->entry_count == 0 || mem_map->entry_count > 128) {
+        serial_write_string("[PMM] ERROR: Mapa de memoria invalido!\n");
         terminal_write_colored("[PMM] ERROR: Mapa de memoria invalido!\n", VGA_COLOR_RED, VGA_COLOR_BLACK);
         /* Fallback: Asumir 128MB si falla la detección */
         total_ram = 128 * 1024 * 1024;
@@ -125,6 +132,11 @@ void pmm_init(void) {
 
     if (total_ram == 0) total_ram = 32 * 1024 * 1024; /* Fallback panic prevention */
 
+    serial_write_string("[PMM] total_ram = ");
+    itoa_s((int)(total_ram / (1024*1024)), dbg, sizeof(dbg), 10);
+    serial_write_string(dbg);
+    serial_write_string(" MB\n");
+
     total_pages = total_ram / PAGE_SIZE;
     
     /* Mostrar RAM total detectada */
@@ -153,6 +165,7 @@ void pmm_init(void) {
     memset(pmm_ref_counts, 1, total_pages);
 
     used_ram = total_ram; /* Temporalmente todo usado */
+    serial_write_string("[PMM] Bitmap at 0x400000, processing E820 regions...\n");
 
     /* 3. Procesar mapa E820 y liberar regiones usables */
     for (uint32_t i = 0; i < mem_map->entry_count; i++) {
@@ -182,6 +195,13 @@ void pmm_init(void) {
     terminal_write_string("[PMM] RAM Libre: ");
     terminal_write_string(free_str);
     terminal_write_string(" KB\n");
+
+    serial_write_string("[PMM] Init complete. Free RAM: ");
+    serial_write_string(free_str);
+    serial_write_string(" KB, total_pages=");
+    itoa_s((int)total_pages, free_str, sizeof(free_str), 10);
+    serial_write_string(free_str);
+    serial_write_string("\n");
 }
 
 static void* pmm_alloc_page_impl(void) {
@@ -285,6 +305,11 @@ check_wrap:
 }
 
 void* pmm_alloc_page(void) {
+    if (!pmm_bitmap) {
+        serial_write_string("[PMM] FATAL: pmm_alloc_page called before pmm_init!\n");
+        __asm__ volatile("cli");
+        for(;;) __asm__ volatile("hlt");
+    }
     void* ptr = pmm_alloc_page_impl();
     if (ptr) return ptr;
 

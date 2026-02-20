@@ -75,6 +75,12 @@ static inline uint16_t vga_entry(unsigned char c, uint8_t color) {
 void terminal_initialize(boot_info_t* boot_info);
 
 /**
+ * Switch terminal to framebuffer mode (deferred init).
+ * Must be called AFTER PMM, VMM, and mm_init are ready.
+ */
+void terminal_switch_to_framebuffer(boot_info_t* boot_info);
+
+/**
  * Establece el color actual del terminal.
  */
 void terminal_set_color(uint8_t color);
