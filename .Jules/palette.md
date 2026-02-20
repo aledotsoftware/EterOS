@@ -41,3 +41,7 @@
 ## 2026-12-05 - [Focus Management in Web-based OS]
 **Learning:** Standard web focus flow (tabbing sequentially) breaks the illusion of a desktop environment. Explicitly managing focus (e.g., auto-focusing menu items on open, handling Escape to return focus) is critical to make the interface feel like an OS, not just a webpage.
 **Action:** Always implement explicit focus entry/exit logic for overlay components (menus, windows, launchers).
+
+## 2026-02-20 - [Empty States are Helpful States]
+**Learning:** When a search yields no results, a blank screen feels like a system failure. Providing an explicit "No results" message with a helpful tip transforms a dead end into a navigational guide.
+**Action:** Always implement empty states for search/filter interfaces to maintain user confidence.
