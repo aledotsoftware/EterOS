@@ -11,6 +11,7 @@
 #include "types.h"
 
 #ifdef __ETEROS_HOST_TEST__
+#include_next <string.h>
 /* Rename functions to avoid conflict with standard library during testing */
 #define memcpy eteros_memcpy
 #define memset eteros_memset

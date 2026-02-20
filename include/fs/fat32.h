@@ -115,6 +115,7 @@ typedef struct {
     uint32_t sectors_per_cluster;
     uint16_t bytes_per_sector;
     uint32_t fat_size;          // in sectors
+    uint32_t volume_id;         // Unique ID for caching
     spinlock_t lock;
 } fat32_volume_t;
 

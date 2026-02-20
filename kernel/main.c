@@ -116,6 +116,10 @@ void __attribute__((section(".text.boot"))) kmain(void) {
 
     /* ---- 3. Inicializar Memory Managers (Solo Tier 2+) ---- */
     #if ETEROS_TIER >= 2
+        /* Block Cache */
+        #include <fs/bcache.h>
+        bcache_init();
+
         /* Memory Management Unit (Paging/MPU) */
         /* Nota: pmm_init y vmm_init suelen ser específicos de la arquitectura
            o requieren boot_info. Por ahora los mantenemos aquí si hay MMU. */
@@ -159,11 +163,11 @@ void __attribute__((section(".text.boot"))) kmain(void) {
                 hal_console_write("[VFS] Initrd mounted at /\n");
 
                 /* List files using VFS */
-                struct dirent *node = 0;
+                struct dirent entry;
                 int i = 0;
-                while ((node = readdir_fs(fs_root, i)) != 0) {
+                while (readdir_fs(fs_root, i, &entry) == 0) {
                     hal_console_write("  [VFS] Found file: ");
-                    hal_console_write(node->name);
+                    hal_console_write(entry.name);
                     hal_console_write("\n");
                     i++;
                 }

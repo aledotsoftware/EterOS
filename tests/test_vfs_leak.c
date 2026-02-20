@@ -1,22 +1,14 @@
 #define __ETEROS_HOST_TEST__ 1
-#define ETEROS_STRING_H
 #define ETEROS_MM_H
 #define FS_VFS_H
-#define ETEROS_TYPES_H
+#define ETEROS_LOCK_H
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
-
-/* Types (matches include/fs/vfs.h and types.h) */
-typedef uint32_t uint32_t;
-typedef uint8_t  uint8_t;
-typedef int32_t  int32_t;
-typedef int64_t  int64_t;
-typedef uint64_t uint64_t;
-typedef int64_t  time_t;
+#include "../include/types.h"
 
 #define FS_FILE        0x01
 #define FS_DIRECTORY   0x02
@@ -25,6 +17,10 @@ typedef int64_t  time_t;
 #define FS_PIPE        0x05
 #define FS_SYMLINK     0x06
 #define FS_MOUNTPOINT  0x08
+
+typedef int spinlock_t;
+void spin_lock(spinlock_t *lock) { (void)lock; }
+void spin_unlock(spinlock_t *lock) { (void)lock; }
 
 struct fs_node;
 struct dirent {
@@ -36,8 +32,12 @@ typedef uint32_t (*read_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);
 typedef uint32_t (*write_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);
 typedef void (*open_type_t)(struct fs_node*);
 typedef void (*close_type_t)(struct fs_node*);
-typedef struct dirent * (*readdir_type_t)(struct fs_node*, uint32_t);
+typedef int (*readdir_type_t)(struct fs_node*, uint32_t, struct dirent*);
 typedef struct fs_node * (*finddir_type_t)(struct fs_node*, char *name);
+typedef int (*ioctl_type_t)(struct fs_node*, int, void*);
+typedef int (*create_type_t)(struct fs_node*, char*, uint16_t);
+typedef int (*mkdir_type_t)(struct fs_node*, char*, uint16_t);
+typedef int (*unlink_type_t)(struct fs_node*, char*);
 
 typedef struct fs_node {
     char name[128];
@@ -55,9 +55,15 @@ typedef struct fs_node {
     write_type_t write;
     open_type_t open;
     close_type_t close;
+    ioctl_type_t ioctl;
     readdir_type_t readdir;
     finddir_type_t finddir;
+    create_type_t create;
+    mkdir_type_t mkdir;
+    unlink_type_t unlink;
     struct fs_node *ptr;
+    uint32_t ref_count;
+    spinlock_t lock;
 } fs_node_t;
 
 /* Externs from vfs.c */
@@ -82,6 +88,8 @@ void kfree(void* ptr) {
 
 /* Helper for finding root */
 fs_node_t* finddir_fs(fs_node_t* node, char* name);
+
+fs_node_t* tty_create_node(void) { return NULL; }
 
 /* Include Code Under Test */
 #include "../kernel/fs/vfs.c"

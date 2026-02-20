@@ -23,8 +23,6 @@ static fs_node_t *initrd_root = NULL;             /* The root directory node */
 static fs_node_t *devfs_root_node = NULL;
 static fs_node_t *procfs_root_node = NULL;
 
-static struct dirent dirent; /* Static dirent for readdir */
-
 uint32_t initrd_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     initrd_file_header_t header = file_headers[node->inode];
     if (offset > header.size)
@@ -50,36 +48,36 @@ uint32_t initrd_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
     return size;
 }
 
-struct dirent *initrd_readdir(fs_node_t *node, uint32_t index) {
+int initrd_readdir(fs_node_t *node, uint32_t index, struct dirent *entry) {
     if (node != initrd_root)
-        return 0;
+        return -1;
 
     /* Virtual entries */
     if (index == 0) {
-        strlcpy(dirent.name, "dev", sizeof(dirent.name));
-        dirent.inode = 0;
-        return &dirent;
+        strlcpy(entry->name, "dev", sizeof(entry->name));
+        entry->inode = 0;
+        return 0;
     }
     if (index == 1) {
-        strlcpy(dirent.name, "proc", sizeof(dirent.name));
-        dirent.inode = 0;
-        return &dirent;
+        strlcpy(entry->name, "proc", sizeof(entry->name));
+        entry->inode = 0;
+        return 0;
     }
     if (index == 2) {
-        strlcpy(dirent.name, "sys", sizeof(dirent.name));
-        dirent.inode = 0;
-        return &dirent;
+        strlcpy(entry->name, "sys", sizeof(entry->name));
+        entry->inode = 0;
+        return 0;
     }
 
     /* Initrd files (offset by 3) */
     uint32_t file_index = index - 3;
 
     if (file_index >= file_count)
-        return 0;
+        return 1; /* EOF */
 
-    strlcpy(dirent.name, file_headers[file_index].name, sizeof(dirent.name));
-    dirent.inode = file_index;
-    return &dirent;
+    strlcpy(entry->name, file_headers[file_index].name, sizeof(entry->name));
+    entry->inode = file_index;
+    return 0;
 }
 
 fs_node_t *initrd_finddir(fs_node_t *node, char *name) {

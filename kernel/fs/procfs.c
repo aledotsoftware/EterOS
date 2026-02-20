@@ -7,7 +7,6 @@
 
 /* Global root node for ProcFS */
 static fs_node_t* procfs_root = NULL;
-static struct dirent procfs_dirent;
 
 /* ========================================================================= */
 /* /proc/version Implementation                                              */
@@ -89,24 +88,24 @@ static uint32_t proc_meminfo_read(fs_node_t *node, uint32_t offset, uint32_t siz
 /* ========================================================================= */
 /* ProcFS Directory Operations                                               */
 /* ========================================================================= */
-static struct dirent *procfs_readdir(fs_node_t *node, uint32_t index) {
+static int procfs_readdir(fs_node_t *node, uint32_t index, struct dirent *entry) {
     (void)node;
     if (index == 0) {
-        strlcpy(procfs_dirent.name, "version", sizeof(procfs_dirent.name));
-        procfs_dirent.inode = 0;
-        return &procfs_dirent;
+        strlcpy(entry->name, "version", sizeof(entry->name));
+        entry->inode = 0;
+        return 0;
     }
     if (index == 1) {
-        strlcpy(procfs_dirent.name, "uptime", sizeof(procfs_dirent.name));
-        procfs_dirent.inode = 1;
-        return &procfs_dirent;
+        strlcpy(entry->name, "uptime", sizeof(entry->name));
+        entry->inode = 1;
+        return 0;
     }
     if (index == 2) {
-        strlcpy(procfs_dirent.name, "meminfo", sizeof(procfs_dirent.name));
-        procfs_dirent.inode = 2;
-        return &procfs_dirent;
+        strlcpy(entry->name, "meminfo", sizeof(entry->name));
+        entry->inode = 2;
+        return 0;
     }
-    return 0;
+    return 1; /* EOF */
 }
 
 static fs_node_t *procfs_finddir(fs_node_t *node, char *name) {

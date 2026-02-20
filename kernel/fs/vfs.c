@@ -42,14 +42,14 @@ void close_fs(fs_node_t *node) {
     }
 }
 
-struct dirent *readdir_fs(fs_node_t *node, uint32_t index) {
+int readdir_fs(fs_node_t *node, uint32_t index, struct dirent *entry) {
     if ((node->flags & 0x7) == FS_DIRECTORY && node->readdir != 0) {
         spin_lock(&node->lock);
-        struct dirent* ret = node->readdir(node, index);
+        int ret = node->readdir(node, index, entry);
         spin_unlock(&node->lock);
         return ret;
     }
-    return 0;
+    return -1;
 }
 
 fs_node_t *finddir_fs(fs_node_t *node, char *name) {

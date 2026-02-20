@@ -34,7 +34,7 @@ rm tests/test_rtc
 # Test FAT32
 echo "---------------------------------------------------"
 echo "Running test_fat32..."
-gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_fat32.c kernel/string.c -o tests/test_fat32
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_fat32.c kernel/string.c kernel/fs/bcache.c -o tests/test_fat32
 ./tests/test_fat32
 rm tests/test_fat32
 

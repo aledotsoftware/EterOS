@@ -6,6 +6,21 @@
 
 #define FAT32_EOC 0x0FFFFFF8
 
+static uint32_t next_volume_id = 1;
+
+static int fat32_read_sector_cached(fat32_volume_t* vol, uint32_t sector, uint8_t* buffer) {
+    if (bcache_read(vol->volume_id, sector, buffer) == 0) return 0;
+    int res = vol->read_sector(sector, buffer);
+    if (res == 0) bcache_write(vol->volume_id, sector, buffer);
+    return res;
+}
+
+static int fat32_write_sector_cached(fat32_volume_t* vol, uint32_t sector, const uint8_t* buffer) {
+    int res = vol->write_sector(sector, buffer);
+    if (res == 0) bcache_write(vol->volume_id, sector, buffer);
+    return res;
+}
+
 /* Helper: Convert 8.3 name from entry to normal string */
 static void fat32_get_name(const uint8_t* entry_name, char* out_name) {
     int i, j = 0;
@@ -61,13 +76,14 @@ int fat32_init(fat32_volume_t* vol, fat32_read_sector_t read_func, fat32_write_s
     vol->write_sector = write_func;
     vol->partition_lba = partition_offset;
     vol->lock = 0;
+    vol->volume_id = __atomic_fetch_add(&next_volume_id, 1, __ATOMIC_SEQ_CST);
 
     // Allocate 4096 to be safe for larger sector sizes during init
     uint8_t* buffer = kmalloc(4096);
     if (!buffer) return -2;
 
     // Read Boot Sector
-    if (vol->read_sector(vol->partition_lba, buffer) != 0) {
+    if (fat32_read_sector_cached(vol, vol->partition_lba, buffer) != 0) {
         kfree(buffer);
         return -3;
     }
@@ -115,7 +131,7 @@ static uint32_t fat32_get_next_cluster(fat32_volume_t* vol, uint32_t current_clu
     uint8_t* buffer = kmalloc(vol->bytes_per_sector);
     if (!buffer) return 0xFFFFFFFF;
 
-    if (vol->read_sector(fat_sector, buffer) != 0) {
+    if (fat32_read_sector_cached(vol, fat_sector, buffer) != 0) {
         kfree(buffer);
         return 0xFFFFFFFF;
     }
@@ -142,7 +158,7 @@ static int fat32_fat_set(fat32_volume_t* vol, uint32_t cluster, uint32_t value) 
     if (!buffer) return -2;
 
     // Read sector first (RMW)
-    if (vol->read_sector(fat_sector, buffer) != 0) {
+    if (fat32_read_sector_cached(vol, fat_sector, buffer) != 0) {
         kfree(buffer);
         return -3;
     }
@@ -151,7 +167,7 @@ static int fat32_fat_set(fat32_volume_t* vol, uint32_t cluster, uint32_t value) 
     *(uint32_t*)&buffer[ent_offset] = value;
 
     // Write back
-    if (vol->write_sector(fat_sector, buffer) != 0) {
+    if (fat32_write_sector_cached(vol, fat_sector, buffer) != 0) {
         kfree(buffer);
         return -4;
     }
@@ -171,7 +187,7 @@ static int fat32_alloc_cluster(fat32_volume_t* vol, uint32_t* out_cluster) {
 
     // Scan full FAT
     for (uint32_t i = 0; i < vol->fat_size; i++) {
-        if (vol->read_sector(current_fat_sector + i, buffer) != 0) {
+        if (fat32_read_sector_cached(vol, current_fat_sector + i, buffer) != 0) {
             kfree(buffer);
             return -2;
         }
@@ -190,7 +206,7 @@ static int fat32_alloc_cluster(fat32_volume_t* vol, uint32_t* out_cluster) {
 
                 // Mark as EOC
                 entries[j] = FAT32_EOC;
-                if (vol->write_sector(current_fat_sector + i, buffer) != 0) {
+                if (fat32_write_sector_cached(vol, current_fat_sector + i, buffer) != 0) {
                     kfree(buffer);
                     return -3;
                 }
@@ -201,7 +217,7 @@ static int fat32_alloc_cluster(fat32_volume_t* vol, uint32_t* out_cluster) {
                     memset(zero_buf, 0, vol->bytes_per_sector);
                     uint32_t lba = fat32_cluster_to_lba(vol, *out_cluster);
                     for (uint32_t k = 0; k < vol->sectors_per_cluster; k++) {
-                        vol->write_sector(lba + k, zero_buf);
+                        fat32_write_sector_cached(vol, lba + k, zero_buf);
                     }
                     kfree(zero_buf);
                 }
@@ -232,14 +248,14 @@ static int fat32_update_dirent(fat32_volume_t* vol, uint32_t sector, uint32_t of
     uint8_t* buffer = kmalloc(vol->bytes_per_sector);
     if (!buffer) return -1;
 
-    if (vol->read_sector(sector, buffer) != 0) {
+    if (fat32_read_sector_cached(vol, sector, buffer) != 0) {
         kfree(buffer);
         return -2;
     }
 
     memcpy(buffer + offset, value, sizeof(fat32_dir_entry_t));
 
-    if (vol->write_sector(sector, buffer) != 0) {
+    if (fat32_write_sector_cached(vol, sector, buffer) != 0) {
         kfree(buffer);
         return -3;
     }
@@ -258,7 +274,7 @@ static int fat32_find_free_dirent_in_chain(fat32_volume_t* vol, uint32_t start_c
         uint32_t lba = fat32_cluster_to_lba(vol, current_cluster);
 
         for (uint32_t i = 0; i < vol->sectors_per_cluster; i++) {
-            if (vol->read_sector(lba + i, buffer) != 0) {
+            if (fat32_read_sector_cached(vol, lba + i, buffer) != 0) {
                 kfree(buffer);
                 return -2;
             }
@@ -308,7 +324,7 @@ static int fat32_find_dirent_in_chain(fat32_volume_t* vol, uint32_t start_cluste
         uint32_t lba = fat32_cluster_to_lba(vol, current_cluster);
 
         for (uint32_t i = 0; i < vol->sectors_per_cluster; i++) {
-            if (vol->read_sector(lba + i, buffer) != 0) {
+            if (fat32_read_sector_cached(vol, lba + i, buffer) != 0) {
                 kfree(buffer);
                 return -2;
             }
@@ -370,7 +386,7 @@ uint32_t fat32_read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t 
 uint32_t fat32_write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 void fat32_open_fs(fs_node_t *node);
 void fat32_close_fs(fs_node_t *node);
-struct dirent *fat32_readdir_fs(fs_node_t *node, uint32_t index);
+int fat32_readdir_fs(fs_node_t *node, uint32_t index, struct dirent *entry);
 fs_node_t *fat32_finddir_fs(fs_node_t *node, char *name);
 int fat32_create_fs(fs_node_t *parent, char *name, uint16_t permission);
 int fat32_mkdir_fs(fs_node_t *parent, char *name, uint16_t permission);
@@ -424,7 +440,7 @@ static uint32_t fat32_read_fs_impl(fs_node_t *node, uint32_t offset, uint32_t si
         for (uint32_t i = sector_in_cluster; i < vol->sectors_per_cluster; i++) {
             if (bytes_read >= size) break;
 
-            if (vol->read_sector(lba + i, sector_buffer) != 0) {
+            if (fat32_read_sector_cached(vol, lba + i, sector_buffer) != 0) {
                 kfree(sector_buffer);
                 return bytes_read;
             }
@@ -463,11 +479,11 @@ static uint32_t fat32_write_fs_impl(fs_node_t *node, uint32_t offset, uint32_t s
         uint32_t dir_offset = node->uid;
         uint8_t* sec_buf = kmalloc(vol->bytes_per_sector);
         if (sec_buf) {
-            if (vol->read_sector(dir_sector, sec_buf) == 0) {
+            if (fat32_read_sector_cached(vol, dir_sector, sec_buf) == 0) {
                 fat32_dir_entry_t* ep = (fat32_dir_entry_t*)(sec_buf + dir_offset);
                 ep->fst_clus_hi = (new_cluster >> 16) & 0xFFFF;
                 ep->fst_clus_lo = new_cluster & 0xFFFF;
-                vol->write_sector(dir_sector, sec_buf);
+                fat32_write_sector_cached(vol, dir_sector, sec_buf);
             }
             kfree(sec_buf);
         }
@@ -512,14 +528,14 @@ static uint32_t fat32_write_fs_impl(fs_node_t *node, uint32_t offset, uint32_t s
         for (uint32_t i = sector_in_cluster; i < vol->sectors_per_cluster; i++) {
             if (bytes_written >= size) break;
 
-            if (vol->read_sector(lba + i, sector_buffer) != 0) break;
+            if (fat32_read_sector_cached(vol, lba + i, sector_buffer) != 0) break;
 
             uint32_t chunk = vol->bytes_per_sector - offset_in_sector;
             if (bytes_written + chunk > size) chunk = size - bytes_written;
 
             memcpy(sector_buffer + offset_in_sector, buffer + bytes_written, chunk);
 
-            if (vol->write_sector(lba + i, sector_buffer) != 0) break;
+            if (fat32_write_sector_cached(vol, lba + i, sector_buffer) != 0) break;
 
             bytes_written += chunk;
             offset_in_sector = 0;
@@ -547,10 +563,10 @@ static uint32_t fat32_write_fs_impl(fs_node_t *node, uint32_t offset, uint32_t s
 
         uint8_t* sec_buf = kmalloc(vol->bytes_per_sector);
         if (sec_buf) {
-            if (vol->read_sector(dir_sector, sec_buf) == 0) {
+            if (fat32_read_sector_cached(vol, dir_sector, sec_buf) == 0) {
                 fat32_dir_entry_t* ep = (fat32_dir_entry_t*)(sec_buf + dir_offset);
                 ep->file_size = node->length;
-                vol->write_sector(dir_sector, sec_buf);
+                fat32_write_sector_cached(vol, dir_sector, sec_buf);
             }
             kfree(sec_buf);
         }
@@ -566,14 +582,12 @@ uint32_t fat32_write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t
     return res;
 }
 
-static struct dirent fat32_dirent;
-
-static struct dirent *fat32_readdir_fs_impl(fs_node_t *node, uint32_t index) {
+static int fat32_readdir_fs_impl(fs_node_t *node, uint32_t index, struct dirent *out_entry) {
     fat32_volume_t* vol = (fat32_volume_t*)node->ptr;
     uint32_t current_cluster = node->inode;
 
     uint8_t* buffer = kmalloc(vol->bytes_per_sector);
-    if (!buffer) return NULL;
+    if (!buffer) return -1;
 
     uint32_t valid_count = 0;
 
@@ -581,9 +595,9 @@ static struct dirent *fat32_readdir_fs_impl(fs_node_t *node, uint32_t index) {
         uint32_t lba = fat32_cluster_to_lba(vol, current_cluster);
 
         for (uint32_t i = 0; i < vol->sectors_per_cluster; i++) {
-            if (vol->read_sector(lba + i, buffer) != 0) {
+            if (fat32_read_sector_cached(vol, lba + i, buffer) != 0) {
                 kfree(buffer);
-                return NULL;
+                return -1;
             }
 
             fat32_dir_entry_t* entry = (fat32_dir_entry_t*)buffer;
@@ -592,17 +606,17 @@ static struct dirent *fat32_readdir_fs_impl(fs_node_t *node, uint32_t index) {
             for (int j = 0; j < entries_per_sector; j++) {
                 if (entry[j].name[0] == DIRENT_END) {
                     kfree(buffer);
-                    return NULL;
+                    return 1; /* EOF */
                 }
                 if (entry[j].name[0] == DIRENT_DELETED) continue;
                 if (entry[j].attr & ATTR_VOLUME_ID) continue;
                 if (entry[j].attr & ATTR_LONG_NAME) continue;
 
                 if (valid_count == index) {
-                    fat32_get_name(entry[j].name, fat32_dirent.name);
-                    fat32_dirent.inode = (entry[j].fst_clus_hi << 16) | entry[j].fst_clus_lo;
+                    fat32_get_name(entry[j].name, out_entry->name);
+                    out_entry->inode = (entry[j].fst_clus_hi << 16) | entry[j].fst_clus_lo;
                     kfree(buffer);
-                    return &fat32_dirent;
+                    return 0; /* Success */
                 }
                 valid_count++;
             }
@@ -610,13 +624,13 @@ static struct dirent *fat32_readdir_fs_impl(fs_node_t *node, uint32_t index) {
         current_cluster = fat32_get_next_cluster(vol, current_cluster);
     }
     kfree(buffer);
-    return NULL;
+    return 1; /* EOF */
 }
 
-struct dirent *fat32_readdir_fs(fs_node_t *node, uint32_t index) {
+int fat32_readdir_fs(fs_node_t *node, uint32_t index, struct dirent *entry) {
     fat32_volume_t* vol = (fat32_volume_t*)node->ptr;
     spin_lock(&vol->lock);
-    struct dirent* res = fat32_readdir_fs_impl(node, index);
+    int res = fat32_readdir_fs_impl(node, index, entry);
     spin_unlock(&vol->lock);
     return res;
 }
@@ -747,7 +761,7 @@ static int fat32_mkdir_fs_impl(fs_node_t *parent, char *name, uint16_t permissio
     if (!buffer) return -5;
     memset(buffer, 0, vol->bytes_per_sector);
     memcpy(buffer, dot, sizeof(dot));
-    vol->write_sector(lba, buffer);
+    fat32_write_sector_cached(vol, lba, buffer);
     kfree(buffer);
 
     return 0;
@@ -857,7 +871,7 @@ static int fat32_read_file_impl(fat32_volume_t* vol, const char* filename, void*
         for (uint32_t i = 0; i < vol->sectors_per_cluster; i++) {
             if (bytes_read >= bytes_to_read) break;
 
-            if (vol->read_sector(lba + i, sector_buffer) != 0) {
+            if (fat32_read_sector_cached(vol, lba + i, sector_buffer) != 0) {
                 kfree(sector_buffer);
                 return -4;
             }
@@ -944,7 +958,7 @@ static int fat32_write_file_impl(fat32_volume_t* vol, const char* filename, cons
             memset(sector_buffer, 0, vol->bytes_per_sector);
             memcpy(sector_buffer, in_ptr + bytes_written, chunk);
 
-            if (vol->write_sector(lba + i, sector_buffer) != 0) {
+            if (fat32_write_sector_cached(vol, lba + i, sector_buffer) != 0) {
                 kfree(sector_buffer);
                 return -6;
             }
@@ -1069,7 +1083,7 @@ void fat32_list_directory(fat32_volume_t* vol) {
         uint32_t lba = fat32_cluster_to_lba(vol, current_cluster);
 
         for (uint32_t i = 0; i < vol->sectors_per_cluster; i++) {
-            if (vol->read_sector(lba + i, buffer) != 0) {
+            if (fat32_read_sector_cached(vol, lba + i, buffer) != 0) {
                 hal_console_write("Error reading directory sector\n");
                 kfree(buffer);
                 return;
