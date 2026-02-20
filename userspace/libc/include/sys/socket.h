@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <sys/types.h>
 
 /* Address Families */
 #define AF_INET     2
