@@ -6,7 +6,7 @@ LDFLAGS = -T linker.ld -nostdlib -m elf_x86_64
 LIBC_SRC = libc/src/start.c libc/src/syscall.c libc/src/stdio.c libc/src/string.c libc/src/malloc.c libc/src/errno.c libc/src/network.c libc/src/posix.c
 LIBC_OBJ = $(LIBC_SRC:.c=.o)
 
-all: test.elf test_net.elf exec_test.elf
+all: test.elf test_net.elf exec_test.elf test_security.elf
 
 libc/src/%.o: libc/src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -28,6 +28,12 @@ test_net.elf: $(LIBC_OBJ) test_net.o
 
 exec_test.elf: $(LIBC_OBJ) exec_test.o
 	$(LD) $(LDFLAGS) -o exec_test.elf $(LIBC_OBJ) exec_test.o
+
+test_security.o: test_security.c
+	$(CC) $(CFLAGS) -c test_security.c -o test_security.o
+
+test_security.elf: $(LIBC_OBJ) test_security.o
+	$(LD) $(LDFLAGS) -o test_security.elf $(LIBC_OBJ) test_security.o
 
 clean:
 	rm -f *.o *.elf libc/src/*.o
