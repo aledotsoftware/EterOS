@@ -1,10 +1,51 @@
 function toggleEterMenu(e) {
     if (e) e.stopPropagation();
     const menu = document.getElementById('eter-menu');
-    menu.classList.toggle('active');
+    const isActive = menu.classList.toggle('active');
+
+    // Update aria-expanded on trigger
+    const trigger = document.querySelector('.os-logo');
+    if (trigger) {
+        trigger.setAttribute('aria-expanded', isActive);
+        if (!isActive) trigger.focus();
+    }
+
     // Hide other panels
     document.getElementById('control-center').classList.remove('active');
     document.getElementById('launcher').classList.remove('active');
+
+    if (isActive) {
+        const firstItem = menu.querySelector('.menu-item');
+        if (firstItem) firstItem.focus();
+    }
+}
+
+function handleMenuKey(e, item) {
+    const menu = document.getElementById('eter-menu');
+    const items = Array.from(menu.querySelectorAll('.menu-item'));
+    const index = items.indexOf(item);
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextIndex = (index + 1) % items.length;
+        items[nextIndex].focus();
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prevIndex = (index - 1 + items.length) % items.length;
+        items[prevIndex].focus();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        item.click();
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        toggleEterMenu();
+    } else if (e.key === 'Tab') {
+        // Close menu if tabbing out
+        const menu = document.getElementById('eter-menu');
+        if (menu.classList.contains('active')) {
+            toggleEterMenu();
+        }
+    }
 }
 
 function spawnAbout() {
@@ -233,6 +274,13 @@ function confirmSwitcherSelection() {
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.control-center') && !e.target.closest('.status-right')) {
         document.getElementById('control-center').classList.remove('active');
+    }
+
+    const menu = document.getElementById('eter-menu');
+    if (menu.classList.contains('active') && !e.target.closest('.eter-menu') && !e.target.closest('.os-logo')) {
+        menu.classList.remove('active');
+        const trigger = document.querySelector('.os-logo');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
     }
 });
 
