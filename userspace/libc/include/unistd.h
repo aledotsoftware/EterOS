@@ -5,9 +5,11 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 
+#ifndef SEEK_SET
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2
+#endif
 
 /* File Descriptors */
 #define STDIN_FILENO  0

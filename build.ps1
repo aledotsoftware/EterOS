@@ -232,12 +232,13 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\drivers\rtc\rtc.c",
     "$KERNEL_DIR\drivers\pci\pci.c",
     "$KERNEL_DIR\drivers\net\e1000.c",
-    "$KERNEL_DIR\net\dhcp.c",
-    "$KERNEL_DIR\net\dhcp_parser.c",
-    "$KERNEL_DIR\net\stack.c",
-    "$KERNEL_DIR\net\raw_tcp.c",
-    "$KERNEL_DIR\net\tcp.c",
-    "$KERNEL_DIR\net\ip_utils.c",
+    "$KERNEL_DIR\net\core\nic.c",
+    "$KERNEL_DIR\net\core\dhcp.c",
+    "$KERNEL_DIR\net\core\dhcp_parser.c",
+    "$KERNEL_DIR\net\core\stack.c",
+    "$KERNEL_DIR\net\core\raw_tcp.c",
+    "$KERNEL_DIR\net\core\tcp.c",
+    "$KERNEL_DIR\net\core\ip_utils.c",
     "$KERNEL_DIR\mm\heap.c",
     "$KERNEL_DIR\mm\pmm.c",
     "$KERNEL_DIR\mm\vmm.c",
@@ -313,6 +314,7 @@ function Initialize-BuildDirs {
         "$BUILD_DIR\$KERNEL_DIR\drivers\net",
         "$BUILD_DIR\$KERNEL_DIR\drivers\disk",
         "$BUILD_DIR\$KERNEL_DIR\net",
+        "$BUILD_DIR\$KERNEL_DIR\net\core",
         "$BUILD_DIR\$KERNEL_DIR\mm",
         "$BUILD_DIR\$KERNEL_DIR\apps",
         "$BUILD_DIR\$KERNEL_DIR\fs",
@@ -436,7 +438,7 @@ function Invoke-UserspaceBuild {
     if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al compilar test.c"; exit 1 }
 
     $testElf = "$initrdRoot\test.elf"
-    & $LD -T "$userDir\linker.ld" -nostdlib -m elf_x86_64 -o $testElf $libcObjs $testObj
+    & $LD -T "$userDir\linker.ld" -nostdlib -m elf_x86_64 -o $testElf $testObj $libcObjs
     if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al enlazar test.elf"; exit 1 }
 
     Write-Step "OK" "Userspace construido: $testElf"

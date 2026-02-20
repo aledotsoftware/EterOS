@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-int errno = 0;
+
 
 static inline long syscall0(long n) {
     long ret;

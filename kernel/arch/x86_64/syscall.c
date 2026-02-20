@@ -23,6 +23,7 @@
 #include <vmm.h>
 #include <futex.h>
 #include <net/socket.h>
+#include <net/defs.h>
 
 extern void syscall_entry(void);
 
