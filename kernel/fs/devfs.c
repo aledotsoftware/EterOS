@@ -9,9 +9,6 @@
 /* Global root node for DevFS */
 static fs_node_t* devfs_root = NULL;
 
-/* Static dirent for readdir */
-static struct dirent devfs_dirent;
-
 /* ========================================================================= */
 /* /dev/null Implementation                                                  */
 /* ========================================================================= */
@@ -101,35 +98,35 @@ static uint32_t dev_random_write(fs_node_t *node, uint32_t offset, uint32_t size
 /* DevFS Directory Operations                                                */
 /* ========================================================================= */
 
-static struct dirent *devfs_readdir(fs_node_t *node, uint32_t index) {
+static int devfs_readdir(fs_node_t *node, uint32_t index, struct dirent *entry) {
     (void)node;
 
     if (index == 0) {
-        strlcpy(devfs_dirent.name, "null", sizeof(devfs_dirent.name));
-        devfs_dirent.inode = 0;
-        return &devfs_dirent;
+        strlcpy(entry->name, "null", sizeof(entry->name));
+        entry->inode = 0;
+        return 0;
     }
     if (index == 1) {
-        strlcpy(devfs_dirent.name, "zero", sizeof(devfs_dirent.name));
-        devfs_dirent.inode = 1;
-        return &devfs_dirent;
+        strlcpy(entry->name, "zero", sizeof(entry->name));
+        entry->inode = 1;
+        return 0;
     }
     if (index == 2) {
-        strlcpy(devfs_dirent.name, "tty", sizeof(devfs_dirent.name));
-        devfs_dirent.inode = 2;
-        return &devfs_dirent;
+        strlcpy(entry->name, "tty", sizeof(entry->name));
+        entry->inode = 2;
+        return 0;
     }
     if (index == 3) {
-        strlcpy(devfs_dirent.name, "random", sizeof(devfs_dirent.name));
-        devfs_dirent.inode = 3;
-        return &devfs_dirent;
+        strlcpy(entry->name, "random", sizeof(entry->name));
+        entry->inode = 3;
+        return 0;
     }
     if (index == 4) {
-        strlcpy(devfs_dirent.name, "urandom", sizeof(devfs_dirent.name));
-        devfs_dirent.inode = 4;
-        return &devfs_dirent;
+        strlcpy(entry->name, "urandom", sizeof(entry->name));
+        entry->inode = 4;
+        return 0;
     }
-    return 0;
+    return 1; /* EOF */
 }
 
 static fs_node_t *devfs_finddir(fs_node_t *node, char *name) {

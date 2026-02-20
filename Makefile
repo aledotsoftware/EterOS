@@ -149,9 +149,9 @@ KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/apps/sysmon.c          \
               $(KERNEL_DIR)/apps/user_loader.c     \
               $(KERNEL_DIR)/drivers/pci/pci.c      \
-              $(KERNEL_DIR)/drivers/net/e1000.c     \
               $(KERNEL_DIR)/fs/initrd.c            \
               $(KERNEL_DIR)/fs/vfs.c               \
+              $(KERNEL_DIR)/fs/bcache.c            \
               $(KERNEL_DIR)/fs/devfs.c             \
               $(KERNEL_DIR)/fs/procfs.c            \
               $(KERNEL_DIR)/task.c                 \

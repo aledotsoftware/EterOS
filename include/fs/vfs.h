@@ -15,11 +15,16 @@
 
 struct fs_node;
 
+struct dirent {
+    char name[128];
+    uint32_t inode;
+};
+
 typedef uint32_t (*read_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);
 typedef uint32_t (*write_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);
 typedef void (*open_type_t)(struct fs_node*);
 typedef void (*close_type_t)(struct fs_node*);
-typedef struct dirent * (*readdir_type_t)(struct fs_node*, uint32_t);
+typedef int (*readdir_type_t)(struct fs_node*, uint32_t, struct dirent*);
 typedef struct fs_node * (*finddir_type_t)(struct fs_node*, char *name);
 typedef int (*create_type_t)(struct fs_node*, char*, uint16_t);
 typedef int (*mkdir_type_t)(struct fs_node*, char*, uint16_t);
@@ -53,11 +58,6 @@ typedef struct fs_node {
     spinlock_t lock;      /* SMP lock for this node */
 } fs_node_t;
 
-struct dirent {
-    char name[128];
-    uint32_t inode;
-};
-
 /* Standard read/write/open/close functions. Note that these are all suffixed with
  * _fs to distinguish them from the read/write/open/close which deal with file descriptors
  * , not file nodes.
@@ -66,7 +66,7 @@ uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffe
 uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 void open_fs(fs_node_t *node, uint8_t read, uint8_t write);
 void close_fs(fs_node_t *node);
-struct dirent *readdir_fs(fs_node_t *node, uint32_t index);
+int readdir_fs(fs_node_t *node, uint32_t index, struct dirent *entry);
 fs_node_t *finddir_fs(fs_node_t *node, char *name);
 int create_fs(fs_node_t *parent, char *name, uint16_t permission);
 int mkdir_fs(fs_node_t *parent, char *name, uint16_t permission);
