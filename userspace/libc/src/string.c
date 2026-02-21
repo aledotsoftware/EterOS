@@ -4,6 +4,7 @@
  */
 
 #include <string.h>
+#include <stdint.h>
 
 void *memcpy(void *dest, const void *src, size_t n) {
     uint8_t *d = (uint8_t *)dest;
@@ -62,8 +63,32 @@ int memcmp(const void *s1, const void *s2, size_t n) {
 
 size_t strlen(const char *s) {
     const char *p = s;
-    while (*p) p++;
-    return (size_t)(p - s);
+
+    /* Align to 8 bytes */
+    while ((uintptr_t)p & 7) {
+        if (!*p) return p - s;
+        p++;
+    }
+
+    const uint64_t *lp = (const uint64_t *)p;
+    uint64_t v;
+    const uint64_t magic1 = 0x0101010101010101ULL;
+    const uint64_t magic2 = 0x8080808080808080ULL;
+
+    while (1) {
+        v = *lp++;
+        if (((v - magic1) & ~v & magic2) != 0) {
+            const char *cp = (const char *)(lp - 1);
+            if (cp[0] == 0) return cp - s;
+            if (cp[1] == 0) return cp - s + 1;
+            if (cp[2] == 0) return cp - s + 2;
+            if (cp[3] == 0) return cp - s + 3;
+            if (cp[4] == 0) return cp - s + 4;
+            if (cp[5] == 0) return cp - s + 5;
+            if (cp[6] == 0) return cp - s + 6;
+            return cp - s + 7;
+        }
+    }
 }
 
 int strcmp(const char *s1, const char *s2) {
