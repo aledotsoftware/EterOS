@@ -400,7 +400,18 @@ static int64_t sys_pipe(int* pipefd) {
 
     /* Create Nodes */
     fs_node_t* reader = (fs_node_t*)kmalloc(sizeof(fs_node_t));
+    if (!reader) {
+        kfree(pipe->buffer);
+        kfree(pipe);
+        return -ENOMEM;
+    }
     fs_node_t* writer = (fs_node_t*)kmalloc(sizeof(fs_node_t));
+    if (!writer) {
+        kfree(reader);
+        kfree(pipe->buffer);
+        kfree(pipe);
+        return -ENOMEM;
+    }
     memset(reader, 0, sizeof(fs_node_t));
     memset(writer, 0, sizeof(fs_node_t));
     reader->ref_count = 1;

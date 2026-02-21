@@ -161,8 +161,10 @@ KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/drivers/video/framebuffer.c \
               $(KERNEL_DIR)/drivers/video/font.c   \
               $(KERNEL_DIR)/gfx/gfx.c              \
+              $(KERNEL_DIR)/gfx/window.c           \
               $(KERNEL_DIR)/mm/pmm.c               \
               $(KERNEL_DIR)/mm/vmm.c               \
+              $(KERNEL_DIR)/mm/reclaimer.c         \
               $(KERNEL_DIR)/drivers/input/mouse.c  \
               $(KERNEL_DIR)/arch/x86_64/gdt.c \
               $(KERNEL_DIR)/arch/x86_64/acpi.c \

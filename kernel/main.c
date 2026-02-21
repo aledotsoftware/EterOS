@@ -142,13 +142,6 @@ void __attribute__((section(".text.boot"))) kmain(void) {
         /* Now that PMM, VMM, and heap are ready, switch console to framebuffer */
         if (boot_info && boot_info->fb_addr != 0) {
             terminal_switch_to_framebuffer(boot_info);
-
-            /* Inicializar Subsistema Gráfico (FrameBuffer + Dirty Rects) */
-            gfx_init(boot_info);
-
-            /* Dibujar fondo */
-            gfx_fill_rect(0, 0, 1024, 768, 0x002040);
-            gfx_present();
         }
     #endif
 
@@ -223,6 +216,11 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* ---- 7. Inicializar Scheduler ---- */
     hal_console_write("  [INIT] Scheduler Round-Robin\n");
     scheduler_init();
+    
+    /* ---- 7.0 Inicializar Page Reclaimer ---- */
+    hal_console_write("  [INIT] Page Reclaimer\n");
+    extern void reclaimer_init(void);
+    reclaimer_init();
 
     /* ---- 7.1 Inicializar Futex ---- */
     futex_init();
@@ -235,10 +233,10 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* ---- 8. Lanzar shell interactivo ---- */
     hal_interrupts_enable();
 
-    /* We now use userspace shell launched by UserLoader */
-    /* shell_run(); */
+    /* Kernel shell (fallback until userspace shell is ready) */
+    shell_run();
 
-    /* Main kernel task becomes Idle loop */
+    /* Main kernel task becomes Idle loop (reached if shell exits) */
     while(1) {
         hal_cpu_halt();
         task_yield();

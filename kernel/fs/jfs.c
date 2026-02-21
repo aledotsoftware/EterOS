@@ -206,6 +206,7 @@ static fs_node_t* jfs_finddir(fs_node_t *node, char *name) {
         for (uint32_t j = 0; j < count; j++) {
             if (d[j].inode != 0 && strcmp(d[j].name, name) == 0) {
                  fs_node_t *fnode = (fs_node_t*)kmalloc(sizeof(fs_node_t));
+                 if (!fnode) return 0;
                  memset(fnode, 0, sizeof(fs_node_t));
                  fnode->inode = d[j].inode;
                  strlcpy(fnode->name, d[j].name, sizeof(fnode->name));
@@ -299,6 +300,7 @@ fs_node_t* jfs_init(void) {
     root->blocks[0] = sb->data_start; /* Block 100 */
 
     fs_node_t *fs = (fs_node_t*)kmalloc(sizeof(fs_node_t));
+    if (!fs) return NULL;
     memset(fs, 0, sizeof(fs_node_t));
     strlcpy(fs->name, "jfs_root", sizeof(fs->name));
     fs->flags = FS_DIRECTORY;

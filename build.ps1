@@ -242,6 +242,7 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\mm\heap.c",
     "$KERNEL_DIR\mm\pmm.c",
     "$KERNEL_DIR\mm\vmm.c",
+    "$KERNEL_DIR\mm\reclaimer.c",
     "$KERNEL_DIR\libgcc.c",
     "$KERNEL_DIR\apps\santitravel.c",
     "$KERNEL_DIR\apps\sysmon.c",

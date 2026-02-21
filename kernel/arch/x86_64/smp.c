@@ -102,6 +102,13 @@ void smp_init(void) {
 
         /* Preparar stack para este CPU */
         void* stack = kmalloc(4096); /* Small stack for initialization */
+        if (!stack) {
+            serial_write_string("[SMP] ERROR: OOM allocating stack for CPU ");
+            serial_write_string(b);
+            serial_write_string(". Skipping.\n");
+            cpu->state = CPU_STATE_OFFLINE;
+            continue;
+        }
         cpu->kernel_stack_top = (uint64_t)stack + 4096;
         
         *(uint64_t*)(TRAMPOLINE_BASE + TRAMPOLINE_OFFSET(trampoline_stack)) = cpu->kernel_stack_top;
@@ -157,10 +164,16 @@ void cpu_init_ap(int index) {
     /* Señalizar que estamos listos */
     cpu->state = CPU_STATE_ONLINE;
 
-    /* Inicializar scheduler local y entrar en loop */
-    // task_init_ap();
+    /* Inicializar timer del LAPIC (100 Hz) para Scheduling */
+    /* Nota: Esto usa polling del PIT para calibrar, asume que BSP está corriendo timer global */
+    lapic_timer_init(100);
+
+    /* Inicializar scheduler local */
+    task_init_ap();
     
-    /* Halt loop if no tasks */
+    /* Habilitar interrupciones globales y esperar */
+    __asm__ volatile("sti");
+
     for(;;) {
         __asm__ volatile("hlt");
     }
