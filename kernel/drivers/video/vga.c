@@ -106,6 +106,7 @@ static void vga_scroll(void) {
 /* ========================================================================= */
 
 void terminal_initialize(boot_info_t* info) {
+    (void)info; /* Framebuffer init moved to terminal_switch_to_framebuffer() */
     terminal_row    = 0;
     terminal_col    = 0;
     terminal_color  = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);

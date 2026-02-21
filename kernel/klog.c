@@ -57,7 +57,7 @@ static char* klog_itoa(int value, char* str, int base) {
     low = ptr;
     /* The actual conversion. */
     /* Use unsigned to handle INT_MIN correctly */
-    unsigned int num = (value < 0 && base == 10) ? -value : (unsigned int)value;
+    unsigned int num = (value < 0 && base == 10) ? (unsigned int)(-value) : (unsigned int)value;
 
     do {
         *ptr++ = "0123456789abcdefghijklmnopqrstuvwxyz"[num % base];

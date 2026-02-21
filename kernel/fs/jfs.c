@@ -164,8 +164,7 @@ static uint32_t jfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8
     return written_bytes;
 }
 
-/* Directory Ops (Flat root) */
-static struct dirent jfs_dirent; /* Static buffer for readdir */
+
 
 static int jfs_readdir(fs_node_t *node, uint32_t index, struct dirent *entry) {
     /* Root is inode 0. It contains dirents in its data blocks. */

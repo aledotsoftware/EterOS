@@ -469,14 +469,22 @@ char* strchr(const char *s, int c) {
             /* Found something. Locate exact position. */
             s = (const char*)ls;
             /* Unrolled loop for remainder */
-            if (s[0] == ch) return (char*)s; if (s[0] == 0) return 0;
-            if (s[1] == ch) return (char*)s + 1; if (s[1] == 0) return 0;
-            if (s[2] == ch) return (char*)s + 2; if (s[2] == 0) return 0;
-            if (s[3] == ch) return (char*)s + 3; if (s[3] == 0) return 0;
-            if (s[4] == ch) return (char*)s + 4; if (s[4] == 0) return 0;
-            if (s[5] == ch) return (char*)s + 5; if (s[5] == 0) return 0;
-            if (s[6] == ch) return (char*)s + 6; if (s[6] == 0) return 0;
-            if (s[7] == ch) return (char*)s + 7; if (s[7] == 0) return 0;
+            if (s[0] == ch) return (char*)s;
+            if (s[0] == 0) return 0;
+            if (s[1] == ch) return (char*)s + 1;
+            if (s[1] == 0) return 0;
+            if (s[2] == ch) return (char*)s + 2;
+            if (s[2] == 0) return 0;
+            if (s[3] == ch) return (char*)s + 3;
+            if (s[3] == 0) return 0;
+            if (s[4] == ch) return (char*)s + 4;
+            if (s[4] == 0) return 0;
+            if (s[5] == ch) return (char*)s + 5;
+            if (s[5] == 0) return 0;
+            if (s[6] == ch) return (char*)s + 6;
+            if (s[6] == 0) return 0;
+            if (s[7] == ch) return (char*)s + 7;
+            if (s[7] == 0) return 0;
 
             /* Should not reach here if masks were correct */
             return 0;

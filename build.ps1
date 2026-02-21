@@ -264,6 +264,7 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\drivers\input\input.c",
     "$KERNEL_DIR\drivers\tty.c",
     "$KERNEL_DIR\gfx\gfx.c",
+    "$KERNEL_DIR\gfx\window.c",
     "$KERNEL_DIR\fs\elf.c"
 )
 

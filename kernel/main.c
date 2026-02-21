@@ -54,8 +54,6 @@
 static void kernel_print_banner(void);
 static void kernel_print_sysinfo(void);
 
-static void kernel_halt(void);
-
 extern void net_poll(void);
 extern uint32_t my_ip;
 
@@ -282,11 +280,3 @@ static void kernel_print_sysinfo(void) {
     kprintf("  [INFO] Board/Target: Generic\n");
 }
 
-/**
- * Detiene la CPU.
- */
-static void kernel_halt(void) {
-    for (;;) {
-        hal_cpu_halt();
-    }
-}
