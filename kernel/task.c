@@ -761,6 +761,7 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
             if (!ptr) break;
             if (!vmm_validate_user_ptr(ptr, 1)) return -EFAULT;
             kargv[argc] = (char*)kmalloc(128);
+            if (!kargv[argc]) return -ENOMEM;
             strlcpy(kargv[argc], ptr, 128);
             argc++;
         }
@@ -776,6 +777,7 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
             if (!ptr) break;
             if (!vmm_validate_user_ptr(ptr, 1)) return -EFAULT;
             kenvp[envc] = (char*)kmalloc(128);
+            if (!kenvp[envc]) return -ENOMEM;
             strlcpy(kenvp[envc], ptr, 128);
             envc++;
         }

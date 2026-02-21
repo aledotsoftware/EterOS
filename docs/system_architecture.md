@@ -23,18 +23,18 @@ arquitecturas. El kernel es monolítico con soporte para:
 ## 2. Diagrama de Capas del Sistema
 
 ```
-╔══════════════════════════════════════════════════════════════════════════════╗
+╔════════════════════════════════════════════════════════════════════════════╗
 ║                        ESPACIO DE USUARIO (Ring 3)                         ║
 ║                                                                            ║
-║   ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌──────────────────────┐   ║
-║   │  sh.elf  │  │ test.elf │  │ exec_test.elf│  │  Aplicaciones ELF   │   ║
-║   └────┬─────┘  └────┬─────┘  └──────┬───────┘  └──────────┬──────────┘   ║
-║        │              │               │                     │              ║
-║   ┌────┴──────────────┴───────────────┴─────────────────────┴──────────┐   ║
-║   │                    libc (Userspace Library)                        │   ║
-║   │  string.c · stdio.c · stdlib.c · unistd.c · signal.c · crt0.asm  │   ║
-║   │  errno.c · ctype.c · fcntl.c · sys/stat.c · sys/wait.c · etc.    │   ║
-║   └───────────────────────────┬───────────────────────────────────────┘   ║
+║   ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌────────────────────┐     ║
+║   │  sh.elf  │  │ test.elf │  │ exec_test.elf│  │  Aplicaciones ELF  │     ║
+║   └────┬─────┘  └────┬─────┘  └──────┬───────┘  └──────────┬─────────┘     ║
+║        │             │               │                     │               ║
+║   ┌────┴─────────────┴───────────────┴─────────────────────┴──────────┐    ║
+║   │                    libc (Userspace Library)                       │    ║
+║   │  string.c · stdio.c · stdlib.c · unistd.c · signal.c · crt0.asm   │    ║
+║   │  errno.c · ctype.c · fcntl.c · sys/stat.c · sys/wait.c · etc.     │    ║
+║   └───────────────────────────┬───────────────────────────────────────┘    ║
 ║                               │                                            ║
 ║                        syscall (INT/SYSCALL)                               ║
 ╠═══════════════════════════════╪════════════════════════════════════════════╣
@@ -42,58 +42,58 @@ arquitecturas. El kernel es monolítico con soporte para:
 ║                     ESPACIO DEL KERNEL (Ring 0)                            ║
 ║                                                                            ║
 ║ ┌────────────────────────────────────────────────────────────────────────┐ ║
-║ │                     INTERFAZ DE SYSCALLS                              │ ║
-║ │  syscall_entry.asm → syscall_handler() → sys_read/write/open/fork/  │ ║
-║ │  exec/pipe/socket/mmap/brk/kill/wait4/dup2/stat/ioctl/futex/...     │ ║
-║ │                      (~70 syscalls Linux-compatible)                  │ ║
-║ └──────────────────────────────┬─────────────────────────────────────── ┘ ║
+║ │                     INTERFAZ DE SYSCALLS                               │ ║
+║ │  syscall_entry.asm → syscall_handler() → sys_read/write/open/fork/     │ ║
+║ │  exec/pipe/socket/mmap/brk/kill/wait4/dup2/stat/ioctl/futex/...        │ ║
+║ │                      (~70 syscalls Linux-compatible)                   │ ║
+║ └──────────────────────────────┬─────────────────────────────────────────┘ ║
 ║                                │                                           ║
-║ ┌──────────────────────────────┼──────────────────────────────────────── ┐ ║
-║ │              SUBSISTEMAS DEL KERNEL                                   │ ║
-║ │                              │                                        │ ║
-║ │  ┌──────────┐  ┌─────────┐  │  ┌───────────┐  ┌──────────────────┐   │ ║
-║ │  │SCHEDULER │  │  SHELL  │  │  │  NETWORK  │  │  APLICACIONES    │   │ ║
-║ │  │(task.c)  │  │(shell/) │  │  │ (net/)    │  │  INTERNAS (apps/)│   │ ║
-║ │  └────┬─────┘  └────┬────┘  │  └─────┬─────┘  └────────┬─────────┘   │ ║
-║ │       │              │       │        │                 │             │ ║
-║ │  ┌────┴──────────────┴───────┴────────┴─────────────────┴──────────┐  │ ║
-║ │  │                  SERVICIOS DEL KERNEL                           │  │ ║
-║ │  │  klog.c · stdio.c · string.c · futex.c · sem.c · libgcc.c     │  │ ║
-║ │  └────────────────────────────┬────────────────────────────────────┘  │ ║
-║ │                               │                                       │ ║
-║ │  ┌─────────────┐  ┌──────────┴──────────┐  ┌──────────────────────┐  │ ║
-║ │  │ MEMORY MGR  │  │ FILESYSTEM (VFS)    │  │   CRYPTO            │  │ ║
-║ │  │ (mm/)       │  │ (fs/)               │  │   (crypto/)         │  │ ║
-║ │  └──────┬──────┘  └──────────┬──────────┘  └──────────────────────┘  │ ║
-║ │         │                    │                                        │ ║
-║ └─────────┼────────────────────┼────────────────────────────────────────┘ ║
+║ ┌──────────────────────────────┼─────────────────────────────────────────┐ ║
+║ │              SUBSISTEMAS DEL KERNEL                                    │ ║
+║ │                              │                                         │ ║
+║ │  ┌──────────┐  ┌─────────┐  │  ┌───────────┐  ┌──────────────────┐     │ ║
+║ │  │SCHEDULER │  │  SHELL  │  │  │  NETWORK  │  │  APLICACIONES    │     │ ║
+║ │  │(task.c)  │  │(shell/) │  │  │ (net/)    │  │  INTERNAS (apps/)│     │ ║
+║ │  └────┬─────┘  └────┬────┘  │  └─────┬─────┘  └────────┬─────────┘     │ ║
+║ │       │              │       │        │                 │              │ ║
+║ │  ┌────┴──────────────┴───────┴────────┴─────────────────┴──────────┐   │ ║
+║ │  │                  SERVICIOS DEL KERNEL                           │   │ ║
+║ │  │  klog.c · stdio.c · string.c · futex.c · sem.c · libgcc.c       │   │ ║
+║ │  └────────────────────────────┬────────────────────────────────────┘   │ ║
+║ │                               │                                        │ ║
+║ │  ┌─────────────┐  ┌──────────┴──────────┐  ┌──────────────────────┐    │ ║
+║ │  │ MEMORY MGR  │  │ FILESYSTEM (VFS)    │  │   CRYPTO             │    │ ║
+║ │  │ (mm/)       │  │ (fs/)               │  │   (crypto/)          │    │ ║
+║ │  └──────┬──────┘  └──────────┬──────────┘  └──────────────────────┘    │ ║
+║ │         │                    │                                         │ ║
+║ └─────────┼────────────────────┼─────────────────────────────────────────┘ ║
 ║           │                    │                                           ║
-║ ┌─────────┴────────────────────┴─────────────────────────────────────── ┐ ║
-║ │            HARDWARE ABSTRACTION LAYER (HAL)                           │ ║
-║ │        hal.h (API) → kernel/arch/<arch>/hal_impl.c                    │ ║
-║ └──────────────────────────────┬────────────────────────────────────────┘ ║
+║ ┌─────────┴────────────────────┴─────────────────────────────────────────┐ ║
+║ │            HARDWARE ABSTRACTION LAYER (HAL)                            │ ║
+║ │        hal.h (API) → kernel/arch/<arch>/hal_impl.c                     │ ║
+║ └──────────────────────────────┬─────────────────────────────────────────┘ ║
 ║                                │                                           ║
-║ ┌──────────────────────────────┼──────────────────────────────────────── ┐ ║
-║ │                     DRIVERS DE DISPOSITIVOS                           │ ║
-║ │   video/   serial/   input/   net/   disk/   timer/   pci/   rtc/   │ ║
-║ └──────────────────────────────┬────────────────────────────────────────┘ ║
+║ ┌──────────────────────────────┼─────────────────────────────────────────┐ ║
+║ │                     DRIVERS DE DISPOSITIVOS                            │ ║
+║ │   video/   serial/   input/   net/   disk/   timer/   pci/   rtc/      │ ║
+║ └──────────────────────────────┬─────────────────────────────────────────┘ ║
 ║                                │                                           ║
-║ ┌──────────────────────────────┼──────────────────────────────────────── ┐ ║
-║ │              CÓDIGO ESPECÍFICO DE ARQUITECTURA                        │ ║
+║ ┌──────────────────────────────┼─────────────────────────────────────────┐ ║
+║ │              CÓDIGO ESPECÍFICO DE ARQUITECTURA                         │ ║
 ║ │                   kernel/arch/x86_64/                                  │ ║
-║ │   gdt · idt · pic · apic · smp · context_switch · syscall_entry      │ ║
-║ │   trampoline · user_mode · pat · acpi · interrupts                   │ ║
-║ └──────────────────────────────┬────────────────────────────────────────┘ ║
+║ │   gdt · idt · pic · apic · smp · context_switch · syscall_entry        │ ║
+║ │   trampoline · user_mode · pat · acpi · interrupts                     │ ║
+║ └──────────────────────────────┬─────────────────────────────────────────┘ ║
 ║                                │                                           ║
-║ ┌──────────────────────────────┼──────────────────────────────────────── ┐ ║
-║ │                         BOOTLOADER                                    │ ║
-║ │              boot/x86_64/boot.asm (+ UEFI boot)                       │ ║
-║ └──────────────────────────────┬────────────────────────────────────────┘ ║
-╠════════════════════════════════╪═════════════════════════════════════════ ╣
+║ ┌──────────────────────────────┼─────────────────────────────────────────┐ ║
+║ │                         BOOTLOADER                                     │ ║
+║ │              boot/x86_64/boot.asm (+ UEFI boot)                        │ ║
+║ └──────────────────────────────┬─────────────────────────────────────────┘ ║
+╠════════════════════════════════╪══════════════════════════════════════════─╣
 ║                                ▼                                           ║
 ║                        HARDWARE FÍSICO                                     ║
 ║                  CPU · RAM · Disco · NIC · Display                         ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+╚════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
@@ -218,19 +218,19 @@ hal_init()
 │  ┌─────────────────────────────────────────────────────────────────┐ │
 │  │                    Heap Allocator (heap.c)                      │ │
 │  │  Algoritmo: Next-Fit + Coalescing                               │ │
-│  │  API: kmalloc() · kfree() · kcalloc() · krealloc()             │ │
+│  │  API: kmalloc() · kfree() · kcalloc() · krealloc()              │ │
 │  │  Protección: Spinlock SMP · Canary checks                       │ │
 │  │  Lista doblemente enlazada de bloques                           │ │
 │  └────────────────────────────┬────────────────────────────────────┘ │
 │                               │ usa                                  │
 │  ┌────────────────────────────▼────────────────────────────────────┐ │
 │  │              Virtual Memory Manager (vmm.c)                     │ │
-│  │  Paginación 4 niveles: PML4 → PDPT → PD → PT                  │ │
+│  │  Paginación 4 niveles: PML4 → PDPT → PD → PT                    │ │
 │  │  API:                                                           │ │
-│  │    vmm_map_page() · vmm_unmap_page() · vmm_virt_to_phys()     │ │
-│  │    vmm_clone_pml4() (Copy-on-Write para fork)                  │ │
-│  │    vmm_handle_page_fault() (resuelve CoW)                      │ │
-│  │    vmm_verify_user_access() · vmm_validate_user_ptr()          │ │
+│  │    vmm_map_page() · vmm_unmap_page() · vmm_virt_to_phys()       │ │
+│  │    vmm_clone_pml4() (Copy-on-Write para fork)                   │ │
+│  │    vmm_handle_page_fault() (resuelve CoW)                       │ │
+│  │    vmm_verify_user_access() · vmm_validate_user_ptr()           │ │
 │  │  TLB Shootdown SMP (IPI-based)                                  │ │
 │  └────────────────────────────┬────────────────────────────────────┘ │
 │                               │ usa                                  │
@@ -240,8 +240,8 @@ hal_init()
 │  │  Estrategia: Next-Fit con rover                                 │ │
 │  │  API:                                                           │ │
 │  │    pmm_init() (parsea E820)                                     │ │
-│  │    pmm_alloc_page() · pmm_free_page()                          │ │
-│  │    pmm_ref_page() · pmm_unref_page() (reference counting)     │ │
+│  │    pmm_alloc_page() · pmm_free_page()                           │ │
+│  │    pmm_ref_page() · pmm_unref_page() (reference counting)       │ │
 │  │    pmm_get_total/free/used_ram()                                │ │
 │  └─────────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────┘
@@ -268,7 +268,7 @@ hal_init()
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│              SCHEDULER (Round-Robin Preemptivo)               │
+│              SCHEDULER (Round-Robin Preemptivo)              │
 │                                                              │
 │  Estados de Tarea:                                           │
 │    TASK_READY → TASK_RUNNING → TASK_SLEEPING → TASK_DEAD     │
@@ -281,11 +281,11 @@ hal_init()
 │    task_fork()         ← fork() con CoW                      │
 │    task_exec()         ← execve() (carga ELF)                │
 │    task_waitpid()      ← wait4()                             │
-│    schedule()          ← Selecciona siguiente tarea           │
-│    task_yield()        ← Cede CPU voluntariamente             │
-│    task_sleep(ms)      ← Sleep con timer                      │
-│    task_exit()         ← Termina tarea actual                 │
-│    task_kill()         ← Mata tarea por PID                   │
+│    schedule()          ← Selecciona siguiente tarea          │
+│    task_yield()        ← Cede CPU voluntariamente            │
+│    task_sleep(ms)      ← Sleep con timer                     │
+│    task_exit()         ← Termina tarea actual                │
+│    task_kill()         ← Mata tarea por PID                  │
 │                                                              │
 │  Cada tarea tiene:                                           │
 │    • Stack de kernel propio                                  │
@@ -299,7 +299,7 @@ hal_init()
 │                                                              │
 │  Cambio de contexto:                                         │
 │    IRQ0 (Timer) → schedule() → context_switch.asm            │
-│                   (guarda RSP, carga nuevo RSP, ret)          │
+│                   (guarda RSP, carga nuevo RSP, ret)         │
 │                                                              │
 │  SMP:                                                        │
 │    • task_init_ap() para Application Processors              │
@@ -317,47 +317,47 @@ hal_init()
 │                    VIRTUAL FILE SYSTEM (VFS)                         │
 │                                                                      │
 │  API unificada:                                                      │
-│    read_fs() · write_fs() · open_fs() · close_fs()                  │
-│    readdir_fs() · finddir_fs() · create_fs() · mkdir_fs()           │
-│    unlink_fs() · ioctl_fs() · vfs_mount() · vfs_lookup()            │
+│    read_fs() · write_fs() · open_fs() · close_fs()                   │
+│    readdir_fs() · finddir_fs() · create_fs() · mkdir_fs()            │
+│    unlink_fs() · ioctl_fs() · vfs_mount() · vfs_lookup()             │
 │                                                                      │
-│  Soporte de montaje:                                                │
-│    Mount points via lista enlazada (inode+impl matching)            │
-│    Spinlock per-node para protección SMP                            │
+│  Soporte de montaje:                                                 │
+│    Mount points via lista enlazada (inode+impl matching)             │
+│    Spinlock per-node para protección SMP                             │
 │                                                                      │
 │  Árbol de filesystems montados:                                      │
 │                                                                      │
-│    /                    ← initrd (Initial Ramdisk)                  │
-│    ├── sh.elf           ← Shell userspace                           │
-│    ├── test.elf         ← Test program                              │
-│    ├── dev/             ← DevFS (dispositivos virtuales)            │
-│    │   ├── null         ← /dev/null                                 │
-│    │   ├── zero         ← /dev/zero                                 │
-│    │   ├── tty          ← /dev/tty (terminal)                       │
-│    │   ├── random       ← /dev/random (xorshift + TSC)              │
-│    │   ├── urandom      ← /dev/urandom                              │
-│    │   └── input        ← /dev/input (eventos de entrada)           │
-│    ├── proc/            ← ProcFS (información del sistema)          │
-│    │   ├── version      ← eterOS version string                     │
-│    │   ├── uptime       ← Uptime en segundos                        │
-│    │   └── meminfo      ← Memoria total/free/used                   │
-│    └── data/            ← JFS (Journaling File System)              │
+│    /                    ← initrd (Initial Ramdisk)                   │
+│    ├── sh.elf           ← Shell userspace                            │
+│    ├── test.elf         ← Test program                               │
+│    ├── dev/             ← DevFS (dispositivos virtuales)             │
+│    │   ├── null         ← /dev/null                                  │
+│    │   ├── zero         ← /dev/zero                                  │
+│    │   ├── tty          ← /dev/tty (terminal)                        │
+│    │   ├── random       ← /dev/random (xorshift + TSC)               │
+│    │   ├── urandom      ← /dev/urandom                               │
+│    │   └── input        ← /dev/input (eventos de entrada)            │
+│    ├── proc/            ← ProcFS (información del sistema)           │
+│    │   ├── version      ← eterOS version string                      │
+│    │   ├── uptime       ← Uptime en segundos                         │
+│    │   └── meminfo      ← Memoria total/free/used                    │
+│    └── data/            ← JFS (Journaling File System)               │
 │                                                                      │
 │  Backends de FS:                                                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │  initrd  │ │  FAT32   │ │  DevFS   │ │  ProcFS  │ │   JFS    │  │
-│  │(initrd.c)│ │(fat32.c) │ │(devfs.c) │ │(procfs.c)│ │ (jfs.c)  │  │
-│  │ RAM-based│ │ Disk I/O │ │ Virtual  │ │ Virtual  │ │ Journaled│  │
-│  │ Read-Only│ │ Read/Writ│ │ En-Memory│ │ En-Memory│ │ 4MB disk │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐    │
+│  │  initrd  │ │  FAT32   │ │  DevFS   │ │  ProcFS  │ │   JFS    │    │
+│  │(initrd.c)│ │(fat32.c) │ │(devfs.c) │ │(procfs.c)│ │ (jfs.c)  │    │
+│  │ RAM-based│ │ Disk I/O │ │ Virtual  │ │ Virtual  │ │ Journaled│    │
+│  │ Read-Only│ │ Read/Writ│ │ En-Memory│ │ En-Memory│ │ 4MB disk │    │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘    │
 │                                                                      │
 │  Soporte adicional:                                                  │
-│  ┌──────────────┐   ┌───────────────┐                               │
-│  │ Block Cache  │   │  ELF Loader   │                               │
-│  │ (bcache.c)   │   │  (elf.c)      │                               │
-│  │ Cache de     │   │  Carga ELF64  │                               │
-│  │ sectores     │   │  a memoria    │                               │
-│  └──────────────┘   └───────────────┘                               │
+│  ┌──────────────┐   ┌───────────────┐                                │
+│  │ Block Cache  │   │  ELF Loader   │                                │
+│  │ (bcache.c)   │   │  (elf.c)      │                                │
+│  │ Cache de     │   │  Carga ELF64  │                                │
+│  │ sectores     │   │  a memoria    │                                │
+│  └──────────────┘   └───────────────┘                                │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -366,46 +366,46 @@ hal_init()
 ### 3.7. Networking (`kernel/net/`)
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                      STACK DE RED                                    │
-│                                                                      │
+┌─────────────────────────────────────────────────────────────────────┐
+│                      STACK DE RED                                   │
+│                                                                     │
 │  ┌─────────────────────────────────────────────────────┐            │
-│  │            Capa de Aplicación                        │            │
+│  │            Capa de Aplicación                       │            │
 │  │  wget.c (HTTP GET) · raw_tcp_get() (compat.c)       │            │
 │  └────────────────────────┬────────────────────────────┘            │
-│                           │                                          │
+│                           │                                         │
 │  ┌────────────────────────▼────────────────────────────┐            │
-│  │            lwIP 2.2.0 (Stack completo)               │            │
-│  │  TCP · UDP · IP · ICMP · DNS · DHCP                  │            │
-│  │  lwip/    ← Código fuente de lwIP                    │            │
-│  │  lwip_port/ ← Port de éterOS para lwIP               │            │
-│  │    ethernetif.c  ← Interfaz NIC→lwIP                 │            │
+│  │            lwIP 2.2.0 (Stack completo)              │            │
+│  │  TCP · UDP · IP · ICMP · DNS · DHCP                 │            │
+│  │  lwip/    ← Código fuente de lwIP                   │            │
+│  │  lwip_port/ ← Port de éterOS para lwIP              │            │
+│  │    ethernetif.c  ← Interfaz NIC→lwIP                │            │
 │  └────────────────────────┬────────────────────────────┘            │
-│                           │                                          │
+│                           │                                         │
 │  ┌────────────────────────▼────────────────────────────┐            │
-│  │            Capa de Compatibilidad                    │            │
-│  │  compat.c:                                           │            │
-│  │    net_init() → Inicializa lwIP + DHCP               │            │
-│  │    net_poll() → Procesa paquetes pendientes          │            │
-│  │    raw_tcp_get() → HTTP client blocking              │            │
+│  │            Capa de Compatibilidad                   │            │
+│  │  compat.c:                                          │            │
+│  │    net_init() → Inicializa lwIP + DHCP              │            │
+│  │    net_poll() → Procesa paquetes pendientes         │            │
+│  │    raw_tcp_get() → HTTP client blocking             │            │
 │  └────────────────────────┬────────────────────────────┘            │
-│                           │                                          │
+│                           │                                         │
 │  ┌────────────────────────▼─────────────────────────────┐           │
-│  │            Stack nativo (core/)                       │           │
+│  │            Stack nativo (core/)                      │           │
 │  │  dhcp.c · dhcp_parser.c · ip_utils.c                 │           │
 │  │  raw_tcp.c · tcp.c · stack.c · nic.c                 │           │
 │  └────────────────────────┬─────────────────────────────┘           │
-│                           │                                          │
+│                           │                                         │
 │  ┌────────────────────────▼─────────────────────────────┐           │
-│  │           Driver de Red                               │           │
+│  │           Driver de Red                              │           │
 │  │  e1000.c  ←  Intel E1000/E1000E NIC driver           │           │
-│  │  Detectado via PCI (pci.c)                            │           │
+│  │  Detectado via PCI (pci.c)                           │           │
 │  └──────────────────────────────────────────────────────┘           │
-│                                                                      │
+│                                                                     │
 │  Socket API (syscall.c):                                            │
 │    sys_socket() · sys_connect()                                     │
 │    socket_read_fs() · socket_write_fs()                             │
-└──────────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -477,21 +477,21 @@ kernel/drivers/
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    SHELL INTERACTIVO                          │
+│                    SHELL INTERACTIVO                         │
 │                                                              │
 │  shell.c          ← Loop principal de entrada                │
 │                     • Lee de teclado + serial                │
-│                     • Historial con flechas ↑/↓               │
-│                     • Ctrl+C (cancelar), Ctrl+L (clear)       │
+│                     • Historial con flechas ↑/↓              │
+│                     • Ctrl+C (cancelar), Ctrl+L (clear)      │
 │  commands.c       ← Dispatch de comandos                     │
 │  cmd_system.c     ← Comandos de sistema:                     │
-│                     reboot, clear, sysmon, ver, halt,         │
-│                     cat, ls, cd, pwd, mkdir, echo, write      │
+│                     reboot, clear, sysmon, ver, halt,        │
+│                     cat, ls, cd, pwd, mkdir, echo, write     │
 │  cmd_task.c       ← Comandos de procesos:                    │
-│                     ps, kill, exec, fork_test, sleep          │
+│                     ps, kill, exec, fork_test, sleep         │
 │  cmd_net.c        ← Comandos de red:                         │
-│                     wget, ifconfig                            │
-│  cmd_misc.c       ← Otros: date, uptime, uname              │
+│                     wget, ifconfig                           │
+│  cmd_misc.c       ← Otros: date, uptime, uname               │
 │  history.c        ← Buffer circular de historial             │
 │  shell_internal.h ← Headers internos                         │
 └──────────────────────────────────────────────────────────────┘
@@ -527,21 +527,21 @@ kernel/apps/
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│               PRIMITIVAS DE SINCRONIZACIÓN                    │
+│               PRIMITIVAS DE SINCRONIZACIÓN                   │
 │                                                              │
-│  ┌────────────┐  ┌──────────────┐  ┌────────────────────┐   │
-│  │  Spinlock   │  │  Semáforos   │  │   Futex (Fast      │   │
-│  │  (lock.h)   │  │  (sem.c)    │  │   Userspace Mutex) │   │
-│  │             │  │             │  │   (futex.c)         │   │
-│  │ spin_lock() │  │ sem_init()  │  │                    │   │
-│  │ spin_unlock│  │ sem_wait()  │  │ futex_wait()       │   │
-│  │             │  │ sem_signal()│  │ futex_wake()       │   │
-│  │ Usado por:  │  │             │  │                    │   │
-│  │ • Heap     │  │ Usado por:  │  │ 16 buckets hash    │   │
-│  │ • VFS      │  │ • Network   │  │ Per-bucket spinlock│   │
-│  │ • PMM      │  │ • Scheduler │  │ Linux-compatible   │   │
-│  │ • TLB flush│  │             │  │                    │   │
-│  └────────────┘  └──────────────┘  └────────────────────┘   │
+│  ┌────────────┐  ┌──────────────┐  ┌────────────────────┐    │
+│  │  Spinlock  │  │  Semáforos   │  │   Futex (Fast      │    │
+│  │  (lock.h)  │  │  (sem.c)     │  │   Userspace Mutex) │    │
+│  │            │  │              │  │   (futex.c)        │    │
+│  │ spin_lock()│  │ sem_init()   │  │                    │    │
+│  │ spin_unlock│  │ sem_wait()   │  │ futex_wait()       │    │
+│  │            │  │ sem_signal() │  │ futex_wake()       │    │
+│  │ Usado por: │  │              │  │                    │    │
+│  │ • Heap     │  │ Usado por:   │  │ 16 buckets hash    │    │
+│  │ • VFS      │  │ • Network    │  │ Per-bucket spinlock│    │
+│  │ • PMM      │  │ • Scheduler  │  │ Linux-compatible   │    │
+│  │ • TLB flush│  │              │  │                    │    │
+│  └────────────┘  └──────────────┘  └────────────────────┘    │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │  Pipes (syscall.c)                                     │  │
@@ -615,7 +615,7 @@ kernel/gfx/
 
 ```
 ╔═══════════════════════════════════════════════════════════════════╗
-║                    SECUENCIA DE BOOT COMPLETA                    ║
+║                    SECUENCIA DE BOOT COMPLETA                     ║
 ╚═══════════════════════════════════════════════════════════════════╝
 
 BIOS POST → MBR (boot.asm)
@@ -700,36 +700,36 @@ kmain() [kernel/main.c]
 ┌─────────────────────────────────────────────────────────────────┐
 │                  FLUJO DE UNA SYSCALL                           │
 │                                                                 │
-│  Userspace: syscall(SYS_write, fd, buf, count)                 │
-│             mov rax, 1   ; SYS_write                           │
+│  Userspace: syscall(SYS_write, fd, buf, count)                  │
+│             mov rax, 1   ; SYS_write                            │
 │             mov rdi, fd                                         │
 │             mov rsi, buf                                        │
 │             mov rdx, count                                      │
 │             syscall        ; ← CPU trap                         │
 │                                                                 │
-│  ┌──────────────── Ring 0 ──────────────────────────────┐      │
-│  │  syscall_entry.asm:                                   │      │
-│  │    1. swapgs            ; Cambiar a kernel GS         │      │
-│  │    2. Save user RSP, load kernel RSP (from TSS)       │      │
-│  │    3. Push registers (rdi, rsi, rdx, r10, r8, r9)    │      │
-│  │    4. call syscall_handler                            │      │
-│  │                                                       │      │
-│  │  syscall_handler() (syscall.c):                       │      │
-│  │    switch(rax) {                                      │      │
-│  │      case SYS_write: result = sys_write(fd,buf,cnt);  │      │
-│  │      case SYS_read:  result = sys_read(fd,buf,cnt);   │      │
-│  │      case SYS_fork:  result = task_fork(regs);        │      │
-│  │      case SYS_execve: result = task_exec(path,...);   │      │
-│  │      ...                                              │      │
-│  │    }                                                  │      │
-│  │    regs->rax = result; // Return value                │      │
-│  │                                                       │      │
-│  │  syscall_entry.asm (return):                          │      │
-│  │    5. Pop registers                                   │      │
-│  │    6. Restore user RSP                                │      │
-│  │    7. swapgs                                          │      │
-│  │    8. sysretq          ; ← Return to Ring 3           │      │
-│  └───────────────────────────────────────────────────────┘      │
+│  ┌──────────────── Ring 0 ──────────────────────────────┐       │
+│  │  syscall_entry.asm:                                  │       │
+│  │    1. swapgs            ; Cambiar a kernel GS        │       │
+│  │    2. Save user RSP, load kernel RSP (from TSS)      │       │
+│  │    3. Push registers (rdi, rsi, rdx, r10, r8, r9)    │       │
+│  │    4. call syscall_handler                           │       │
+│  │                                                      │       │
+│  │  syscall_handler() (syscall.c):                      │       │
+│  │    switch(rax) {                                     │       │
+│  │      case SYS_write: result = sys_write(fd,buf,cnt); │       │
+│  │      case SYS_read:  result = sys_read(fd,buf,cnt);  │       │
+│  │      case SYS_fork:  result = task_fork(regs);       │       │
+│  │      case SYS_execve: result = task_exec(path,...);  │       │
+│  │      ...                                             │       │
+│  │    }                                                 │       │
+│  │    regs->rax = result; // Return value               │       │
+│  │                                                      │       │
+│  │  syscall_entry.asm (return):                         │       │
+│  │    5. Pop registers                                  │       │
+│  │    6. Restore user RSP                               │       │
+│  │    7. swapgs                                         │       │
+│  │    8. sysretq          ; ← Return to Ring 3          │       │
+│  └──────────────────────────────────────────────────────┘       │
 │                                                                 │
 │  Userspace: rax = bytes_written (resultado)                     │
 └─────────────────────────────────────────────────────────────────┘
@@ -776,7 +776,7 @@ kmain() [kernel/main.c]
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    SISTEMA DE BUILD                           │
+│                    SISTEMA DE BUILD                          │
 │                                                              │
 │  Makefile (principal)    ← GNU Make, 17KB                    │
 │  build.ps1              ← Script PowerShell para Windows     │
@@ -784,8 +784,8 @@ kmain() [kernel/main.c]
 │  Toolchain:                                                  │
 │    x86_64-elf-gcc        (Cross compiler)                    │
 │    x86_64-elf-ld         (Linker)                            │
-│    nasm                  (Assembler)                          │
-│    QEMU                  (Emulador)                           │
+│    nasm                  (Assembler)                         │
+│    QEMU                  (Emulador)                          │
 │                                                              │
 │  Targets:                                                    │
 │    make kernel       → kernel/kernel.elf                     │
@@ -795,7 +795,7 @@ kmain() [kernel/main.c]
 │    make run          → QEMU con E1000, serial, etc.          │
 │                                                              │
 │  Scripts:                                                    │
-│    scripts/create_iso.sh      ← Crea ISO con GRUB/direct    │
+│    scripts/create_iso.sh      ← Crea ISO con GRUB/direct     │
 │    scripts/setup_toolchain.sh ← Instala cross-compiler       │
 │    scripts/setup_windows.ps1  ← Setup en Windows             │
 │    scripts/setup_wsl.sh       ← Setup en WSL                 │
@@ -805,7 +805,7 @@ kmain() [kernel/main.c]
 │    tools/mkuefi.py       ← Genera boot UEFI                  │
 │    tools/gen_logo.py     ← Genera logo en header C           │
 │    tools/font_converter.ps1  ← Convierte fonts a bitmap      │
-│    tools/updater/        ← Sistema de actualización           │
+│    tools/updater/        ← Sistema de actualización          │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -905,7 +905,7 @@ Tests de seguridad:
             ▼             ▼                 ▼
          HAL ◄────── Memory Mgmt ◄──── Filesystems
          │   │         │  │  │              │
-         │   │     PMM─┘  │  └─VMM         │
+         │   │     PMM─┘  │  └─VMM          │
          │   │            │                 │
          │   │          Heap ──────────► VFS ──► initrd
          │   │            │              │        devfs  

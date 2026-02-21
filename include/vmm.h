@@ -13,8 +13,10 @@
 #define PAGE_USER       0x4
 #define PAGE_PWT        0x8   /* Page Write Through */
 #define PAGE_PCD        0x10  /* Page Cache Disable */
+#define PAGE_ACCESSED   0x20  /* Page Accessed (set by hardware) */
 #define PAGE_HUGE       0x80
 #define PAGE_COW        0x200 /* Bit 9: Copy-on-Write (OS Available) */
+#define PAGE_SWAPPED    0x400 /* Bit 10: Swapped out */
 #define PAGE_NO_EXEC    0x8000000000000000
 
 /* Máscara para obtener la dirección física de una entrada (bits 12-51) */

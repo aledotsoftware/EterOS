@@ -314,23 +314,19 @@ void* pmm_alloc_page(void) {
     if (ptr) return ptr;
 
     /* First failure: Try to reclaim memory from caches */
-    /* serial_write_string("[PMM] OOM Warning. Reclaiming caches...\n"); */
+    serial_write_string("[PMM] OOM Warning. Reclaiming caches...\n");
     bcache_invalidate_all();
 
     /* Retry */
     ptr = pmm_alloc_page_impl();
     if (ptr) return ptr;
 
-    /* Critical Failure: Panic Policy */
-    terminal_write_colored("\n[PMM] CRITICAL ERROR: OUT OF MEMORY!\n", VGA_COLOR_RED, VGA_COLOR_BLACK);
-    terminal_write_colored("[PMM] System Halted.\n", VGA_COLOR_RED, VGA_COLOR_BLACK);
+    /* Soft Failure: Return NULL and let callers handle it gracefully.
+     * All kernel components now check for allocation failures.
+     * The page reclaimer thread will free unused pages in the background. */
+    serial_write_string("[PMM] WARNING: OOM. Returning NULL to caller.\n");
 
-    serial_write_string("\n[PMM] PANIC: OOM. System Halted.\n");
-
-    __asm__ volatile("cli");
-    for(;;) __asm__ volatile("hlt");
-
-    return NULL; /* Unreachable */
+    return NULL;
 }
 
 void pmm_free_page(void* addr) {

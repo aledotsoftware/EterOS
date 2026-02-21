@@ -102,6 +102,13 @@ void smp_init(void) {
 
         /* Preparar stack para este CPU */
         void* stack = kmalloc(4096); /* Small stack for initialization */
+        if (!stack) {
+            serial_write_string("[SMP] ERROR: OOM allocating stack for CPU ");
+            serial_write_string(b);
+            serial_write_string(". Skipping.\n");
+            cpu->state = CPU_STATE_OFFLINE;
+            continue;
+        }
         cpu->kernel_stack_top = (uint64_t)stack + 4096;
         
         *(uint64_t*)(TRAMPOLINE_BASE + TRAMPOLINE_OFFSET(trampoline_stack)) = cpu->kernel_stack_top;
