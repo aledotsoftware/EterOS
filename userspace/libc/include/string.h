@@ -3,7 +3,9 @@
 
 #include <stdint.h>
 
+#ifndef __ETEROS_HOST_TEST__
 typedef uint64_t size_t;
+#endif
 
 void  *memcpy(void *dest, const void *src, size_t n);
 void  *memset(void *s, int c, size_t n);
