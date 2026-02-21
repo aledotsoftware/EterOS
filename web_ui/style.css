@@ -1018,3 +1018,30 @@ body {
 .and-tag {
     background: var(--android-color);
 }
+/* --- Launcher Empty State --- */
+.launcher-empty {
+    display: none;
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 60px 20px;
+    width: 100%;
+}
+
+.launcher-empty .empty-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+    filter: drop-shadow(0 0 20px var(--accent-glow));
+}
+
+.launcher-empty h3 {
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.launcher-empty p {
+    font-size: 14px;
+    opacity: 0.8;
+}
