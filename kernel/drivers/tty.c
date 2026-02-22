@@ -5,10 +5,11 @@
 #include <mm.h>
 #include <string.h>
 #include <types.h>
+#include <errno.h>
 
 /* TTY Node Functions */
 
-static uint32_t tty_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t tty_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
     (void)node; (void)offset;
 
     if (size == 0) return 0;
@@ -17,7 +18,12 @@ static uint32_t tty_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
     /* This blocks until input is available */
     uint32_t i = 0;
     while (i < size) {
-        /* TODO: Handle non-blocking if O_NONBLOCK is set */
+        if (flags & O_NONBLOCK) {
+            if (!keyboard_has_input()) {
+                if (i > 0) return (ssize_t)i;
+                return -EAGAIN;
+            }
+        }
         char c = keyboard_getchar();
 
         /* Echo to screen and serial */
@@ -45,17 +51,17 @@ static uint32_t tty_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
             return i;
         }
     }
-    return i;
+    return (ssize_t)i;
 }
 
-static uint32_t tty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset;
+static ssize_t tty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)flags;
 
     for (uint32_t i = 0; i < size; i++) {
         terminal_putchar(buffer[i]);
         serial_putchar(buffer[i]);
     }
-    return size;
+    return (ssize_t)size;
 }
 
 static int tty_ioctl(fs_node_t *node, int request, void *arg) {

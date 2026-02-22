@@ -13,77 +13,77 @@ static fs_node_t* devfs_root = NULL;
 /* ========================================================================= */
 /* /dev/null Implementation                                                  */
 /* ========================================================================= */
-static uint32_t dev_null_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset; (void)size; (void)buffer;
+static ssize_t dev_null_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)size; (void)buffer; (void)flags;
     return 0; /* EOF */
 }
 
-static uint32_t dev_null_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset; (void)size; (void)buffer;
-    return size; /* Discard data, return success */
+static ssize_t dev_null_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)size; (void)buffer; (void)flags;
+    return (ssize_t)size; /* Discard data, return success */
 }
 
 /* ========================================================================= */
 /* /dev/zero Implementation                                                  */
 /* ========================================================================= */
-static uint32_t dev_zero_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset;
+static ssize_t dev_zero_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)flags;
     memset(buffer, 0, size);
-    return size;
+    return (ssize_t)size;
 }
 
-static uint32_t dev_zero_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset; (void)size; (void)buffer;
-    return size; /* Discard */
+static ssize_t dev_zero_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)size; (void)buffer; (void)flags;
+    return (ssize_t)size; /* Discard */
 }
 
 /* ========================================================================= */
 /* /dev/tty Implementation                                                   */
 /* ========================================================================= */
-static uint32_t dev_tty_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset;
+static ssize_t dev_tty_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)flags;
     for (uint32_t i = 0; i < size; i++) {
         buffer[i] = (uint8_t)keyboard_getchar();
         /* Line buffered simulation (optional) */
-        if (buffer[i] == '\n') return i+1;
+        if (buffer[i] == '\n') return (ssize_t)(i+1);
     }
-    return size;
+    return (ssize_t)size;
 }
 
-static uint32_t dev_tty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset;
+static ssize_t dev_tty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)flags;
     for (uint32_t i = 0; i < size; i++) {
         terminal_putchar((char)buffer[i]);
     }
-    return size;
+    return (ssize_t)size;
 }
 
 /* ========================================================================= */
 /* /dev/input/event0 (Aggregate) Implementation                              */
 /* ========================================================================= */
-static uint32_t dev_event_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset;
+static ssize_t dev_event_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)flags;
 
     if (size < sizeof(input_event_t)) return 0;
 
     int count = size / sizeof(input_event_t);
     int read = input_read((input_event_t*)buffer, count);
 
-    return read * sizeof(input_event_t);
+    return (ssize_t)(read * sizeof(input_event_t));
 }
 
 /* ========================================================================= */
 /* /dev/input/mouse0 Implementation                                          */
 /* ========================================================================= */
-static uint32_t dev_mouse_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset;
+static ssize_t dev_mouse_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)flags;
 
     if (size < sizeof(input_event_t)) return 0;
 
     int count = size / sizeof(input_event_t);
     int read = input_read_mouse((input_event_t*)buffer, count);
 
-    return read * sizeof(input_event_t);
+    return (ssize_t)(read * sizeof(input_event_t));
 }
 
 /* ========================================================================= */
@@ -144,8 +144,8 @@ static uint32_t xorshift32(void) {
     return x;
 }
 
-static uint32_t dev_random_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset;
+static ssize_t dev_random_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)flags;
     /* Mix in TSC for entropy */
     uint32_t lo, hi;
     __asm__ volatile ("rdtsc" : "=a"(lo), "=d"(hi));
@@ -154,17 +154,17 @@ static uint32_t dev_random_read(fs_node_t *node, uint32_t offset, uint32_t size,
     for (uint32_t i = 0; i < size; i++) {
         buffer[i] = (uint8_t)(xorshift32() & 0xFF);
     }
-    return size;
+    return (ssize_t)size;
 }
 
-static uint32_t dev_random_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node; (void)offset;
+static ssize_t dev_random_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)offset; (void)flags;
     /* Allow writing to mix into pool */
     for (uint32_t i = 0; i < size; i++) {
         rand_seed ^= buffer[i];
         xorshift32();
     }
-    return size;
+    return (ssize_t)size;
 }
 
 /* ========================================================================= */

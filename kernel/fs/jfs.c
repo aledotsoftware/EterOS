@@ -85,7 +85,8 @@ static jfs_inode_t* get_inode(uint32_t inode_idx) {
 }
 
 /* VFS Interface */
-static uint32_t jfs_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t jfs_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)flags;
     jfs_inode_t *inode = get_inode(node->inode);
     if (offset >= inode->size) return 0;
     if (offset + size > inode->size) size = inode->size - offset;
@@ -114,10 +115,11 @@ static uint32_t jfs_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_
         memcpy(buffer + read_bytes, sector + block_off, chunk);
         read_bytes += chunk;
     }
-    return read_bytes;
+    return (ssize_t)read_bytes;
 }
 
-static uint32_t jfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t jfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)flags;
     jfs_inode_t *inode = get_inode(node->inode);
 
     /* Auto-allocate blocks if needed */
@@ -161,7 +163,7 @@ static uint32_t jfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8
     }
 
     if (offset + written_bytes > inode->size) inode->size = offset + written_bytes;
-    return written_bytes;
+    return (ssize_t)written_bytes;
 }
 
 

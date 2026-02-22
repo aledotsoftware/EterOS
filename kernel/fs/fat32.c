@@ -382,8 +382,8 @@ static int fat32_find_free_dirent(fat32_volume_t* vol, uint32_t* out_sector, uin
 /* ========================================================================= */
 
 // Forward declarations
-uint32_t fat32_read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-uint32_t fat32_write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
+ssize_t fat32_read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags);
+ssize_t fat32_write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags);
 void fat32_open_fs(fs_node_t *node);
 void fat32_close_fs(fs_node_t *node);
 int fat32_readdir_fs(fs_node_t *node, uint32_t index, struct dirent *entry);
@@ -468,12 +468,13 @@ static uint32_t fat32_read_fs_impl(fs_node_t *node, uint32_t offset, uint32_t si
     return bytes_read;
 }
 
-uint32_t fat32_read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+ssize_t fat32_read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)flags;
     fat32_volume_t* vol = (fat32_volume_t*)node->ptr;
     spin_lock(&vol->lock);
     uint32_t res = fat32_read_fs_impl(node, offset, size, buffer);
     spin_unlock(&vol->lock);
-    return res;
+    return (ssize_t)res;
 }
 
 static uint32_t fat32_write_fs_impl(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
@@ -587,12 +588,13 @@ static uint32_t fat32_write_fs_impl(fs_node_t *node, uint32_t offset, uint32_t s
     return bytes_written;
 }
 
-uint32_t fat32_write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+ssize_t fat32_write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)flags;
     fat32_volume_t* vol = (fat32_volume_t*)node->ptr;
     spin_lock(&vol->lock);
     uint32_t res = fat32_write_fs_impl(node, offset, size, buffer);
     spin_unlock(&vol->lock);
-    return res;
+    return (ssize_t)res;
 }
 
 static int fat32_readdir_fs_impl(fs_node_t *node, uint32_t index, struct dirent *out_entry) {

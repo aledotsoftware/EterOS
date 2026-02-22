@@ -13,20 +13,20 @@ struct mount_point {
 
 static struct mount_point *mounts = NULL;
 
-uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
     if (node->read != 0) {
         spin_lock(&node->lock);
-        uint32_t ret = node->read(node, offset, size, buffer);
+        ssize_t ret = node->read(node, offset, size, buffer, flags);
         spin_unlock(&node->lock);
         return ret;
     }
     return 0;
 }
 
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+ssize_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
     if (node->write != 0) {
         spin_lock(&node->lock);
-        uint32_t ret = node->write(node, offset, size, buffer);
+        ssize_t ret = node->write(node, offset, size, buffer, flags);
         spin_unlock(&node->lock);
         return ret;
     }

@@ -66,18 +66,18 @@ void syscall_init(void) {
 
 /* --- Socket VFS Wrappers --- */
 
-static uint32_t socket_read_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
-    (void)offset;
-    if ((node->flags & 0x7) != FS_SOCKET) return 0;
+static ssize_t socket_read_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer, int flags) {
+    (void)offset; (void)flags;
+    if ((node->flags & 0x7) != FS_SOCKET) return -ENOTSOCK;
     int res = net_recv((int)node->inode, buffer, size, 0);
-    return (res < 0) ? 0 : (uint32_t)res;
+    return (ssize_t)res;
 }
 
-static uint32_t socket_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
-    (void)offset;
-    if ((node->flags & 0x7) != FS_SOCKET) return 0;
+static ssize_t socket_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer, int flags) {
+    (void)offset; (void)flags;
+    if ((node->flags & 0x7) != FS_SOCKET) return -ENOTSOCK;
     int res = net_send((int)node->inode, buffer, size, 0);
-    return (res < 0) ? 0 : (uint32_t)res;
+    return (ssize_t)res;
 }
 
 static void socket_close_fs(fs_node_t* node) {
@@ -109,10 +109,10 @@ typedef struct {
 
 #define PIPE_SIZE 4096
 
-static uint32_t pipe_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
-    (void)offset;
+static ssize_t pipe_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer, int flags) {
+    (void)offset; (void)flags;
     pipe_t* pipe = (pipe_t*)node->ptr;
-    if (!pipe) return 0;
+    if (!pipe) return -EPIPE;
 
     uint32_t read = 0;
     while (read < size) {
@@ -120,7 +120,7 @@ static uint32_t pipe_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8
 
         if (pipe->bytes_available == 0) {
             spin_unlock(&pipe->lock);
-            if (pipe->writers == 0) return read; /* EOF */
+            if (pipe->writers == 0) return (ssize_t)read; /* EOF */
             task_yield(); /* Block */
             continue;
         }
@@ -133,13 +133,13 @@ static uint32_t pipe_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8
 
         spin_unlock(&pipe->lock);
     }
-    return read;
+    return (ssize_t)read;
 }
 
-static uint32_t pipe_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
-    (void)offset;
+static ssize_t pipe_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer, int flags) {
+    (void)offset; (void)flags;
     pipe_t* pipe = (pipe_t*)node->ptr;
-    if (!pipe) return 0;
+    if (!pipe) return -EPIPE;
 
     uint32_t written = 0;
     while (written < size) {
@@ -147,7 +147,7 @@ static uint32_t pipe_write(fs_node_t* node, uint32_t offset, uint32_t size, uint
 
         if (pipe->bytes_available == pipe->size) {
             spin_unlock(&pipe->lock);
-            if (pipe->readers == 0) return written; /* Broken pipe */
+            if (pipe->readers == 0) return -EPIPE; /* Broken pipe */
             task_yield(); /* Block */
             continue;
         }
@@ -160,7 +160,7 @@ static uint32_t pipe_write(fs_node_t* node, uint32_t offset, uint32_t size, uint
 
         spin_unlock(&pipe->lock);
     }
-    return written;
+    return (ssize_t)written;
 }
 
 static void pipe_close(fs_node_t* node) {
@@ -359,9 +359,9 @@ static int64_t sys_write(int fd, const void* buf, size_t count) {
     task_t* current = task_get_current();
     if (fd < 0 || fd >= MAX_FD) return -EBADF;
     if (!current->fd_table[fd].node) return -EBADF;
-    uint32_t written = write_fs(current->fd_table[fd].node, current->fd_table[fd].offset, count, (uint8_t*)buf);
-    current->fd_table[fd].offset += written;
-    return written;
+    ssize_t written = write_fs(current->fd_table[fd].node, current->fd_table[fd].offset, count, (uint8_t*)buf, current->fd_table[fd].flags);
+    if (written > 0) current->fd_table[fd].offset += written;
+    return (int64_t)written;
 }
 
 static int64_t sys_read(int fd, void* buf, size_t count) {
@@ -369,9 +369,9 @@ static int64_t sys_read(int fd, void* buf, size_t count) {
     task_t* current = task_get_current();
     if (fd < 0 || fd >= MAX_FD) return -EBADF;
     if (!current->fd_table[fd].node) return -EBADF;
-    uint32_t read = read_fs(current->fd_table[fd].node, current->fd_table[fd].offset, count, (uint8_t*)buf);
-    current->fd_table[fd].offset += read;
-    return read;
+    ssize_t read = read_fs(current->fd_table[fd].node, current->fd_table[fd].offset, count, (uint8_t*)buf, current->fd_table[fd].flags);
+    if (read > 0) current->fd_table[fd].offset += read;
+    return (int64_t)read;
 }
 
 static int64_t sys_open(const char* path, int flags, int mode) {

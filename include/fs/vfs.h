@@ -13,6 +13,8 @@
 #define FS_SOCKET      0x07
 #define FS_MOUNTPOINT  0x08
 
+#define O_NONBLOCK     0x800
+
 struct fs_node;
 
 struct dirent {
@@ -20,8 +22,8 @@ struct dirent {
     uint32_t inode;
 };
 
-typedef uint32_t (*read_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);
-typedef uint32_t (*write_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);
+typedef ssize_t (*read_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*, int);
+typedef ssize_t (*write_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*, int);
 typedef void (*open_type_t)(struct fs_node*);
 typedef void (*close_type_t)(struct fs_node*);
 typedef int (*readdir_type_t)(struct fs_node*, uint32_t, struct dirent*);
@@ -62,8 +64,8 @@ typedef struct fs_node {
  * _fs to distinguish them from the read/write/open/close which deal with file descriptors
  * , not file nodes.
  */
-uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
+ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags);
+ssize_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags);
 void open_fs(fs_node_t *node, uint8_t read, uint8_t write);
 void close_fs(fs_node_t *node);
 int readdir_fs(fs_node_t *node, uint32_t index, struct dirent *entry);

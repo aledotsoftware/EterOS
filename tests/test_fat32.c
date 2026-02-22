@@ -272,7 +272,7 @@ void test_fat32_vfs() {
     // Read FS
     char buffer[100];
     memset(buffer, 0, sizeof(buffer));
-    uint32_t bytes = fat32_read_fs(file, 0, 100, (uint8_t*)buffer);
+    uint32_t bytes = fat32_read_fs(file, 0, 100, (uint8_t*)buffer, 0);
     if (bytes != 13) {
         printf("FAILED: fat32_read_fs returned %d\n", bytes);
         exit(1);
@@ -298,7 +298,7 @@ void test_fat32_vfs() {
     }
 
     const char* data = "VFS Write Test";
-    bytes = fat32_write_fs(file, 0, strlen(data), (uint8_t*)data);
+    bytes = fat32_write_fs(file, 0, strlen(data), (uint8_t*)data, 0);
     if (bytes != strlen(data)) {
         printf("FAILED: fat32_write_fs returned %d\n", bytes);
         exit(1);
@@ -314,7 +314,7 @@ void test_fat32_vfs() {
     // Verify Read back
     file = fat32_finddir_fs(root, "VFS.TXT");
     memset(buffer, 0, sizeof(buffer));
-    fat32_read_fs(file, 0, 100, (uint8_t*)buffer);
+    fat32_read_fs(file, 0, 100, (uint8_t*)buffer, 0);
     if (strcmp(buffer, data) != 0) {
         printf("FAILED: Read back mismatch: %s\n", buffer);
         exit(1);

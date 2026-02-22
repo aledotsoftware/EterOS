@@ -158,8 +158,8 @@ fs_node_t* vfs_lookup(fs_node_t* root, const char* path) {
     return NULL;
 }
 
-uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node;
+ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)flags;
 
     if (offset == 0 && size == sizeof(Elf64_Ehdr)) {
         memcpy(buffer, &elf_header, sizeof(Elf64_Ehdr));

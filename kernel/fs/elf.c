@@ -20,7 +20,7 @@ uint64_t elf_load_file(const char* path, uint64_t base_vaddr) {
     }
 
     Elf64_Ehdr header;
-    if (read_fs(node, 0, sizeof(Elf64_Ehdr), (uint8_t*)&header) != sizeof(Elf64_Ehdr)) {
+    if (read_fs(node, 0, sizeof(Elf64_Ehdr), (uint8_t*)&header, 0) != sizeof(Elf64_Ehdr)) {
         serial_write_string("[ELF] Failed to read ELF header.\n");
         kfree(node);
         return 0;
@@ -73,7 +73,7 @@ uint64_t elf_load_file(const char* path, uint64_t base_vaddr) {
         Elf64_Phdr phdr;
         uint64_t offset = header.e_phoff + (i * header.e_phentsize);
 
-        if (read_fs(node, offset, sizeof(Elf64_Phdr), (uint8_t*)&phdr) != sizeof(Elf64_Phdr)) {
+        if (read_fs(node, offset, sizeof(Elf64_Phdr), (uint8_t*)&phdr, 0) != sizeof(Elf64_Phdr)) {
             serial_write_string("[ELF] Failed to read Program Header.\n");
             kfree(node);
             return 0;
@@ -162,7 +162,7 @@ uint64_t elf_load_file(const char* path, uint64_t base_vaddr) {
 
             /* Now copy data (while pages are RW) */
             if (file_size > 0) {
-                if (read_fs(node, file_offset, file_size, (uint8_t*)vaddr) != file_size) {
+                if (read_fs(node, file_offset, file_size, (uint8_t*)vaddr, 0) != file_size) {
                      serial_write_string("[ELF] Failed to read segment data.\n");
                      kfree(node);
                      return 0;

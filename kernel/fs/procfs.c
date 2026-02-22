@@ -11,8 +11,8 @@ static fs_node_t* procfs_root = NULL;
 /* ========================================================================= */
 /* /proc/version Implementation                                              */
 /* ========================================================================= */
-static uint32_t proc_version_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node;
+static ssize_t proc_version_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)flags;
     const char* version = "eterOS version 0.1.0 (Genesis) (gcc version 12.2.0)\n";
     size_t len = strlen(version);
 
@@ -20,14 +20,14 @@ static uint32_t proc_version_read(fs_node_t *node, uint32_t offset, uint32_t siz
     if (offset + size > len) size = (uint32_t)(len - offset);
 
     memcpy(buffer, version + offset, size);
-    return size;
+    return (ssize_t)size;
 }
 
 /* ========================================================================= */
 /* /proc/uptime Implementation                                               */
 /* ========================================================================= */
-static uint32_t proc_uptime_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node;
+static ssize_t proc_uptime_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)flags;
 
     char uptime_str[64];
     uint32_t uptime = timer_get_uptime_seconds();
@@ -43,14 +43,14 @@ static uint32_t proc_uptime_read(fs_node_t *node, uint32_t offset, uint32_t size
     if (offset + size > len) size = (uint32_t)(len - offset);
 
     memcpy(buffer, uptime_str + offset, size);
-    return size;
+    return (ssize_t)size;
 }
 
 /* ========================================================================= */
 /* /proc/meminfo Implementation                                              */
 /* ========================================================================= */
-static uint32_t proc_meminfo_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    (void)node;
+static ssize_t proc_meminfo_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)node; (void)flags;
     char meminfo_str[256];
     char num_buf[32];
 
@@ -82,7 +82,7 @@ static uint32_t proc_meminfo_read(fs_node_t *node, uint32_t offset, uint32_t siz
     if (offset + size > len) size = (uint32_t)(len - offset);
 
     memcpy(buffer, meminfo_str + offset, size);
-    return size;
+    return (ssize_t)size;
 }
 
 /* ========================================================================= */

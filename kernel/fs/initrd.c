@@ -39,7 +39,8 @@ static initrd_dir_t* find_virtual_dir(const char* name) {
     return NULL;
 }
 
-uint32_t initrd_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+ssize_t initrd_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)flags;
     initrd_file_header_t header = file_headers[node->inode];
     if (offset > header.size)
         return 0;
@@ -61,7 +62,7 @@ uint32_t initrd_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *b
     }
 
     memcpy(buffer, (uint8_t*)(initrd_start + header.offset + offset), size);
-    return size;
+    return (ssize_t)size;
 }
 
 int initrd_readdir(fs_node_t *node, uint32_t index, struct dirent *entry) {

@@ -66,12 +66,13 @@ fs_node_t* vfs_lookup(fs_node_t *root, const char *path) {
     return node;
 }
 
-uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer, int flags) {
+    (void)flags;
     if (offset >= fake_elf_file_size) return 0;
     if (offset + size > fake_elf_file_size) size = fake_elf_file_size - offset;
 
     __builtin_memcpy(buffer, fake_elf_file_data + offset, size);
-    return size;
+    return (ssize_t)size;
 }
 
 /* Mock String Functions */
