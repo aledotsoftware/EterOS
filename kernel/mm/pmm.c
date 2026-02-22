@@ -24,8 +24,8 @@ extern uint8_t _kernel_end;
 static uint8_t* pmm_bitmap = NULL;
 static uint64_t pmm_bitmap_size = 0; /* En bytes */
 
-/* Array de Reference Counts (1 byte por página) */
-static uint8_t* pmm_ref_counts = NULL;
+/* Array de Reference Counts (2 bytes por página) */
+static uint16_t* pmm_ref_counts = NULL;
 
 /* Spinlock para proteger el estado del PMM en SMP */
 static spinlock_t pmm_lock = 0;
@@ -102,7 +102,12 @@ void pmm_init(void) {
     terminal_write_string("[PMM] Inicializando Gestor de Memoria Fisica...\n");
 
     /* 1. Leer mapa E820 para calcular RAM Total */
+#ifdef __ETEROS_HOST_TEST__
+    extern struct memory_map* host_mem_map;
+    struct memory_map* mem_map = host_mem_map;
+#else
     struct memory_map* mem_map = (struct memory_map*)MEM_MAP_ADDR;
+#endif
     
     /* Sanity Check básico: count debe ser razonable (>0, <100) */
     char dbg[64];
@@ -157,6 +162,17 @@ void pmm_init(void) {
 
     /* 2. Ubicar el Bitmap en una zona segura (4MB) */
     /* ⚡ BOLT: Evitamos colisiones con kernel (1MB), stacks (0.6MB) y tablas (2MB) */
+#ifdef __ETEROS_HOST_TEST__
+    extern uint8_t* mock_pmm_bitmap;
+    extern uint16_t* mock_pmm_ref_counts;
+
+    /* Calcular tamaño del bitmap (1 bit por página) */
+    pmm_bitmap_size = total_pages / 8;
+    if (total_pages % 8) pmm_bitmap_size++;
+
+    pmm_bitmap = mock_pmm_bitmap;
+    pmm_ref_counts = mock_pmm_ref_counts;
+#else
     pmm_bitmap = (uint8_t*)0x400000;
     
     /* Calcular tamaño del bitmap (1 bit por página) */
@@ -165,13 +181,17 @@ void pmm_init(void) {
     if (total_pages % 8) pmm_bitmap_size++;
 
     /* Ubicar el RefCounts array después del bitmap (Alineado a 4KB) */
-    pmm_ref_counts = (uint8_t*)PAGE_ALIGN_UP((uint64_t)pmm_bitmap + pmm_bitmap_size);
+    pmm_ref_counts = (uint16_t*)PAGE_ALIGN_UP((uint64_t)pmm_bitmap + pmm_bitmap_size);
+#endif
     
     /* Inicializar bitmap: MARCAR TODO COMO USADO (1) por defecto */
     /* Luego liberaremos solo las regiones USABLE del mapa E820 */
     memset(pmm_bitmap, 0xFF, pmm_bitmap_size);
     /* Inicializar refcounts: MARCAR TODO COMO USADO (1) por defecto */
-    memset(pmm_ref_counts, 1, total_pages);
+    /* Use loop since memset sets bytes, and we want uint16_t entries to be 1 */
+    for (uint64_t i = 0; i < total_pages; i++) {
+        pmm_ref_counts[i] = 1;
+    }
 
     used_ram = total_ram; /* Temporalmente todo usado */
     serial_write_string("[PMM] Bitmap at 0x400000, processing E820 regions...\n");
@@ -190,9 +210,10 @@ void pmm_init(void) {
     pmm_mark_region_used(0x0, 0x100000); 
 
     /* b) Reservar explícitamente el espacio del Bitmap y RefCounts */
-    uint64_t pmm_end = (uint64_t)pmm_ref_counts + total_pages;
+    uint64_t ref_counts_size = total_pages * sizeof(uint16_t);
+    uint64_t pmm_end = (uint64_t)pmm_ref_counts + ref_counts_size;
     pmm_mark_region_used((uint64_t)pmm_bitmap, pmm_bitmap_size);
-    pmm_mark_region_used((uint64_t)pmm_ref_counts, total_pages);
+    pmm_mark_region_used((uint64_t)pmm_ref_counts, ref_counts_size);
     
     /* c) Tablas de paginación del bootloader (0x70000-0x76000, ya dentro del 1MB) */
 
@@ -383,8 +404,8 @@ void pmm_ref_page(void* addr) {
     }
 
     if (pmm_ref_counts) {
-        /* Cap at 255 to prevent overflow */
-        if (pmm_ref_counts[page_idx] < 255) {
+        /* Cap at 65535 to prevent overflow */
+        if (pmm_ref_counts[page_idx] < 65535) {
             pmm_ref_counts[page_idx]++;
         }
     }
@@ -395,7 +416,7 @@ void pmm_unref_page(void* addr) {
     pmm_free_page(addr);
 }
 
-uint8_t pmm_get_ref_count(void* addr) {
+uint16_t pmm_get_ref_count(void* addr) {
     /* Reading refcount without lock might be racy but for checking it's mostly ok.
        Better to lock if exact value needed, but this is usually debug or hint.
        Wait, let's lock to be safe. */
@@ -405,7 +426,7 @@ uint8_t pmm_get_ref_count(void* addr) {
         spin_unlock(&pmm_lock);
         return 0;
     }
-    uint8_t val = pmm_ref_counts ? pmm_ref_counts[page_idx] : 0;
+    uint16_t val = pmm_ref_counts ? pmm_ref_counts[page_idx] : 0;
     spin_unlock(&pmm_lock);
     return val;
 }
