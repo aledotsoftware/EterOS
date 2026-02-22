@@ -10,6 +10,8 @@
 #include <errno.h>
 #include <string.h>
 #include <hal.h>
+#include <timer.h>
+#include <time.h>
 
 #define FUTEX_BUCKETS 16
 
@@ -53,8 +55,6 @@ static int validate_uaddr(uint32_t *uaddr) {
 }
 
 int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout) {
-    (void)timeout; /* TODO: Implement timeout support */
-
     if (!validate_uaddr(uaddr)) return -EFAULT;
 
     /* 1. Atomically check value (optimistic check) */
@@ -78,13 +78,26 @@ int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout) {
         return -EAGAIN;
     }
 
-    node->task = task_get_current();
+    task_t *current = task_get_current();
+
+    node->task = current;
     node->uaddr = uaddr;
     node->next = b->head;
     b->head = node;
 
+    /* Calculate timeout if provided */
+    if (timeout) {
+        const struct timespec *ts = (const struct timespec *)timeout;
+        uint64_t ticks = (ts->tv_sec * TIMER_HZ) + (((uint64_t)ts->tv_nsec * TIMER_HZ) / 1000000000);
+        if (ticks == 0 && (ts->tv_sec > 0 || ts->tv_nsec > 0)) {
+            ticks = 1;
+        }
+        current->wake_tick = timer_get_ticks() + ticks;
+    } else {
+        current->wake_tick = 0;
+    }
+
     /* 4. Block task */
-    task_t *current = task_get_current();
     current->state = TASK_BLOCKED;
 
     spin_unlock(&b->lock);
@@ -103,7 +116,7 @@ int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout) {
 
     while (curr) {
         if (curr == node) {
-            /* Still in queue! This means spurious wakeup or signal. */
+            /* Still in queue! This means spurious wakeup, signal, or timeout. */
             found = 1;
             /* Remove from list */
             *pp = curr->next;
@@ -119,10 +132,20 @@ int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout) {
     kfree(node);
 
     if (found) {
-        /* If we were found in the queue, we weren't woken by futex_wake. */
+        /* Check if it was a timeout */
+        if (current->wake_tick > 0 && timer_get_ticks() >= current->wake_tick) {
+            /* Clear wake_tick */
+            current->wake_tick = 0;
+            return -ETIMEDOUT;
+        }
+
+        /* If we were found in the queue but not timed out, return EINTR (spurious/signal) */
+        if (current->wake_tick > 0) current->wake_tick = 0;
         return -EINTR;
     }
 
+    /* Woken by futex_wake */
+    if (current->wake_tick > 0) current->wake_tick = 0;
     return 0;
 }
 

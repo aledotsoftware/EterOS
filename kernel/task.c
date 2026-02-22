@@ -509,6 +509,10 @@ void task_wake_expired(uint64_t current_tick) {
             if (current_tick >= tasks[i].wake_tick) {
                 tasks[i].state = TASK_READY;
             }
+        } else if (tasks[i].state == TASK_BLOCKED && tasks[i].wake_tick > 0) {
+            if (current_tick >= tasks[i].wake_tick) {
+                tasks[i].state = TASK_READY;
+            }
         }
     }
     spin_unlock(&sched_lock);
