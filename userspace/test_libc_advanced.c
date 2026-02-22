@@ -25,7 +25,7 @@ void test_malloc(void) {
     printf("[TEST] Testing malloc/free/realloc...\n");
     char *s = malloc(100);
     if (!s) { printf("FAIL: malloc returned NULL\n"); return; }
-    strcpy(s, "Hello World");
+    strlcpy(s, "Hello World", 100);
     if (strcmp(s, "Hello World") != 0) printf("FAIL: malloc write/read failed\n");
     else printf("PASS: malloc write/read\n");
 

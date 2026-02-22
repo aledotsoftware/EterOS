@@ -156,3 +156,13 @@ char *strstr(const char *haystack, const char *needle) {
     }
     return (void*)0;
 }
+
+size_t strlcpy(char *dest, const char *src, size_t size) {
+    size_t len = strlen(src);
+    if (size > 0) {
+        size_t to_copy = (len >= size) ? size - 1 : len;
+        memcpy(dest, src, to_copy);
+        dest[to_copy] = '\0';
+    }
+    return len;
+}
