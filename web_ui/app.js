@@ -750,6 +750,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Remove from DOM after transition
             setTimeout(() => {
                 splash.remove();
+
+                // UX: Set focus to the start button for accessibility
+                const startBtn = document.querySelector('.os-logo');
+                if (startBtn) startBtn.focus();
             }, 600); // Match CSS transition duration
         }, 2500);
     }

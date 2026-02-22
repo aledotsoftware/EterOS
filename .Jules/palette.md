@@ -53,3 +53,7 @@
 ## 2027-02-17 - [Dynamic ARIA States for Custom Panels]
 **Learning:** Static ARIA attributes on custom trigger elements (like a control center button) fail to communicate state changes to assistive technology. Explicitly toggling `aria-expanded` in JS when the panel opens/closes is crucial for a complete accessibility experience.
 **Action:** Always pair custom UI toggles with dynamic `aria-expanded` state management in the event handler.
+
+## 2027-02-22 - [Boot Splash Focus Handoff]
+**Learning:** When a full-screen loading overlay disappears, focus is often lost to the document body, leaving keyboard and screen reader users disoriented. Explicitly moving focus to a primary anchor (like the "Start" button) creates a seamless transition and immediate readiness.
+**Action:** Always programmatically set focus to a main UI element after dismissing a modal or splash screen.
