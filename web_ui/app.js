@@ -158,8 +158,22 @@ function toggleLauncher() {
     document.getElementById('control-center').classList.remove('active');
 }
 
+function clearSearch() {
+    const input = document.getElementById('launcher-search');
+    input.value = '';
+    input.focus();
+    filterApps();
+}
+
 function filterApps() {
     const query = document.getElementById('launcher-search').value.toLowerCase();
+
+    // Toggle clear button
+    const clearBtn = document.getElementById('search-clear');
+    if (clearBtn) {
+        clearBtn.hidden = query.length === 0;
+    }
+
     const items = document.querySelectorAll('.launcher-item');
     let hasResults = false;
 
