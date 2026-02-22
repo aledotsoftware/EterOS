@@ -50,7 +50,14 @@ static void* alloc_kernel_stack(int slot) {
     for (uint64_t addr = stack_start; addr < stack_end; addr += PAGE_SIZE) {
         void* phys = pmm_alloc_page();
         if (!phys) {
-            /* TODO: Rollback previous pages if OOM */
+            /* Rollback previous pages if OOM */
+            for (uint64_t rollback_addr = stack_start; rollback_addr < addr; rollback_addr += PAGE_SIZE) {
+                uint64_t p = vmm_virt_to_phys(rollback_addr);
+                if (p) {
+                    vmm_unmap_page(rollback_addr);
+                    pmm_free_page((void*)p);
+                }
+            }
             return NULL;
         }
         vmm_map_page((uint64_t)phys, addr, PAGE_PRESENT | PAGE_WRITE);
