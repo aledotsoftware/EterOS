@@ -4,6 +4,8 @@
 #include <types.h>
 #include <lock.h>
 
+#define FAT32_BOOT_SIGNATURE 0xAA55
+
 /**
  * FAT32 Boot Sector (BPB)
  */
