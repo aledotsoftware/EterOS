@@ -503,6 +503,8 @@ static int64_t sys_ioctl(int fd, unsigned long request, void* arg) {
     task_t* current = task_get_current();
     if (fd < 0 || fd >= MAX_FD) return -EBADF;
     if (!current->fd_table[fd].node) return -EBADF;
+    /* Security Fix: Validate arg is in user space */
+    if ((uint64_t)arg > USER_LIMIT) return -EFAULT;
     return ioctl_fs(current->fd_table[fd].node, (int)request, arg);
 }
 

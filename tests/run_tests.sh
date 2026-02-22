@@ -45,12 +45,19 @@ gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_crypto.c kernel/crypto/sha256.c 
 ./tests/test_crypto
 rm tests/test_crypto
 
-# Test ELF Security
+# Test ELF Security (File Missing)
+# echo "---------------------------------------------------"
+# echo "Running test_elf_security..."
+# gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_elf_security.c kernel/string.c -o tests/test_elf_security
+# ./tests/test_elf_security
+# rm tests/test_elf_security
+
+# Test Ioctl Security
 echo "---------------------------------------------------"
-echo "Running test_elf_security..."
-gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_elf_security.c kernel/string.c -o tests/test_elf_security
-./tests/test_elf_security
-rm tests/test_elf_security
+echo "Running test_ioctl_security..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_ioctl_security.c kernel/string.c -o tests/test_ioctl_security
+./tests/test_ioctl_security
+rm tests/test_ioctl_security
 
 # Test ELF Read Failure
 echo "---------------------------------------------------"

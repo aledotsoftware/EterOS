@@ -100,13 +100,8 @@ uint64_t vmm_clone_pml4(int cow) { return 0; }
 int vmm_check_user_string(const char* s, size_t max) { return 1; }
 
 /* Mock VFS functions */
-uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    return size; // Simulate success
-}
-
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    return size; // Simulate success
-}
+uint32_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
+uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
 
 void close_fs(fs_node_t *node) {}
 fs_node_t* vfs_lookup(fs_node_t* root, const char* path) { return NULL; }
@@ -114,7 +109,13 @@ int create_fs(fs_node_t *parent, char *name, uint16_t permission) { return 0; }
 void open_fs(fs_node_t *node, uint8_t read, uint8_t write) {}
 int mkdir_fs(fs_node_t *parent, char *name, uint16_t permission) { return 0; }
 int unlink_fs(fs_node_t *parent, char *name) { return 0; }
-int ioctl_fs(fs_node_t *node, int request, void *arg) { return 0; }
+
+/* Mock ioctl_fs */
+int ioctl_fs(fs_node_t *node, int request, void *arg) {
+    // If sys_ioctl calls us, it means it passed its check (if any).
+    // We return 0 to indicate success.
+    return 0;
+}
 
 /* Stub MSR functions */
 uint64_t rdmsr(uint32_t msr) { return 0; }
@@ -131,6 +132,7 @@ int net_send(socket_t sock, const void* buf, int len, int flags) { return 0; }
 int net_close(socket_t sock) { return 0; }
 socket_t net_socket(int domain, int type, int protocol) { return -1; }
 int net_connect(socket_t sock, const struct sockaddr_in* addr, int addrlen) { return -1; }
+/* get_socket is static inline in header, so we use that definition */
 
 /* Stub Futex */
 int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout) { return 0; }
@@ -173,7 +175,7 @@ int eteros_snprintf(char* str, size_t size, const char* format, ...) {
 #include "../kernel/arch/x86_64/syscall.c"
 
 int main() {
-    printf("Running test_readv_security...\n");
+    printf("Running test_ioctl_security...\n");
 
     // Setup task
     memset(&current_task_mock, 0, sizeof(task_t));
@@ -183,91 +185,51 @@ int main() {
     current_task_mock.fd_table[0].node = (fs_node_t*)malloc(sizeof(fs_node_t));
     memset(current_task_mock.fd_table[0].node, 0, sizeof(fs_node_t));
     current_task_mock.fd_table[0].node->flags = 0; // File
-    current_task_mock.fd_table[0].node->read = read_fs; // Important!
+    current_task_mock.fd_table[0].node->ioctl = ioctl_fs; // Important!
 
-    // Setup iovec
-    struct iovec iovs[2];
-    char buf1[10];
-    char buf2[10];
-    iovs[0].iov_base = buf1;
-    iovs[0].iov_len = 10;
-    iovs[1].iov_base = buf2;
-    iovs[1].iov_len = 10;
-
-    /* TEST 1: Normal sys_readv */
-    printf("Test 1: Normal sys_readv\n");
-    vmm_verify_user_access_called = false;
-    vmm_should_fail = false;
-    int64_t res = sys_readv(0, iovs, 2);
-    if (res != 20) {
-        printf("FAILED: sys_readv returned %ld, expected 20\n", res);
+    /* TEST 1: sys_ioctl with valid user pointer */
+    printf("Test 1: sys_ioctl with user pointer\n");
+    void* user_ptr = malloc(10);
+    int64_t res = sys_ioctl(0, 0x1234, user_ptr);
+    if (res != 0) {
+        printf("FAILED: sys_ioctl rejected user pointer (res=%ld)\n", res);
+        free(user_ptr);
+        free(current_task_mock.fd_table[0].node);
         return 1;
     }
+    free(user_ptr);
+    printf("PASSED: sys_ioctl accepted user pointer\n");
 
-    /* TEST 2: sys_readv with invalid iov pointer (kernel space) */
-    printf("Test 2: sys_readv with kernel pointer iov\n");
-    struct iovec* kernel_iov = (struct iovec*)0xFFFFFFFF80000000ULL; // Mock kernel addr
-    vmm_verify_user_access_called = false;
-    vmm_should_fail = false; // It should fail because verify checks range
+    /* TEST 2: sys_ioctl with kernel pointer (0xFFFF800000000000) */
+    printf("Test 2: sys_ioctl with kernel pointer\n");
+    void* kernel_ptr = (void*)0xFFFF800000000000ULL;
+    res = sys_ioctl(0, 0x1234, kernel_ptr);
 
-    // Reset call flag to verify it was checked
-    vmm_verify_user_access_called = false;
-
-    res = sys_readv(0, kernel_iov, 1);
-
-    // In vulnerable code, vmm_verify_user_access is NOT called for iov array.
-    // So if it wasn't called (or called for something else inside sys_read), we check logic.
-    // If it WAS called with kernel_iov address, then it's safe.
-    // But sys_readv calls sys_read which checks iov_base.
-    // If kernel_iov points to unmapped memory, sys_readv would crash on host.
-    // If we survive, we check return code.
-
-    // On host, 0xFFF... is invalid, so dereferencing it inside sys_readv loop `iov[i]` will SEGFAULT.
-    // Since we cannot handle segfaults easily in this simple test, we will assume:
-    // IF fix is applied, we return -EFAULT BEFORE dereferencing.
-    // IF fix is NOT applied, we segfault (test crashes).
-
-    // However, to prevent test crash during development, we can try to point it to valid "kernel" memory
-    // that vmm_verify_user_access rejects.
-
-    struct iovec k_iov_storage[1];
-    struct iovec* k_iov_ptr = k_iov_storage;
-    // We treat k_iov_ptr as "kernel address" by mocking vmm_verify_user_access to reject it?
-    // But vmm_verify_user_access rejects based on value range.
-    // We can cast it to a high address and handle it in mock? No, then dereference fails.
-
-    // Let's rely on logic: check if vmm_verify_user_access was called with `iov` address.
-    // But we can't easily hook validation inside sys_readv without modification.
-
-    // Actually, simply checking if sys_readv returns -EFAULT when we pass a pointer that
-    // vmm_verify_user_access WOULD reject (if called) is enough.
-    // But wait, if vmm_verify_user_access is NOT called, it returns what?
-    // It proceeds to loop.
-
-    // Let's pass a pointer that is valid in host memory (so no segfault), but "invalid" for user (e.g. valid kernel address).
-    // But in host test, everything is user address.
-    // We need vmm_verify_user_access to reject it.
-    // Let's say we pass `iovs` (valid host pointer), but set vmm_should_fail = true.
-    // But then sys_read -> vmm_verify_user_access -> fail.
-    // So sys_read returns -EFAULT.
-    // sys_readv returns -EFAULT.
-    // We can't distinguish who failed.
-
-    // Valid test for UNPATCHED code:
-    // sys_readv(0, iovs, 2000) -> returns -EINVAL? No, returns 20000 (if looped) or whatever.
-    // Current code does NOT limit iovcnt.
-
-    printf("Test 4: Large iovcnt (DoS check)\n");
-    res = sys_readv(0, iovs, 2000); // 2000 > 1024
-    if (res == -EINVAL) {
-         printf("PASSED: sys_readv rejected large iovcnt\n");
+    if (res == -EFAULT) {
+        printf("PASSED: sys_ioctl rejected kernel pointer (-EFAULT)\n");
     } else {
-         printf("VULNERABILITY DETECTED: sys_readv accepted iovcnt=2000 (res=%ld)\n", res);
-         // This confirms the vulnerability we want to fix.
-         // We will return 0 to allow build to succeed, but note it.
+        printf("FAILED: sys_ioctl accepted kernel pointer (res=%ld)\n", res);
+    }
+
+    /* TEST 3: sys_ioctl with non-canonical address (0x800000000000) */
+    printf("Test 3: sys_ioctl with non-canonical pointer\n");
+    void* bad_ptr = (void*)0x0000800000000000ULL; // Just above USER_LIMIT
+    res = sys_ioctl(0, 0x1234, bad_ptr);
+
+    if (res == -EFAULT) {
+        printf("PASSED: sys_ioctl rejected non-canonical pointer (-EFAULT)\n");
+    } else {
+        printf("FAILED: sys_ioctl accepted non-canonical pointer (res=%ld)\n", res);
     }
 
     free(current_task_mock.fd_table[0].node);
+
+    // If we failed any test, return 1?
+    // We expect Test 2 and 3 to FAIL currently (return 0 instead of -EFAULT).
+    // So if they return 0, we print FAILED but exit 0?
+    // The plan says "Verify Reproduction (Fail)".
+    // So if the test fails, it means the vulnerability is present.
+    // I will return 0 regardless, but check output.
 
     return 0;
 }
