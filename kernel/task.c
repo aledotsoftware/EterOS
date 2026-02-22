@@ -894,6 +894,7 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
     uint64_t new_pdpt_phys = (uint64_t)pmm_alloc_page();
     if (!new_pdpt_phys) {
         res = -ENOMEM;
+        pmm_free_page((void*)new_cr3_phys);
         goto cleanup_error;
     }
     uint64_t* new_pdpt = (uint64_t*)new_pdpt_phys;
@@ -923,6 +924,10 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
         /* Failed: Restore old CR3 and abort */
         __asm__ volatile("mov %0, %%cr3" : : "r"(old_cr3) : "memory");
         current->cr3 = old_cr3;
+
+        /* Destroy the partially created address space to prevent memory leak */
+        vmm_destroy_pml4(new_cr3_phys);
+
         res = -ENOEXEC;
         goto cleanup_error;
     }
