@@ -317,6 +317,9 @@ static int fat32_find_dirent_in_chain(fat32_volume_t* vol, uint32_t start_cluste
     fat32_to_dos_name(filename, dos_name);
 
     uint32_t current_cluster = start_cluster;
+
+    /* Optimization: Use small buffer (sector size) for better cache locality.
+       Whole cluster read was slower in benchmarks. */
     uint8_t* buffer = kmalloc(vol->bytes_per_sector);
     if (!buffer) return -1;
 
@@ -333,13 +336,17 @@ static int fat32_find_dirent_in_chain(fat32_volume_t* vol, uint32_t start_cluste
             int entries_per_sector = vol->bytes_per_sector / sizeof(fat32_dir_entry_t);
 
             for (int j = 0; j < entries_per_sector; j++) {
-                if (entry[j].name[0] == DIRENT_END) {
+                uint8_t first_char = entry[j].name[0];
+                if (first_char == DIRENT_END) {
                     kfree(buffer);
                     return -3; // Not found
                 }
-                if (entry[j].name[0] == DIRENT_DELETED) continue;
+                if (first_char == DIRENT_DELETED) continue;
                 if (entry[j].attr & ATTR_VOLUME_ID) continue;
                 if (entry[j].attr & ATTR_LONG_NAME) continue;
+
+                /* Optimization: check first char before full memcmp */
+                if (first_char != (uint8_t)dos_name[0]) continue;
 
                 if (memcmp(entry[j].name, dos_name, 11) == 0) {
                     if (out_entry) *out_entry = entry[j];
