@@ -152,21 +152,34 @@ function spawnSettings() {
     document.getElementById('eter-menu').classList.remove('active');
 }
 
+let lastTimeKey = '';
+let lastDateString = '';
+let lastBattery = '';
+let lastNet = '';
+
 function updateClock() {
     const now = new Date();
     const clock = document.getElementById('clock');
-
     const timeString = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    const dateString = now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    if (clock) {
-        clock.innerText = timeString;
-        clock.title = dateString;
-    }
-    const dateEl = document.getElementById('cc-date');
-    if (dateEl) {
-        const options = { weekday: 'short', day: 'numeric', month: 'short' };
-        dateEl.innerText = now.toLocaleDateString('es-ES', options);
+    // ⚡ Bolt: Check if time changed or if DOM was reset (e.g. navigation/tests)
+    // Only update DOM heavily when necessary (approx 1/60th of calls)
+    const domReset = clock && clock.innerText !== timeString;
+    const timeChanged = timeString !== lastTimeKey;
+
+    if (timeChanged || domReset) {
+        lastTimeKey = timeString;
+        lastDateString = now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        if (clock) {
+            clock.innerText = timeString;
+            clock.title = lastDateString;
+        }
+        const dateEl = document.getElementById('cc-date');
+        if (dateEl) {
+            const options = { weekday: 'short', day: 'numeric', month: 'short' };
+            dateEl.innerText = now.toLocaleDateString('es-ES', options);
+        }
     }
 
     const trigger = document.getElementById('cc-trigger');
@@ -177,8 +190,13 @@ function updateClock() {
         const netEl = trigger.querySelector('.net');
         const net = netEl ? netEl.textContent : '';
 
-        const label = `Centro de Control. Hora: ${timeString}. Fecha: ${dateString}. ${net}. Batería: ${battery}.`;
-        trigger.setAttribute('aria-label', label);
+        // Only update aria-label if content actually changed
+        if (timeChanged || domReset || battery !== lastBattery || net !== lastNet) {
+            lastBattery = battery;
+            lastNet = net;
+            const label = `Centro de Control. Hora: ${timeString}. Fecha: ${lastDateString}. ${net}. Batería: ${battery}.`;
+            trigger.setAttribute('aria-label', label);
+        }
     }
 }
 
