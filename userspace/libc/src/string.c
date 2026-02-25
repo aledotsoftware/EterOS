@@ -212,11 +212,63 @@ size_t strlcat(char *dest, const char *src, size_t size) {
 }
 
 char *strchr(const char *s, int c) {
+#ifdef __x86_64__
+    const char *p = s;
+    const unsigned char uc = (unsigned char)c;
+
+    /* Align to 8 bytes */
+    while ((uintptr_t)p & 7) {
+        if (*p == (char)uc) return (char *)p;
+        if (!*p) return (void*)0;
+        p++;
+    }
+
+    /* Create a pattern of 8 copies of c */
+    uint64_t char_pattern = uc;
+    char_pattern |= char_pattern << 8;
+    char_pattern |= char_pattern << 16;
+    char_pattern |= char_pattern << 32;
+
+    const uint64_t *lp = (const uint64_t *)p;
+    uint64_t v, x;
+
+    while (1) {
+        v = *lp;
+        /* Check for null byte using SWAR */
+        if (((v - 0x0101010101010101ULL) & ~v & 0x8080808080808080ULL)) {
+            /* Found null terminator in this word */
+            break;
+        }
+
+        /* Check for char c using SWAR */
+        x = v ^ char_pattern;
+        if (((x - 0x0101010101010101ULL) & ~x & 0x8080808080808080ULL)) {
+             /* Found char c in this word */
+             break;
+        }
+        lp++;
+    }
+
+    /* We found either null or c in the word at *lp, or earlier.
+     * Need to re-check byte-wise from the start of this word
+     * (or where we left off if we didn't advance lp? No, lp advanced).
+     * Wait, lp points to the word containing the match.
+     */
+    p = (const char *)lp;
+
+    /* Byte-wise check for the remaining bytes */
+    while (*p) {
+        if (*p == (char)uc) return (char *)p;
+        p++;
+    }
+    return (uc == 0) ? (char *)p : (void*)0;
+#else
     while (*s) {
         if (*s == (char)c) return (char *)s;
         s++;
     }
     return (c == 0) ? (char *)s : (void*)0;
+#endif
 }
 
 char *strrchr(const char *s, int c) {
