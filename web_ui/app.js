@@ -164,10 +164,21 @@ function spawnSettings() {
 }
 
 let lastTimeKey = null;
+let clockElements = null;
 
 function updateClock() {
+    // ⚡ Bolt: Cache DOM elements to prevent querySelector/getElementById on every tick
+    // Invalidate cache if elements are detached (e.g. during tests or re-renders)
+    if (!clockElements || !clockElements.clock || !clockElements.clock.isConnected) {
+        clockElements = {
+            clock: document.getElementById('clock'),
+            date: document.getElementById('cc-date'),
+            trigger: document.getElementById('cc-trigger')
+        };
+    }
+
     const now = new Date();
-    const clock = document.getElementById('clock');
+    const clock = clockElements.clock;
 
     const timeString = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
@@ -184,13 +195,13 @@ function updateClock() {
         clock.textContent = timeString;
         clock.title = dateString;
     }
-    const dateEl = document.getElementById('cc-date');
+    const dateEl = clockElements.date;
     if (dateEl) {
         const options = { weekday: 'short', day: 'numeric', month: 'short' };
         dateEl.innerText = now.toLocaleDateString('es-ES', options);
     }
 
-    const trigger = document.getElementById('cc-trigger');
+    const trigger = clockElements.trigger;
     if (trigger) {
         const batEl = trigger.querySelector('.battery');
         const battery = batEl ? batEl.textContent : '';
@@ -211,7 +222,7 @@ function setupSliders() {
         const icon = slider.previousElementSibling;
 
         if (valueDisplay && valueDisplay.classList.contains('slider-value')) {
-            const update = () => {
+            const updateUI = () => {
                 const val = slider.value;
                 valueDisplay.textContent = `${val}%`;
 
@@ -226,8 +237,20 @@ function setupSliders() {
                     icon.style.opacity = opacity;
                 }
             };
-            slider.addEventListener('input', update);
-            update();
+
+            // ⚡ Bolt: Throttled updates using requestAnimationFrame to prevent layout thrashing
+            let rafId = null;
+            const onInput = () => {
+                if (!rafId) {
+                    rafId = requestAnimationFrame(() => {
+                        updateUI();
+                        rafId = null;
+                    });
+                }
+            };
+
+            slider.addEventListener('input', onInput);
+            updateUI(); // Initial sync update
         }
     });
 }
@@ -235,7 +258,7 @@ function setupSliders() {
 if (typeof module === 'undefined') {
     setInterval(updateClock, 1000);
     updateClock();
-    setupSliders();
+    // ⚡ Bolt: setupSliders() moved to DOMContentLoaded to prevent duplicate listeners
 }
 
 function toggleLauncher() {
@@ -374,6 +397,7 @@ function showSwitcher() {
     list.innerHTML = '';
 
     openWindows.forEach((win, index) => {
+        // 🛡️ Sentinel: Use textContent to safely get title and avoid JSDOM issues
         const title = win.querySelector('.window-title').textContent;
         let type = 'unknown';
         let iconSrc = '';
@@ -392,7 +416,7 @@ function showSwitcher() {
         const card = document.createElement('div');
         card.className = `switcher-card ${index === 0 ? 'selected' : ''}`;
 
-        // 🛡️ Sentinel: Build DOM safely to prevent XSS from window titles
+        // 🛡️ Sentinel: Prevent XSS by building DOM instead of using innerHTML
         const img = document.createElement('img');
         img.src = iconSrc;
         img.width = 64;
@@ -469,6 +493,11 @@ function spawnApp(name, type, customContent = null) {
                 win.style.zIndex = ++zIndexCounter;
             } else {
                 win.style.zIndex = ++zIndexCounter;
+                // 🎨 Palette: Visual feedback for already open apps
+                win.classList.remove('shake');
+                void win.offsetWidth; // Trigger reflow to restart animation
+                win.classList.add('shake');
+                setTimeout(() => win.classList.remove('shake'), 500);
             }
             document.getElementById('launcher').classList.remove('active');
             return;
@@ -893,14 +922,10 @@ function setupLauncherNav() {
     });
 }
 
-if (typeof module === 'undefined') {
-    setupLauncherNav();
-}
-
-
 // Boot Splash Screen Logic
 document.addEventListener('DOMContentLoaded', () => {
     setupSliders();
+    setupLauncherNav(); // ⚡ Bolt: Consolidated initialization
 
     const splash = document.getElementById('boot-splash');
     if (splash) {
