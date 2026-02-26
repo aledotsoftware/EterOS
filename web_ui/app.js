@@ -704,14 +704,15 @@ function maximizeWindow(btn) {
     const win = btn.closest('.window');
     const shell = document.querySelector('.os-shell');
     const appNameDisplay = document.querySelector('.active-app-name');
-    const appTitle = win.querySelector('.window-title').innerText.split('(')[0].trim();
+    const appTitle = win.querySelector('.window-title').textContent.split('(')[0].trim();
 
     win.classList.remove('snapped');
     win.classList.toggle('maximized');
 
     if (win.classList.contains('maximized')) {
         shell.classList.add('window-full');
-        appNameDisplay.innerHTML = `<span style="opacity:0.25; margin: 0 12px; font-weight: 300;">|</span> ${appTitle}`;
+        // 🛡️ Sentinel: Escape app title to prevent XSS
+        appNameDisplay.innerHTML = `<span style="opacity:0.25; margin: 0 12px; font-weight: 300;">|</span> ${escapeHtml(appTitle)}`;
         appNameDisplay.style.color = 'var(--accent)';
         win.style.zIndex = 9005; // Below status text (10000)
     } else {
