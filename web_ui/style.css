@@ -326,38 +326,34 @@ body {
     position: relative;
 }
 
-/* Tooltip for window controls */
+.control:focus-visible {
+    box-shadow: 0 0 0 2px white, 0 0 0 4px var(--accent);
+}
+
 .control::after {
     content: attr(data-tooltip);
     position: absolute;
-    top: 100%;
+    top: 140%;
     left: 50%;
     transform: translateX(-50%) translateY(0) scale(0.9);
-    padding: 6px 12px;
+    padding: 4px 8px;
     background: rgba(15, 23, 42, 0.9);
     border: 1px solid var(--glass-border);
     backdrop-filter: blur(10px);
-    border-radius: 8px;
-    font-size: 12px;
+    border-radius: 6px;
+    font-size: 10px;
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
     transition: all 0.2s cubic-bezier(0.19, 1, 0.22, 1);
-    margin-top: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 10002;
-    color: white;
-    font-weight: 500;
+    z-index: 2000;
+    color: var(--text-primary);
 }
 
 .control:hover::after,
 .control:focus-visible::after {
     opacity: 1;
     transform: translateX(-50%) translateY(5px) scale(1);
-}
-
-.control:focus-visible {
-    box-shadow: 0 0 0 2px white, 0 0 0 4px var(--accent);
 }
 
 .snap-option:focus-visible {
@@ -756,6 +752,10 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.cc-slider-group img {
+    transition: opacity 0.2s ease;
 }
 
 .cc-slider {

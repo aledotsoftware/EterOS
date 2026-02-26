@@ -207,9 +207,24 @@ function setupSliders() {
     const sliders = document.querySelectorAll('.cc-slider');
     sliders.forEach(slider => {
         const valueDisplay = slider.nextElementSibling;
+        // Icon is usually the previous sibling in our layout
+        const icon = slider.previousElementSibling;
+
         if (valueDisplay && valueDisplay.classList.contains('slider-value')) {
             const update = () => {
-                valueDisplay.textContent = `${slider.value}%`;
+                const val = slider.value;
+                valueDisplay.textContent = `${val}%`;
+
+                // ♿ A11y: Update ARIA attributes for better screen reader support
+                slider.setAttribute('aria-valuenow', val);
+                slider.setAttribute('aria-valuetext', `${val}%`);
+
+                // 🎨 Palette: Visual delight - dim icon when value is low
+                if (icon && icon.tagName === 'IMG') {
+                    // Opacity range: 0.3 (at 0%) to 1.0 (at 100%)
+                    const opacity = 0.3 + (val / 100) * 0.7;
+                    icon.style.opacity = opacity;
+                }
             };
             slider.addEventListener('input', update);
             update();
@@ -477,9 +492,9 @@ function spawnApp(name, type, customContent = null) {
         <div class="window-header">
             <span class="window-title">${safeName} ${customContent ? '' : '(' + safeType.toUpperCase() + ')'}</span>
             <div class="window-controls">
-                <div class="control focus" data-tooltip="Modo Focus" role="button" aria-label="Cambiar a modo enfoque" tabindex="0" onclick="toggleFocusMode(this)" onkeydown="if(event.key==='Enter') toggleFocusMode(this)"></div>
-                <div class="control minimize" data-tooltip="Minimizar" role="button" aria-label="Minimizar ventana" tabindex="0" onclick="minimizeWindow(this)" onkeydown="if(event.key==='Enter') minimizeWindow(this)"></div>
-                <div class="control maximize" data-tooltip="Maximizar" role="button" aria-label="Maximizar ventana" tabindex="0" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
+            <div class="control focus" data-tooltip="Modo Focus" role="button" aria-label="Cambiar a modo enfoque" tabindex="0" onclick="toggleFocusMode(this)" onkeydown="if(event.key==='Enter') toggleFocusMode(this)"></div>
+            <div class="control minimize" data-tooltip="Minimizar" role="button" aria-label="Minimizar ventana" tabindex="0" onclick="minimizeWindow(this)" onkeydown="if(event.key==='Enter') minimizeWindow(this)"></div>
+            <div class="control maximize" data-tooltip="Maximizar" role="button" aria-label="Maximizar ventana" tabindex="0" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
                     <div class="snap-menu">
                         <div class="snap-option layout-split" role="button" aria-label="Dividir izquierda 50%" tabindex="0" onclick="snapWindow(this, 'left-50', event)" onkeydown="if(event.key==='Enter') snapWindow(this, 'left-50', event)">
                             <div class="snap-box"></div><div class="snap-box"></div>
@@ -503,7 +518,7 @@ function spawnApp(name, type, customContent = null) {
                         </div>
                     </div>
                 </div>
-                <div class="control close" data-tooltip="Cerrar" role="button" aria-label="Cerrar ventana" tabindex="0" onclick="closeWindow(this)" onkeydown="if(event.key==='Enter') closeWindow(this)"></div>
+            <div class="control close" data-tooltip="Cerrar" role="button" aria-label="Cerrar ventana" tabindex="0" onclick="closeWindow(this)" onkeydown="if(event.key==='Enter') closeWindow(this)"></div>
             </div>
         </div>
         <div class="window-content" style="height: calc(100% - 40px); overflow: hidden;">

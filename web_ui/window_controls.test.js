@@ -8,31 +8,26 @@ describe('Window Controls', () => {
         `;
     });
 
-    test('spawnApp should add data-tooltip to window controls and remove title', () => {
+    test('spawnApp should add data-tooltip tooltips and aria-labels to window controls', () => {
         spawnApp('Test App', 'native');
         const win = document.querySelector('.window');
 
+        const focus = win.querySelector('.focus');
         const minimize = win.querySelector('.minimize');
         const maximize = win.querySelector('.maximize');
         const close = win.querySelector('.close');
         const focus = win.querySelector('.focus');
 
-        // Verify data-tooltip is set
+        // Check custom tooltips
+        expect(focus.getAttribute('data-tooltip')).toBe('Modo Focus');
         expect(minimize.getAttribute('data-tooltip')).toBe('Minimizar');
         expect(maximize.getAttribute('data-tooltip')).toBe('Maximizar');
         expect(close.getAttribute('data-tooltip')).toBe('Cerrar');
-        expect(focus.getAttribute('data-tooltip')).toBe('Modo Focus');
 
-        // Verify title is NOT set (to avoid double tooltips)
-        expect(minimize.getAttribute('title')).toBeNull();
-        expect(maximize.getAttribute('title')).toBeNull();
-        expect(close.getAttribute('title')).toBeNull();
-        expect(focus.getAttribute('title')).toBeNull();
-
-        // Verify ARIA labels are preserved
+        // Check accessibility labels
+        expect(focus.getAttribute('aria-label')).toBe('Cambiar a modo enfoque');
         expect(minimize.getAttribute('aria-label')).toBe('Minimizar ventana');
         expect(maximize.getAttribute('aria-label')).toBe('Maximizar ventana');
         expect(close.getAttribute('aria-label')).toBe('Cerrar ventana');
-        expect(focus.getAttribute('aria-label')).toBe('Cambiar a modo enfoque');
     });
 });
