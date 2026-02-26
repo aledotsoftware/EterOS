@@ -211,7 +211,7 @@ function setupSliders() {
         const icon = slider.previousElementSibling;
 
         if (valueDisplay && valueDisplay.classList.contains('slider-value')) {
-            const update = () => {
+            const updateUI = () => {
                 const val = slider.value;
                 valueDisplay.textContent = `${val}%`;
 
@@ -226,8 +226,20 @@ function setupSliders() {
                     icon.style.opacity = opacity;
                 }
             };
-            slider.addEventListener('input', update);
-            update();
+
+            // ⚡ Bolt: Throttled updates using requestAnimationFrame to prevent layout thrashing
+            let rafId = null;
+            const onInput = () => {
+                if (!rafId) {
+                    rafId = requestAnimationFrame(() => {
+                        updateUI();
+                        rafId = null;
+                    });
+                }
+            };
+
+            slider.addEventListener('input', onInput);
+            updateUI(); // Initial sync update
         }
     });
 }
