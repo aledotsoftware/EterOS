@@ -924,6 +924,8 @@ function setupLauncherNav() {
 
 // Boot Splash Screen Logic
 document.addEventListener('DOMContentLoaded', () => {
+    // ⚡ Bolt: Optimize initialization
+    // Consolidated setup calls here to ensure DOM is ready and prevent duplicate listeners.
     setupSliders();
     setupLauncherNav(); // ⚡ Bolt: Consolidated initialization
 
