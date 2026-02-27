@@ -227,11 +227,12 @@ void framebuffer_putchar(char c, uint32_t x, uint32_t y, uint32_t fg, uint32_t b
 
     /* Optimized 32-bit drawing */
     if (fb_bpp == 32) {
+        /* ⚡ BOLT Optimization: Hoist base address calculation out of the loop.
+           Calculate the starting address for the first row of the character. */
+        uint8_t* base_addr = (uint8_t*)active_buffer + (y * fb_pitch) + (x * 4);
+
         for (int row = 0; row < 16; row++) {
-            /* Get pointer to start of row in buffer */
-            uint32_t* row_ptr = (uint32_t*)((uint8_t*)active_buffer + ((y + row) * fb_pitch));
-            row_ptr += x; /* Add X offset */
-            
+            uint32_t* row_ptr = (uint32_t*)base_addr;
             uint8_t bits = glyph[row];
             
             /* Unroll loop manually for 8 pixels - massive speedup over loops + checks + calls */
@@ -251,6 +252,9 @@ void framebuffer_putchar(char c, uint32_t x, uint32_t y, uint32_t fg, uint32_t b
             *row_ptr++ = (bits & 0x02) ? fg : bg;
             /* Bit 0 */
             *row_ptr++ = (bits & 0x01) ? fg : bg;
+
+            /* Advance to next row by adding pitch */
+            base_addr += fb_pitch;
         }
     } else {
         /* Fallback legacy loop */
