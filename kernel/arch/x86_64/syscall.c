@@ -447,6 +447,14 @@ static int64_t sys_open(const char* path, int flags, int mode) {
     }
     kfree(kpath);
 
+    /* SECURITY FIX: Prevent opening directories for writing */
+    if ((node->flags & 0x7) == FS_DIRECTORY) {
+        if ((flags & O_ACCMODE) == O_WRONLY || (flags & O_ACCMODE) == O_RDWR) {
+            kfree(node);
+            return -EISDIR;
+        }
+    }
+
     uint8_t read_mode = 0; uint8_t write_mode = 0;
     if ((flags & O_ACCMODE) == O_RDONLY) { read_mode = 1; }
     else if ((flags & O_ACCMODE) == O_WRONLY) { write_mode = 1; }
