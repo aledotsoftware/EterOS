@@ -69,7 +69,7 @@ void vmm_flush_tlb_smp(uint64_t addr) {
     if (expected_acks > 0) {
         uint64_t timeout = 10000000; /* ~10ms depends on CPU speed */
         while (tlb_ack_count < expected_acks) {
-            __asm__ volatile("pause");
+            cpu_relax();
             timeout--;
             if (timeout == 0) {
                 serial_write_string("[VMM] CRITICAL: TLB Shootdown Timeout! System might be unstable.\n");

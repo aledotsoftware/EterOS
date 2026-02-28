@@ -99,6 +99,11 @@ static inline int get_cpu_id(void) {
     return cpu ? cpu->index : 0;
 }
 
+/* Pause the CPU to save power and improve spinlock performance */
+static inline void cpu_relax(void) {
+    __asm__ volatile("pause" ::: "memory");
+}
+
 
 /* Variables Globales de Topología */
 extern cpu_info_t cpus[MAX_CPUS];
