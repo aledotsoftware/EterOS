@@ -16,6 +16,11 @@ typedef uint8_t uint8_t;
 // Mock Functions
 uint32_t framebuffer_get_width(void) { return 1024; }
 uint32_t framebuffer_get_height(void) { return 768; }
+uint32_t framebuffer_get_pitch(void) { return 1024 * 4; }
+uint32_t framebuffer_get_bpp(void) { return 32; }
+
+static uint32_t mock_fb_buffer[1024 * 768];
+uint32_t* framebuffer_get_buffer(void) { return mock_fb_buffer; }
 
 uint32_t framebuffer_get_bpp(void) { return 32; }
 uint32_t framebuffer_get_pitch(void) { return 1024 * 4; }
