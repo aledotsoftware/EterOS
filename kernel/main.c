@@ -316,10 +316,27 @@ static void show_splash(void) {
 
     uint32_t* pixel_data = (uint32_t*)logo_data;
 
-    for (int y = 0; y < 200; y++) {
-        for (int x = 0; x < 200; x++) {
-             uint32_t color = pixel_data[y * 200 + x];
-             framebuffer_putpixel(start_x + x, start_y + y, color);
+    /* ⚡ BOLT Optimization: Direct framebuffer access for 32bpp fast path.
+       Bypasses framebuffer_putpixel to eliminate 40,000 function calls and bounds checks. */
+    if (framebuffer_get_bpp() == 32) {
+        uint32_t* fb_buf = framebuffer_get_buffer();
+        uint32_t fb_pitch = framebuffer_get_pitch();
+
+        for (int y = 0; y < 200; y++) {
+            uint32_t* dest = (uint32_t*)((uint8_t*)fb_buf + ((start_y + y) * fb_pitch) + (start_x * 4));
+            uint32_t* src = &pixel_data[y * 200];
+
+            for (int x = 0; x < 200; x++) {
+                dest[x] = src[x];
+            }
+        }
+    } else {
+        /* Fallback for other depths */
+        for (int y = 0; y < 200; y++) {
+            for (int x = 0; x < 200; x++) {
+                 uint32_t color = pixel_data[y * 200 + x];
+                 framebuffer_putpixel(start_x + x, start_y + y, color);
+            }
         }
     }
 
