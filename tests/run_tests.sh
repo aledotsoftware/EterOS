@@ -117,6 +117,13 @@ rm tests/test_stdio
 
 # Test ProcFS
 echo "---------------------------------------------------"
+# Test Partition
+echo "---------------------------------------------------"
+echo "Running test_partition..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_partition.c kernel/string.c -o tests/test_partition
+./tests/test_partition
+rm tests/test_partition
+
 echo "Running test_procfs..."
 gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_procfs.c -o tests/test_procfs
 ./tests/test_procfs

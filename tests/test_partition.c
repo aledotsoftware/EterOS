@@ -161,10 +161,103 @@ void test_io() {
     printf("PASSED\n");
 }
 
+
+void test_partition_read() {
+    printf("Running test_partition_read...\n");
+    fs_node_t *passive = partition_get_passive_root();
+
+    // Setup disk state for passive partition (LBA 101, length 100 sectors = 51200 bytes)
+    for (int i = 0; i < 100; i++) {
+        for (int j = 0; j < 512; j++) {
+            disk_image[(101 + i) * 512 + j] = (uint8_t)(i + j);
+        }
+    }
+
+    uint8_t buffer[1024];
+    memset(buffer, 0, sizeof(buffer));
+
+    // Test 1: NULL node
+    if (partition_read(NULL, 0, 512, buffer) != 0) {
+        printf("FAILED: NULL node should return 0\n");
+        exit(1);
+    }
+
+    // Test 2: NULL buffer
+    if (passive->read(passive, 0, 512, NULL) != 0) {
+        printf("FAILED: NULL buffer should return 0\n");
+        exit(1);
+    }
+
+    // Test 3: Out of bounds read
+    if (passive->read(passive, 51200, 512, buffer) != 0) {
+        printf("FAILED: OOB read should return 0\n");
+        exit(1);
+    }
+
+    // Test 4: Truncated read
+    ssize_t read_bytes = passive->read(passive, 51200 - 512, 1024, buffer);
+    if (read_bytes != 512) {
+        printf("FAILED: Truncated read returned %ld, expected 512\n", (long)read_bytes);
+        exit(1);
+    }
+
+    // Test 5: Spanning multiple sectors
+    memset(buffer, 0, sizeof(buffer));
+    read_bytes = passive->read(passive, 500, 600, buffer);
+    if (read_bytes != 600) {
+        printf("FAILED: Spanning read returned %ld, expected 600\n", (long)read_bytes);
+        exit(1);
+    }
+
+    for (int k = 0; k < 12; k++) {
+        if (buffer[k] != (uint8_t)(0 + 500 + k)) {
+            printf("FAILED: Spanning read mismatch at index %d (sector 0)\n", k);
+            exit(1);
+        }
+    }
+    for (int k = 0; k < 512; k++) {
+        if (buffer[12 + k] != (uint8_t)(1 + k)) {
+            printf("FAILED: Spanning read mismatch at index %d (sector 1)\n", 12 + k);
+            exit(1);
+        }
+    }
+    for (int k = 0; k < 76; k++) {
+        if (buffer[12 + 512 + k] != (uint8_t)(2 + k)) {
+            printf("FAILED: Spanning read mismatch at index %d (sector 2)\n", 12 + 512 + k);
+            exit(1);
+        }
+    }
+
+    // Test 6: Unaligned offset
+    memset(buffer, 0, sizeof(buffer));
+    read_bytes = passive->read(passive, 10, 20, buffer);
+    if (read_bytes != 20) {
+        printf("FAILED: Unaligned read returned %ld, expected 20\n", (long)read_bytes);
+        exit(1);
+    }
+    for (int k = 0; k < 20; k++) {
+        if (buffer[k] != (uint8_t)(0 + 10 + k)) {
+            printf("FAILED: Unaligned read mismatch at index %d\n", k);
+            exit(1);
+        }
+    }
+
+    // Test 7: Invalid partition index
+    fs_node_t bad_node = *passive;
+    bad_node.impl = 99;
+    if (bad_node.read(&bad_node, 0, 512, buffer) != 0) {
+        printf("FAILED: Invalid partition index should return 0\n");
+        exit(1);
+    }
+
+    printf("PASSED\n");
+}
+
 int main() {
     test_partition_scan();
     test_ab_logic();
     test_io();
+    test_partition_read();
     printf("All partition tests passed!\n");
     return 0;
 }
