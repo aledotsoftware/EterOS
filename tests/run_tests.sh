@@ -159,3 +159,10 @@ echo "Running test_xtensa_uart..."
 gcc -D__ETEROS_HOST_TEST__ tests/test_xtensa_uart.c -o tests/test_xtensa_uart
 ./tests/test_xtensa_uart
 rm tests/test_xtensa_uart
+
+# Test Bcache
+echo "---------------------------------------------------"
+echo "Running test_bcache..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_bcache.c kernel/string.c -o tests/test_bcache
+./tests/test_bcache
+rm tests/test_bcache
