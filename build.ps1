@@ -264,7 +264,8 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\drivers\tty.c",
     "$KERNEL_DIR\gfx\gfx.c",
     "$KERNEL_DIR\gfx\window.c",
-    "$KERNEL_DIR\fs\elf.c"
+    "$KERNEL_DIR\fs\elf.c",
+    "$KERNEL_DIR\crypto\sha256.c"
 )
 
 # Archivos específicos de arquitectura
@@ -328,7 +329,8 @@ function Initialize-BuildDirs {
         "$BUILD_DIR\$KERNEL_DIR\ui",
         "$BUILD_DIR\$KERNEL_DIR\gfx",
         "$BUILD_DIR\$KERNEL_DIR\drivers",
-        "$BUILD_DIR\$KERNEL_DIR\arch\$Arch\boot"
+        "$BUILD_DIR\$KERNEL_DIR\arch\$Arch\boot",
+        "$BUILD_DIR\$KERNEL_DIR\crypto"
     )
     foreach ($d in $dirs) {
         if (!(Test-Path $d)) {
