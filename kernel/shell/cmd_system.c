@@ -201,9 +201,9 @@ void cmd_usermode(const char* args) {
     }
 
     /* 3. Map pages as USER (Ring 3 accessible) */
-    /* We assume Identity Mapping for simplicity in this test */
-    uint64_t code_virt = (uint64_t)code_page;
-    uint64_t stack_virt = (uint64_t)stack_page;
+    /* Use addresses above 4GB to avoid colliding with Bootloader's Kernel Huge Pages */
+    uint64_t code_virt = 0x200000000;
+    uint64_t stack_virt = 0x300000000;
 
     /* Ensure pages are mapped with USER flag */
     /* Code page: READ | WRITE | EXEC | USER */
