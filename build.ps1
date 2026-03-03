@@ -400,8 +400,11 @@ function Invoke-KernelBuild {
     }
 
     Write-Step "LD" "Enlazando kernel..."
-    & $LD @LDFLAGS_ARCH -T "$BOOT_DIR\linker.ld" -nostdlib -o $KERNEL_ELF $objFiles
-    if ($LASTEXITCODE -ne 0) {
+    $ErrorActionPreference = "Continue"
+    & $LD @LDFLAGS_ARCH -T "$BOOT_DIR\linker.ld" -nostdlib -o $KERNEL_ELF $objFiles 2>&1
+    $ldExit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($ldExit -ne 0) {
         Write-Step "ERR" "Fallo al enlazar el kernel"
         exit 1
     }
@@ -448,8 +451,11 @@ function Invoke-UserspaceBuild {
     if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al compilar test.c"; exit 1 }
 
     $testElf = "$initrdRoot\test.elf"
-    & $LD -T "$userDir\linker.ld" -nostdlib -m elf_x86_64 -o $testElf $testObj $libcObjs
-    if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al enlazar test.elf"; exit 1 }
+    $ErrorActionPreference = "Continue"
+    & $LD -T "$userDir\linker.ld" -nostdlib -m elf_x86_64 -o $testElf $testObj $libcObjs 2>&1
+    $ldExit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($ldExit -ne 0) { Write-Step "ERR" "Fallo al enlazar test.elf"; exit 1 }
 
     Write-Step "OK" "Userspace construido: $testElf"
 }
