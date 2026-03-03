@@ -185,7 +185,14 @@ fs_node_t *initialise_initrd(uint64_t start_addr, uint32_t size) {
     /* Verify Magic */
     initrd_header_t* header = (initrd_header_t*)initrd_start;
     if (memcmp(header->magic, INITRD_MAGIC, 4) != 0) {
-        hal_console_write("[INITRD] Error: Invalid Magic.\n");
+        hal_console_write("[INITRD] Error: Invalid Magic: ");
+        char buf[8];
+        for (int i=0; i<4; i++) {
+             utoa_hex_s(initrd_start[i], buf, sizeof(buf));
+             hal_console_write(buf);
+             hal_console_write(" ");
+        }
+        hal_console_write("\n");
         initrd_start = NULL;
         return NULL;
     }
