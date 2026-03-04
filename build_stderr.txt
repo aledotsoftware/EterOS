@@ -1,9 +1,9 @@
-﻿x86_64-elf-gcc.exe : kernel\ar
+x86_64-elf-gcc.exe : kernel\ar
 ch\x86_64\syscall.c:1188:16: 
 error: redefinition of 
 'sys_faccessat'
 En P:\EterOS\build.ps1: 393 
-Carácter: 9
+Car�cter: 9
 +         & $CC @CFLAGS -c 
 $src -o $obj 2>&1
 +         ~~~~~~~~~~~~~~~~~~~~

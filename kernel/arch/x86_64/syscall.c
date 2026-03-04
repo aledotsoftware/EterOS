@@ -1185,56 +1185,6 @@ static int64_t sys_faccessat(int dirfd, const char* path, int mode, int flags) {
     return allowed ? 0 : -EACCES;
 }
 
-static int64_t sys_faccessat(int dirfd, const char* path, int mode, int flags) {
-    (void)flags; /* Ignore AT_EACCESS and AT_SYMLINK_NOFOLLOW for now */
-    char* kpath = NULL;
-    int res = copy_user_string(path, &kpath, 4096);
-    if (res < 0) return res;
-
-    task_t* current = task_get_current();
-    fs_node_t* base_node;
-    if (kpath[0] == '/') {
-        base_node = fs_root;
-    } else if (dirfd == AT_FDCWD) {
-        base_node = current->cwd_node;
-    } else {
-        if (dirfd < 0 || dirfd >= MAX_FD || !current->fd_table[dirfd].node) {
-            kfree(kpath);
-            return -EBADF;
-        }
-        base_node = current->fd_table[dirfd].node;
-    }
-
-    fs_node_t* node = vfs_lookup(base_node, kpath);
-    if (!node) { kfree(kpath); return -ENOENT; }
-
-    int allowed = 1;
-    if (mode != F_OK) {
-        uint32_t req_read = (mode & R_OK) ? 4 : 0;
-        uint32_t req_write = (mode & W_OK) ? 2 : 0;
-        uint32_t req_exec = (mode & X_OK) ? 1 : 0;
-        uint32_t req_mask = req_read | req_write | req_exec;
-
-        uint32_t task_euid = current->euid;
-        uint32_t task_egid = current->egid;
-
-        if (task_euid == 0) {
-            if (req_exec && !(node->mask & 0111) && !((node->flags & 0x7) == FS_DIRECTORY)) {
-                allowed = 0;
-            }
-        } else {
-            uint32_t granted = 0;
-            if (task_euid == node->uid) granted = (node->mask >> 6) & 7;
-            else if (task_egid == node->gid) granted = (node->mask >> 3) & 7;
-            else granted = node->mask & 7;
-
-            if ((granted & req_mask) != req_mask) allowed = 0;
-        }
-    }
-
-    kfree(node);
-    return allowed ? 0 : -EACCES;
-}
 
 static int64_t sys_access(const char* path, int mode) {
     return sys_faccessat(AT_FDCWD, path, mode, 0);
