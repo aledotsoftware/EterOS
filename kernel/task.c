@@ -28,6 +28,7 @@
 #include "../include/syscall.h"
 #include "../include/elf.h"
 #include "../include/errno.h"
+#include "../include/fcntl.h"
 
 extern void fork_return(void);
 
@@ -256,6 +257,8 @@ void scheduler_init(void) {
 
     /* POSIX Init for Kernel Task */
     memset(tasks[0].fd_table, 0, sizeof(tasks[0].fd_table));
+    strlcpy(tasks[0].cwd, "/", sizeof(tasks[0].cwd));
+    strlcpy(tasks[0].executable_path, "/kernel", sizeof(tasks[0].executable_path));
     tasks[0].signal_mask = 0;
     tasks[0].signal_pending = 0;
     memset(tasks[0].signal_handlers, 0, sizeof(tasks[0].signal_handlers));
@@ -332,6 +335,7 @@ void task_init_ap(void) {
 
     /* Basic Init */
     memset(tasks[slot].fd_table, 0, sizeof(tasks[slot].fd_table));
+    strlcpy(tasks[slot].cwd, "/", sizeof(tasks[slot].cwd));
     tasks[slot].fs_base = 0;
     tasks[slot].gs_base = 0;
     tasks[slot].uid = 0;
@@ -393,10 +397,12 @@ int task_create(const char* name, void (*entry)(void)) {
     tasks[slot].cr3 = cr3;
 
     strlcpy(tasks[slot].name, name, sizeof(tasks[slot].name));
+    strlcpy(tasks[slot].executable_path, "/", sizeof(tasks[slot].executable_path));
     tasks[slot].entry = entry;
 
     /* POSIX Init for New Task */
     memset(tasks[slot].fd_table, 0, sizeof(tasks[slot].fd_table));
+    strlcpy(tasks[slot].cwd, "/", sizeof(tasks[slot].cwd));
     tasks[slot].signal_mask = 0;
     tasks[slot].signal_pending = 0;
     memset(tasks[slot].signal_handlers, 0, sizeof(tasks[slot].signal_handlers));
@@ -820,10 +826,12 @@ int task_fork(void* regs_ptr) {
     /* 5. Copy Task Struct Fields */
     task_t* parent = task_get_current();
     strlcpy(tasks[slot].name, parent->name, sizeof(tasks[slot].name));
+    strlcpy(tasks[slot].executable_path, parent->executable_path, sizeof(tasks[slot].executable_path));
     /* Append (fork) to name? Optional */
 
     /* POSIX/Linux Fields */
     memcpy(tasks[slot].fd_table, parent->fd_table, sizeof(parent->fd_table));
+    strlcpy(tasks[slot].cwd, parent->cwd, sizeof(tasks[slot].cwd));
     /* VFS nodes are shared pointers! Refcounting handled here. */
     for (int i = 0; i < MAX_FD; i++) {
         if (tasks[slot].fd_table[i].node) {
@@ -1093,6 +1101,17 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
         goto cleanup_error;
     }
 
+    /* Close O_CLOEXEC descriptors on exec */
+    for (int i = 0; i < MAX_FD; i++) {
+        if (current->fd_table[i].node && (current->fd_table[i].flags & O_CLOEXEC)) {
+            if (__atomic_sub_fetch(&current->fd_table[i].node->ref_count, 1, __ATOMIC_SEQ_CST) == 0) {
+                close_fs(current->fd_table[i].node);
+                kfree(current->fd_table[i].node);
+            }
+            current->fd_table[i].node = NULL;
+        }
+    }
+
     /* 5. Setup Stack */
     /* Start at 128TB - 4KB */
     uint64_t stack_top = USER_LIMIT - 4096;
@@ -1166,6 +1185,17 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
 
     /* Update Name */
     strlcpy(current->name, kpath, 32);
+
+    // Resolve absolute path
+    if (kpath[0] == '/') {
+        strlcpy(current->executable_path, kpath, sizeof(current->executable_path));
+    } else {
+        strlcpy(current->executable_path, current->cwd, sizeof(current->executable_path));
+        if (current->executable_path[strlen(current->executable_path) - 1] != '/') {
+            strlcat(current->executable_path, "/", sizeof(current->executable_path));
+        }
+        strlcat(current->executable_path, kpath, sizeof(current->executable_path));
+    }
 
     /* 8. Destroy Old Address Space */
     vmm_destroy_pml4(old_cr3);
