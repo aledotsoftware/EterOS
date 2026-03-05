@@ -132,20 +132,20 @@ static void draw_window(window_t* win) {
                             dest[j] = sc;
                         } else if (a > 0) {
                             uint32_t dc = dest[j];
-                            uint32_t sr = (sc >> 16) & 0xFF;
-                            uint32_t sg = (sc >> 8) & 0xFF;
-                            uint32_t sb = sc & 0xFF;
 
-                            uint32_t dr = (dc >> 16) & 0xFF;
-                            uint32_t dg = (dc >> 8) & 0xFF;
-                            uint32_t db = dc & 0xFF;
+                            /* ⚡ BOLT Optimization: Parallelize alpha blending for R/B and G channels
+                               to eliminate individual byte extractions and shifts. */
+                            uint32_t inv_a = 255 - a;
 
-                            /* Fast alpha blending using bitwise shifts (x >> 8 is approx x / 255) */
-                            uint32_t r = (sr * a + dr * (255 - a)) >> 8;
-                            uint32_t g = (sg * a + dg * (255 - a)) >> 8;
-                            uint32_t b = (sb * a + db * (255 - a)) >> 8;
+                            uint32_t s_rb = sc & 0x00FF00FF;
+                            uint32_t d_rb = dc & 0x00FF00FF;
+                            uint32_t rb = ((s_rb * a + d_rb * inv_a) >> 8) & 0x00FF00FF;
 
-                            dest[j] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                            uint32_t s_g = sc & 0x0000FF00;
+                            uint32_t d_g = dc & 0x0000FF00;
+                            uint32_t g = ((s_g * a + d_g * inv_a) >> 8) & 0x0000FF00;
+
+                            dest[j] = 0xFF000000 | rb | g;
                         }
                     }
                 }
