@@ -1193,7 +1193,6 @@ static int64_t sys_faccessat(int dirfd, const char* path, int mode, int flags) {
     }
 
     kfree(node);
-    kfree(kpath);
     return allowed ? 0 : -EACCES;
 }
 
