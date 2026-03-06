@@ -73,3 +73,7 @@
 ## 2027-05-20 - [Feedback for Existing State]
 **Learning:** When a user attempts to open an app that is already running but obscured, doing nothing (or just focusing it) feels like a broken interaction. A subtle "shake" animation provides immediate, non-intrusive feedback that the system acknowledged the request but the state remains unchanged.
 **Action:** Implement "negative" or "attention" animations for idempotent actions that don't result in a new visual state.
+
+## 2027-05-21 - [Discoverable Keyboard Shortcuts]
+**Learning:** Terminal environments often have hidden keyboard shortcuts (like Tab completion or Ctrl+L) that users must guess. Adding explicit shortcut hints to the `help` menu and implementing expected behaviors (like Tab completion) drastically reduces cognitive load and improves accessibility for keyboard-reliant users.
+**Action:** Always document hidden keyboard shortcuts in the primary help interface, and support standard expected keystrokes (like Tab for autocomplete).
