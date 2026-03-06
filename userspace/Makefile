@@ -6,7 +6,7 @@ LDFLAGS = -T linker.ld -nostdlib -m elf_x86_64
 LIBC_SRC = libc/src/start.c libc/src/syscall.c libc/src/stdio.c libc/src/string.c libc/src/malloc.c libc/src/errno.c libc/src/network.c libc/src/posix.c libc/src/stdlib.c libc/src/signal.c libc/src/sha256.c libc/src/strtok.c
 LIBC_OBJ = $(LIBC_SRC:.c=.o)
 
-all: test.elf test_net.elf exec_test.elf test_libc_advanced.elf test_signal.elf test_futex_security.elf useradd.elf userdel.elf passwd.elf login.elf
+all: test.elf test_net.elf exec_test.elf test_libc_advanced.elf test_signal.elf test_futex_security.elf test_stdio.elf test_malloc.elf test_pthread.elf
 
 libc/src/%.o: libc/src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -47,29 +47,23 @@ test_futex_security.o: test_futex_security.c
 test_futex_security.elf: $(LIBC_OBJ) test_futex_security.o
 	$(LD) $(LDFLAGS) -o test_futex_security.elf $(LIBC_OBJ) test_futex_security.o
 
-useradd.o: useradd.c
-	$(CC) $(CFLAGS) -c useradd.c -o useradd.o
+test_stdio.o: test_stdio.c
+	$(CC) $(CFLAGS) -c test_stdio.c -o test_stdio.o
 
-useradd.elf: $(LIBC_OBJ) useradd.o
-	$(LD) $(LDFLAGS) -o useradd.elf $(LIBC_OBJ) useradd.o
+test_stdio.elf: $(LIBC_OBJ) test_stdio.o
+	$(LD) $(LDFLAGS) -o test_stdio.elf $(LIBC_OBJ) test_stdio.o
 
-userdel.o: userdel.c
-	$(CC) $(CFLAGS) -c userdel.c -o userdel.o
+test_malloc.o: test_malloc.c
+	$(CC) $(CFLAGS) -c test_malloc.c -o test_malloc.o
 
-userdel.elf: $(LIBC_OBJ) userdel.o
-	$(LD) $(LDFLAGS) -o userdel.elf $(LIBC_OBJ) userdel.o
+test_malloc.elf: $(LIBC_OBJ) test_malloc.o
+	$(LD) $(LDFLAGS) -o test_malloc.elf $(LIBC_OBJ) test_malloc.o
 
-passwd.o: passwd.c
-	$(CC) $(CFLAGS) -c passwd.c -o passwd.o
+test_pthread.o: test_pthread.c
+	$(CC) $(CFLAGS) -c test_pthread.c -o test_pthread.o
 
-passwd.elf: $(LIBC_OBJ) passwd.o
-	$(LD) $(LDFLAGS) -o passwd.elf $(LIBC_OBJ) passwd.o
-
-login.o: login.c
-	$(CC) $(CFLAGS) -c login.c -o login.o
-
-login.elf: $(LIBC_OBJ) login.o
-	$(LD) $(LDFLAGS) -o login.elf $(LIBC_OBJ) login.o
+test_pthread.elf: $(LIBC_OBJ) test_pthread.o
+	$(LD) $(LDFLAGS) -o test_pthread.elf $(LIBC_OBJ) test_pthread.o
 
 clean:
 	rm -f *.o *.elf libc/src/*.o
