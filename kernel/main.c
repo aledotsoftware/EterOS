@@ -200,6 +200,10 @@ void __attribute__((section(".text.boot"))) kmain(void) {
         /* For now, assume simple stack usage or static buffers */
     #endif
 
+    /* Show system splash screen early during boot */
+    terminal_set_splash_mode(true);
+    show_splash();
+
     /* ---- 4. Inicializar Red ---- */
     hal_console_write("\n  [NET]  Escaneando dispositivos de red...\n");
     if (e1000_init(NULL) == 0) {
@@ -240,8 +244,16 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* ---- 8. Lanzar shell interactivo ---- */
     hal_interrupts_enable();
 
-    /* Show system splash screen */
-    show_splash();
+    /* Wait ~2 seconds (busy wait on timer ticks to keep scheduler running) */
+    /* This replaces the delay previously inside show_splash */
+    uint64_t end_ticks = timer_get_ticks() + (2 * TIMER_HZ);
+    while (timer_get_ticks() < end_ticks) {
+        __asm__ volatile("hlt");
+    }
+
+    /* Disable splash mode and clear screen for the shell */
+    terminal_set_splash_mode(false);
+    terminal_clear();
 
     /* Kernel shell (fallback until userspace shell is ready) */
     shell_run();
@@ -346,13 +358,4 @@ static void show_splash(void) {
             }
         }
     }
-
-    /* Wait ~2 seconds (busy wait on timer ticks to keep scheduler running) */
-    uint64_t end_ticks = timer_get_ticks() + (2 * TIMER_HZ);
-    while (timer_get_ticks() < end_ticks) {
-        __asm__ volatile("hlt");
-    }
-
-    /* Clear screen to black and reset cursor for shell */
-    terminal_clear();
 }

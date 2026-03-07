@@ -33,6 +33,7 @@ static uint32_t fb_bg = 0xFF000000; // Negro por defecto
 static uint16_t vga_buffer_offset = 0; // Offset in characters/words from 0xB8000
 static terminal_hook_t active_hook = (void*)0;
 static bool terminal_silent = false;
+static bool boot_splash_active = false;
 
 void terminal_set_hook(terminal_hook_t hook) {
     active_hook = hook;
@@ -142,6 +143,20 @@ void terminal_switch_to_framebuffer(boot_info_t* info) {
     terminal_col = 0;
 }
 
+void terminal_set_splash_mode(bool active) {
+    boot_splash_active = active;
+    if (active) {
+        fb_bg = 0xFFFFFFFF; // White background
+        fb_fg = 0xFF000000; // Black text
+    } else {
+        fb_bg = 0xFF000000; // Black background
+        fb_fg = 0xFFFFFFFF; // White text
+    }
+    if (use_framebuffer) {
+        framebuffer_clear(fb_bg);
+    }
+}
+
 void terminal_set_color(uint8_t color) {
     terminal_color = color;
     if (use_framebuffer) {
@@ -159,8 +174,10 @@ void terminal_set_color(uint8_t color) {
 
 void terminal_scroll(void) {
     if (use_framebuffer) {
-        /* Optimized hardware scroll: Shift memory up and clear bottom line */
-        framebuffer_scroll(16, fb_bg);
+        if (!boot_splash_active) {
+            /* Optimized hardware scroll: Shift memory up and clear bottom line */
+            framebuffer_scroll(16, fb_bg);
+        }
 
         // Mantenernos en la última fila (calculada como height / 16 - 1)
         // Usamos la misma lógica de altura que en _terminal_putchar
@@ -203,18 +220,18 @@ static void _terminal_putchar(char c) {
         case '\b':
             if (terminal_col > 0) {
                 terminal_col--;
-                if (use_framebuffer) {
+                if (use_framebuffer && !boot_splash_active) {
                      framebuffer_putchar(' ', terminal_col * 8, terminal_row * 16, fb_fg, fb_bg);
-                } else {
+                } else if (!use_framebuffer) {
                     size_t index = terminal_row * VGA_WIDTH + terminal_col;
                     terminal_buffer[index] = vga_entry(' ', terminal_color);
                 }
             }
             break;
         default:
-            if (use_framebuffer) {
+            if (use_framebuffer && !boot_splash_active) {
                 framebuffer_putchar(c, terminal_col * 8, terminal_row * 16, fb_fg, fb_bg);
-            } else {
+            } else if (!use_framebuffer) {
                 size_t index = terminal_row * VGA_WIDTH + terminal_col;
                 terminal_buffer[index] = vga_entry(c, terminal_color);
             }
@@ -252,7 +269,9 @@ void terminal_write_colored(const char* str, vga_color_t fg, vga_color_t bg) {
 
 void terminal_clear(void) {
     if (use_framebuffer) {
-        framebuffer_clear(fb_bg);
+        if (!boot_splash_active) {
+            framebuffer_clear(fb_bg);
+        }
     } else {
         vga_buffer_offset = 0;
         vga_set_start_address(0);

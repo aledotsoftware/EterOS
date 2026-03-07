@@ -81,6 +81,12 @@ void terminal_initialize(boot_info_t* boot_info);
 void terminal_switch_to_framebuffer(boot_info_t* boot_info);
 
 /**
+ * Toggles splash mode. When true, prevents text from being written
+ * to the screen, allowing the boot splash to display cleanly.
+ */
+void terminal_set_splash_mode(bool active);
+
+/**
  * Establece el color actual del terminal.
  */
 void terminal_set_color(uint8_t color);
