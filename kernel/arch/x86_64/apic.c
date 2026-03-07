@@ -50,8 +50,9 @@ void lapic_send_ipi(uint32_t apic_id, uint32_t vector) {
     while (lapic_read(LAPIC_ICR_LOW) & ICR_SEND_PENDING);
     
     lapic_write(LAPIC_ICR_HIGH, apic_id << 24);
-    /* For Fixed delivery mode, Level must be 1 (Assert bit 14) */
-    lapic_write(LAPIC_ICR_LOW, vector | ICR_ASSERT);
+    /* For Fixed delivery mode (Edge), we just send the vector. 
+       ICR_ASSERT is usually only for Level-triggered INIT/Startup sequences. */
+    lapic_write(LAPIC_ICR_LOW, vector);
 }
 
 void lapic_send_init(uint32_t apic_id) {

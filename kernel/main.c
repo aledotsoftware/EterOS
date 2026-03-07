@@ -166,8 +166,10 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     #endif
 
     #if defined(ARCH_X86_64)
-    /* ---- 2.7 Inicializar APIC y Despertar Cores ---- */
-    /* Must happen AFTER heap init so we can allocate per-CPU structures */
+    /* ---- 2.7 Inicializar Scheduler y APIC ---- */
+    /* Scheduler must be ready before APs boot because they create Idle tasks */
+    scheduler_init();
+
     lapic_init();   /* Inicializar Local APIC del core principal */
     smp_init();     /* Despertar los Application Processors (APs) */
     #endif
@@ -223,10 +225,6 @@ void __attribute__((section(".text.boot"))) kmain(void) {
     /* ---- 6.5 Inicializar Mouse (PS/2) ---- */
     /* Nota: Se inicializa después de la IDT/PIC pero antes de la GUI */
     mouse_init();
-
-    /* ---- 7. Inicializar Scheduler ---- */
-    hal_console_write("  [INIT] Scheduler Round-Robin\n");
-    scheduler_init();
     
     /* ---- 7.1 Inicializar Red (Ahora podemos crear tareas) ---- */
     hal_console_write("\n  [NET]  Escaneando dispositivos de red...\n");

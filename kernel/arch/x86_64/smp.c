@@ -94,6 +94,8 @@ void smp_init(void) {
     /* 3. Despertar cada AP */
     for (int i = 1; i < total_cpus; i++) {
         cpu_info_t* cpu = &cpus[i];
+        cpu->self = (uint64_t)cpu;
+        cpu->index = i;
         
         serial_write_string("[SMP] Booting CPU ");
         char b[16]; itoa_s(i, b, 16, 10); serial_write_string(b);
@@ -102,7 +104,7 @@ void smp_init(void) {
         serial_write_string("\n");
 
         /* Preparar stack para este CPU */
-        void* stack = kmalloc(4096); /* Small stack for initialization */
+        void* stack = kmalloc(16384); /* Increased to 16KB for safety */
         if (!stack) {
             serial_write_string("[SMP] ERROR: OOM allocating stack for CPU ");
             serial_write_string(b);
@@ -110,7 +112,7 @@ void smp_init(void) {
             cpu->state = CPU_STATE_OFFLINE;
             continue;
         }
-        cpu->kernel_stack_top = (uint64_t)stack + 4096;
+        cpu->kernel_stack_top = (uint64_t)stack + 16384;
         
         *(uint64_t*)(TRAMPOLINE_BASE + TRAMPOLINE_OFFSET(trampoline_stack)) = cpu->kernel_stack_top;
         *(uint32_t*)(TRAMPOLINE_BASE + TRAMPOLINE_OFFSET(trampoline_cpu_index)) = i;

@@ -6,7 +6,9 @@
  */
 
 #include "../include/string.h"
+#include "../include/serial.h"
 #include "../include/stdlib.h"
+#include "../include/types.h"
 
 /* ========================================================================= */
 /* Funciones de Memoria                                                      */
@@ -65,56 +67,16 @@ void* memcpy(void* dest, const void* src, size_t n) {
 }
 
 void* memset(void* dest, int c, size_t n) {
-#ifdef __x86_64__
-    void* original_dest = dest;
-    uint64_t val = (uint8_t)c;
-    /* ⚡ BOLT Optimization: Use multiplication for pattern generation (faster/smaller than 7 shifts/ORs) */
-    uint64_t pattern = val * 0x0101010101010101ULL;
-    
-    size_t qwords = n / 8;
-    size_t remainder = n % 8;
-
-    /* ⚡ BOLT Optimization: Fast path for small blocks (< 64 bytes) to avoid
-       the setup overhead of the `rep` microcode on modern x86_64. */
-    if (n < 64) {
-        uint8_t* d = (uint8_t*)dest;
-        while (n >= 8) {
-            *(uint64_t *)d = pattern;
-            d += 8; n -= 8;
-        }
-        if (n >= 4) {
-            *(uint32_t *)d = (uint32_t)pattern;
-            d += 4; n -= 4;
-        }
-        if (n >= 2) {
-            *(uint16_t *)d = (uint16_t)pattern;
-            d += 2; n -= 2;
-        }
-        if (n) {
-            *d = (uint8_t)pattern;
-        }
-        return original_dest;
-    }
-
-    __asm__ volatile (
-        "cld; rep stosq"
-        : "+D"(dest), "+c"(qwords)
-        : "a"(pattern)
-        : "memory"
-    );
-
-    __asm__ volatile (
-        "rep stosb"
-        : "+D"(dest), "+c"(remainder)
-        : "a"(val)
-        : "memory"
-    );
-    return original_dest;
-#else
     uint8_t* d = (uint8_t*)dest;
-    while (n--) *d++ = (uint8_t)c;
+    size_t count = 0;
+    while (n--) {
+        *d++ = (uint8_t)c;
+        count++;
+        if ((count % (1024*1024)) == 0) {
+            serial_write_string("[DEBUG] memset: 1MB done...\n");
+        }
+    }
     return dest;
-#endif
 }
 
 void* memset16(void* dest, uint16_t c, size_t n) {
