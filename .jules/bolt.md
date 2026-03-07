@@ -25,3 +25,7 @@
 ## 2026-12-01 - [Integer to String Optimization]
 **Learning:** In bare-metal C kernels without libc, formatting functions (`itoa_s` / `snprintf`) are hot paths, particularly for logging and `sysinfo`. The naive approach computes characters forward, then copies/reverses them into the buffer. A better approach is to fill the temporary buffer backwards, completely avoiding the string reversal overhead, and special-casing hot bases (10 and 16).
 **Action:** When optimizing kernel string utilities, avoid reversal loops and optimize specific bases.
+
+## 2026-12-02 - [Rectangle Drawing Optimization]
+**Learning:** Drawing axis-aligned geometric shapes like rectangles using general-purpose line drawing algorithms (e.g. Bresenham's) adds massive per-pixel loop overhead and branching. It is significantly faster to draw the hollow shape by delegating to solid fills (like `memset32` or row-wise copying) for each of the four edges.
+**Action:** Always delegate geometric primitives to the most specialized, bulk-memory operation available, such as substituting four `gfx_fill_rect` calls in place of four `gfx_draw_line` calls for hollow rectangles.
