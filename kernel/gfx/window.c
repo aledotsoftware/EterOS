@@ -100,16 +100,41 @@ static void draw_window(window_t* win) {
         int32_t win_y_start = draw_y_start - win->y;
         int32_t win_x_start = draw_x_start - win->x;
 
-        for (int32_t i = 0; i < height; i++) {
-            uint32_t* dest = (uint32_t*)((uint8_t*)fb_buf + ((draw_y_start + i) * fb_pitch) + (draw_x_start * 4));
-            uint32_t* src = win->buffer + ((win_y_start + i) * win->width) + win_x_start;
+        /* ⚡ BOLT Optimization: Hoist pointer math and unroll alpha-blend loop */
+        uint32_t* dest_row = (uint32_t*)((uint8_t*)fb_buf + (draw_y_start * fb_pitch) + (draw_x_start * 4));
+        uint32_t* src_row = win->buffer + (win_y_start * win->width) + win_x_start;
 
-            for (int32_t j = 0; j < width; j++) {
+        int32_t dest_stride = fb_pitch / 4;
+        int32_t src_stride = win->width;
+
+        for (int32_t i = 0; i < height; i++) {
+            uint32_t* dest = dest_row;
+            uint32_t* src = src_row;
+            int32_t j = 0;
+
+            /* Unroll loop by 4 for better instruction pipelining */
+            for (; j <= width - 4; j += 4) {
+                uint32_t c0 = src[j];
+                uint32_t c1 = src[j+1];
+                uint32_t c2 = src[j+2];
+                uint32_t c3 = src[j+3];
+
+                if (c0) dest[j] = c0;
+                if (c1) dest[j+1] = c1;
+                if (c2) dest[j+2] = c2;
+                if (c3) dest[j+3] = c3;
+            }
+
+            /* Handle remainder */
+            for (; j < width; j++) {
                 uint32_t color = src[j];
                 if (color != 0) {
                     dest[j] = color;
                 }
             }
+
+            dest_row += dest_stride;
+            src_row += src_stride;
         }
     } else {
         /* Fallback for other depths */
