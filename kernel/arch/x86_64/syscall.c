@@ -860,8 +860,8 @@ static void sys_rt_sigreturn(struct syscall_regs* regs) {
 
     uint64_t frame_addr = current->user_rsp;
 
-    /* Verify read access */
-    if (!vmm_verify_user_access((void*)frame_addr, sizeof(struct syscall_regs) + 8, 0)) {
+    /* Verify read access for the entire sigframe to prevent out-of-bounds pointer dereference */
+    if (!vmm_verify_user_access((void*)frame_addr, sizeof(struct sigframe), 0)) {
         serial_write_string("[SIGNAL] sigreturn fault\n");
         task_exit(SIGSEGV);
         return;
