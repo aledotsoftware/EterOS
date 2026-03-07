@@ -71,7 +71,7 @@ void vmm_flush_tlb_smp(uint64_t addr) {
     /* Wait for ACKs (Strict Consistency) */
     /* We wait for other cores to acknowledge invalidation. */
     if (expected_acks > 0) {
-        uint64_t timeout = 1000000; /* Increased to 1M cycles for stability */
+        uint64_t timeout = 10000000; /* Increased to 10M cycles for stability on slow VMs */
         while (tlb_ack_count < expected_acks) {
 #ifndef __ETEROS_HOST_TEST__
             __asm__ volatile("pause");

@@ -39,6 +39,7 @@
 static uint8_t tx_buffer[SERIAL_BUFFER_SIZE];
 static volatile uint16_t tx_head = 0;
 static volatile uint16_t tx_tail = 0;
+static spinlock_t serial_lock = 0;
 
 /* RX Buffer */
 static uint8_t rx_buffer[SERIAL_BUFFER_SIZE];
@@ -171,6 +172,7 @@ void serial_putchar(char c) {
 
     /* Save interrupt state and disable them to protect buffer access */
     uint64_t flags = irq_save();
+    spin_lock(&serial_lock);
 
     /* Agregar al buffer */
     tx_buffer[tx_head] = c;
@@ -182,6 +184,7 @@ void serial_putchar(char c) {
         outb(COM1_PORT + UART_INT_ENABLE, ier | IER_TX_EMPTY);
     }
 
+    spin_unlock(&serial_lock);
     /* Restore interrupt state (re-enables interrupts if they were enabled) */
     irq_restore(flags);
 }

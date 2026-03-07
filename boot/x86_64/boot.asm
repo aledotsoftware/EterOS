@@ -32,7 +32,7 @@ KERNEL_SECTORS      equ 512            ; Sectores del kernel (256 KB default)
 STAGE2_LOAD_ADDR    equ 0x7E00          ; Dirección donde se carga Stage 2
 TEMP_KERNEL_ADDR    equ 0x56000         ; Buffer temporal bajo 1MB para BIOS
 FINAL_KERNEL_ADDR   equ 0x100000        ; Dirección final en 1MB (donde BSS tiene espacio)
-STACK_TOP           equ 0x7FF000        ; Stack en 8MB (fin del identity mapping)
+STACK_TOP           equ 0x8000000       ; Stack en 128MB (Lejos del heap de 96MB)
 
 ; =============================================================================
 ; Punto de entrada - Stage 1

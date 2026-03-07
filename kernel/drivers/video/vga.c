@@ -9,6 +9,7 @@
 #include <vga.h>
 #include <io.h>
 #include <string.h>
+#include <lock.h>
 #include <framebuffer.h>
 
 /* ========================================================================= */
@@ -240,13 +241,21 @@ static void _terminal_putchar(char c) {
     }
 }
 
+static spinlock_t terminal_lock = 0;
+
 void terminal_putchar(char c) {
+    uint64_t flags = irq_save();
+    spin_lock(&terminal_lock);
+    
     _terminal_putchar(c);
     if (!use_framebuffer) {
         vga_update_cursor();
     } else {
         framebuffer_flush();
     }
+    
+    spin_unlock(&terminal_lock);
+    irq_restore(flags);
 }
 
 void terminal_write_string(const char* str) {

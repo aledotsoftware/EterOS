@@ -192,7 +192,7 @@ int vfs_mkdir(const char *path, uint16_t permission) {
     }
 
     serial_write_string("      Parent Node Flags: ");
-    char buf[16]; utoa_hex_s(parent->flags, buf, sizeof(buf)); serial_write_string(buf);
+    char buf[32]; utoa_hex_s(parent->flags, buf, sizeof(buf)); serial_write_string(buf);
     serial_write_string("\n");
 
     int ret = mkdir_fs(parent, name, permission);
