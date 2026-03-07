@@ -222,7 +222,7 @@ static void* _kmalloc_impl(size_t size) {
     if (!heap_start) return NULL; /* Heap no inicializado */
 
     /* Overflow check: prevent align() wrap-around and excessive size */
-    if (size > SIZE_MAX - HEAP_ALIGNMENT - sizeof(block_header_t)) {
+    if (size > SIZE_MAX - HEAP_ALIGNMENT - sizeof(block_header_t) - sizeof(free_node_t)) {
         return NULL;
     }
 
@@ -383,6 +383,11 @@ void* kcalloc(size_t num, size_t size) {
 
 void* krealloc(void* ptr, size_t size) {
     if (!ptr) return kmalloc(size);
+
+    /* Overflow check: prevent align() wrap-around and excessive size */
+    if (size > SIZE_MAX - HEAP_ALIGNMENT - sizeof(block_header_t) - sizeof(free_node_t)) {
+        return NULL;
+    }
 
     uint64_t flags = irq_save();
     spin_lock(&heap_lock);
