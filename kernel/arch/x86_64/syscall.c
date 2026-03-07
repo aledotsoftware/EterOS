@@ -1524,6 +1524,23 @@ static int64_t sys_getuid(void)  { return task_get_current()->uid; }
 static int64_t sys_getgid(void)  { return task_get_current()->gid; }
 static int64_t sys_geteuid(void) { return task_get_current()->uid; }
 static int64_t sys_getegid(void) { return task_get_current()->gid; }
+static int64_t sys_setuid(uint32_t uid) {
+    task_t* current = task_get_current();
+    if (current->uid != 0 && current->uid != uid) {
+        return -1; /* -EPERM */
+    }
+    current->uid = uid;
+    return 0;
+}
+
+static int64_t sys_setgid(uint32_t gid) {
+    task_t* current = task_get_current();
+    if (current->uid != 0 && current->gid != gid) {
+        return -1; /* -EPERM */
+    }
+    current->gid = gid;
+    return 0;
+}
 #ifndef F_OK
 #define F_OK 0
 #define X_OK 1
@@ -1882,6 +1899,8 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [83] = (syscall_ptr_t)sys_mkdir,
     [87] = (syscall_ptr_t)sys_unlink,
     [102] = (syscall_ptr_t)sys_getuid,
+    [105] = (syscall_ptr_t)sys_setuid,
+    [106] = (syscall_ptr_t)sys_setgid,
     [104] = (syscall_ptr_t)sys_getgid,
     [107] = (syscall_ptr_t)sys_geteuid,
     [108] = (syscall_ptr_t)sys_getegid,
@@ -1969,6 +1988,8 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [87] = (syscall_ptr_t)sys_unlink,
     [97] = (syscall_ptr_t)sys_getrlimit,
     [102] = (syscall_ptr_t)sys_getuid,
+    [105] = (syscall_ptr_t)sys_setuid,
+    [106] = (syscall_ptr_t)sys_setgid,
     [104] = (syscall_ptr_t)sys_getgid,
     [107] = (syscall_ptr_t)sys_geteuid,
     [108] = (syscall_ptr_t)sys_getegid,

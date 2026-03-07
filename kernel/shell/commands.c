@@ -53,6 +53,7 @@ static const shell_command_t commands[] = {
     { "time",     "Ver la hora actual del sistema",              cmd_time    },
     { "timezone", "Configurar zona horaria (offset UTC)",        cmd_timezone},
     { "ntp",      "Sincronizar RTC via red (NTP)",               cmd_ntp     },
+    { "user",     "Administrar usuarios y seguridad",            cmd_user    },
 };
 
 #define NUM_COMMANDS  (sizeof(commands) / sizeof(commands[0]))

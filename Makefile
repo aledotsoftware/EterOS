@@ -138,6 +138,7 @@ KERNEL_SRCS = $(KERNEL_DIR)/main.c              \
               $(KERNEL_DIR)/shell/cmd_devices.c  \
               $(KERNEL_DIR)/shell/cmd_time.c     \
               $(KERNEL_DIR)/shell/cmd_ota.c      \
+              $(KERNEL_DIR)/shell/cmd_user.c     \
               $(KERNEL_DIR)/drivers/video/vga.c  \
               $(KERNEL_DIR)/drivers/serial/serial.c \
               $(KERNEL_DIR)/drivers/input/keyboard.c \
@@ -333,6 +334,12 @@ userspace:
 	cp userspace/test_stdio.elf $(INITRD_DIR)/
 	cp userspace/test_malloc.elf $(INITRD_DIR)/
 	cp userspace/test_pthread.elf $(INITRD_DIR)/
+	cp userspace/login.elf $(INITRD_DIR)/
+	cp userspace/passwd.elf $(INITRD_DIR)/
+	cp userspace/useradd.elf $(INITRD_DIR)/
+	cp userspace/userdel.elf $(INITRD_DIR)/
+	cp userspace/sh.elf $(INITRD_DIR)/
+	cp userspace/test_security.elf $(INITRD_DIR)/
 
 # ---- Initrd ----
 initrd: userspace $(INITRD_IMG)
