@@ -1,6 +1,6 @@
 #ifndef _SYS_SELECT_H
 #define _SYS_SELECT_H
-#include <stdint.h>
+#include <types.h>
 
 #define FD_SETSIZE 1024
 

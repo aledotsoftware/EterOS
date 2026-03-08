@@ -1,6 +1,6 @@
 #ifndef _SYS_POLL_H
 #define _SYS_POLL_H
-#include <stdint.h>
+#include <types.h>
 struct pollfd {
     int   fd;         /* file descriptor */
     short events;     /* requested events */
