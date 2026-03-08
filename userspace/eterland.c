@@ -61,10 +61,20 @@ void draw_rect(int x, int y, int w, int h, uint32_t color) {
     if (x + w > (int)fb_info.width) w = fb_info.width - x;
     if (y + h > (int)fb_info.height) h = fb_info.height - y;
     if (w <= 0 || h <= 0) return;
+    if (fb_ptr == NULL) return;
 
-    for (int i = y; i < y + h; i++) {
-        for (int j = x; j < x + w; j++) {
-            draw_pixel(j, i, color);
+    if (fb_info.bpp == 32) {
+        for (int i = 0; i < h; i++) {
+            uint32_t* ptr = (uint32_t*)(fb_ptr + (y + i) * fb_info.pitch + x * 4);
+            for (int j = 0; j < w; j++) {
+                ptr[j] = color;
+            }
+        }
+    } else {
+        for (int i = 0; i < h; i++) {
+            for (int j = 0; j < w; j++) {
+                draw_pixel(x + j, y + i, color);
+            }
         }
     }
 }
@@ -218,46 +228,27 @@ void execute_command() {
         } else if (strcmp(cmd, "uname") == 0) {
             term_print("\nEterOS (Marea UI)\n", 0x3498DB);
             term_print("Graphics Server: Eterland (Zero-copy capable)\n", term_fg);
-        } else if (strcmp(cmd, "ls") == 0) {
-            term_print("\n", term_fg);
-            DIR *d = opendir("/");
-            if (d) {
-                struct dirent *dir;
-                while ((dir = readdir(d)) != NULL) {
-                    if (dir->d_name[0]) {
-                        term_print(dir->d_name, 0x3498DB);
-                        term_print("  ", term_fg);
-                    }
-                }
-                closedir(d);
-            } else {
-                term_print("Error al abrir directorio raiz.", 0xE74C3C);
-            }
-            term_print("\n", term_fg);
-        } else if (strcmp(cmd, "cat") == 0) {
-            term_print("\n", term_fg);
-            if (strlen(arg) > 0) {
-                char path[256] = "/";
-                strlcat(path, arg, sizeof(path));
-                int fd = open(path, O_RDONLY);
-                if (fd >= 0) {
-                    char buf[128];
-                    int bytes;
-                    while ((bytes = read(fd, buf, sizeof(buf)-1)) > 0) {
-                        buf[bytes] = '\0';
-                        term_print(buf, term_fg);
-                    }
-                    close(fd);
-                } else {
-                    term_print("Archivo no encontrado o acceso denegado.", 0xE74C3C);
-                }
-            } else {
-                term_print("Uso: cat <archivo>", 0xF1C40F);
-            }
-            term_print("\n", term_fg);
         } else if (strcmp(cmd, "run") == 0) {
-            term_print("\nError: Este emulador de terminal aun no ejecuta procesos ELF hijos de forma independiente.\n", 0xE74C3C);
-            term_print("Invoque ejecutables desde la terminal tty1 del kernel.\n", 0xF1C40F);
+            if (strlen(arg) > 0) {
+                term_print("\nEjecutando ", term_fg);
+                term_print(arg, 0xF1C40F);
+                term_print("...\n", term_fg);
+                
+                int child = fork();
+                if (child == 0) {
+                    char path[256] = "/";
+                    strlcat(path, arg, sizeof(path));
+                    
+                    char *argv[] = { path, NULL };
+                    char *envp[] = { NULL };
+                    execve(path, argv, envp);
+                    
+                    /* If execve returns, it failed */
+                    exit(1);
+                }
+            } else {
+                term_print("\nUso: run <archivo.elf>\n", 0xF1C40F);
+            }
         } else if (strcmp(cmd, "exit") == 0) {
             term_print("\nSaliendo...\n", 0xE74C3C);
             exit(0);
@@ -346,8 +337,6 @@ int main(int argc, char* argv[]) {
     (void)argc; (void)argv;
     printf("[Eterland] Starting Compositor UI...\n");
 
-    int pid = fork();
-
     int fb_fd = open("/dev/fb0", O_RDWR);
     if (fb_fd < 0) return 1;
 
@@ -356,6 +345,8 @@ int main(int argc, char* argv[]) {
     size_t fb_size = fb_info.height * fb_info.pitch;
     fb_ptr = mmap(NULL, fb_size, PROT_READ | PROT_WRITE, MAP_SHARED, fb_fd, 0);
     if (fb_ptr == MAP_FAILED) return 1;
+
+    int pid = fork();
 
     // Center window
     win_w = fb_info.width > 640 ? 640 : fb_info.width - 40;
