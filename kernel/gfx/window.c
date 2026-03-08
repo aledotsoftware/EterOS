@@ -159,18 +159,22 @@ static void draw_window(window_t* win) {
                 int32_t j = 0;
                 /* Unrolled loop (4x) */
                 for (; j <= width - 4; j += 4) {
-                    if (src[j] != 0) dest[j] = src[j];
-                    if (src[j+1] != 0) dest[j+1] = src[j+1];
-                    if (src[j+2] != 0) dest[j+2] = src[j+2];
-                    if (src[j+3] != 0) dest[j+3] = src[j+3];
+                    uint32_t c0 = src[j];
+                    if (c0) dest[j] = c0;
+                    uint32_t c1 = src[j+1];
+                    if (c1) dest[j+1] = c1;
+                    uint32_t c2 = src[j+2];
+                    if (c2) dest[j+2] = c2;
+                    uint32_t c3 = src[j+3];
+                    if (c3) dest[j+3] = c3;
                 }
 
                 /* Remainder */
                 for (; j < width; j++) {
-                    if (src[j] != 0) {
-                        dest[j] = src[j];
+                    uint32_t c = src[j];
+                    if (c) {
+                        dest[j] = c;
                     }
-                    dest++;
                 }
 
                 /* Advance pointers by one row */
