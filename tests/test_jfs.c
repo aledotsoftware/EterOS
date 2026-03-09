@@ -1,11 +1,12 @@
 #ifndef __ETEROS_HOST_TEST__
 #define __ETEROS_HOST_TEST__
 #endif
+#include <assert.h>
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
+
 #include <stdint.h>
 
 /* Mock types */
@@ -40,6 +41,7 @@ void kfree(void* ptr) {
 }
 
 /* Include source under test */
+
 #include "../kernel/fs/jfs.c"
 
 /* Tests */
