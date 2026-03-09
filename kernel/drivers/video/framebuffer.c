@@ -180,7 +180,7 @@ void framebuffer_scroll(uint32_t pixels, uint32_t bg_color) {
 }
 
 void framebuffer_clear(uint32_t color) {
-    if (!active_buffer) return;
+    if (!active_buffer || fb_width == 0 || fb_height == 0) return;
 
     /* Optimización para 32-bit */
     if (fb_bpp == 32) {
@@ -243,7 +243,7 @@ void framebuffer_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t c
     if (x + w > fb_width) w = fb_width - x;
     if (y + h > fb_height) h = fb_height - y;
 
-    if (!active_buffer) return;
+    if (!active_buffer || w == 0 || h == 0) return;
 
     /* Optimized 32-bit path */
     if (fb_bpp == 32) {

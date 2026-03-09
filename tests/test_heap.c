@@ -26,6 +26,9 @@ void irq_restore(uint64_t flags) { (void)flags; }
 /* Mock kernel end symbol */
 uint8_t _kernel_end = 0;
 
+/* Mock ASSERT macro */
+#define ASSERT(x) assert(x)
+
 /* Mock serial functions */
 void serial_write_string(const char* str) {
     /* Uncomment for debug output */
