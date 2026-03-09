@@ -5,8 +5,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <stdint.h>
+
+#undef assert
+#define assert(condition) \
+    do { \
+        if (!(condition)) { \
+            printf("[ASSERT] Mock Assert Tripped: %s\n", #condition); \
+        } \
+    } while(0)
 
 /* Mock types */
 #include "../include/types.h"

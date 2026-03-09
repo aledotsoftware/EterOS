@@ -11,7 +11,11 @@
 #include "../../include/mm.h"
 #include "../../include/serial.h"
 #include "../../include/pmm.h" /* Para PAGE_ALIGN_UP y PAGE_SIZE */
+
+#ifndef __ETEROS_HOST_TEST__
 #include <assert.h>
+#endif
+
 #include "../../include/lock.h"
 #include "../../include/io.h"
 

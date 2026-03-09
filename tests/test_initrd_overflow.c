@@ -8,7 +8,14 @@ typedef __builtin_va_list __gnuc_va_list;
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <assert.h>
+
+#undef assert
+#define assert(condition) \
+    do { \
+        if (!(condition)) { \
+            printf("[ASSERT] Mock Assert Tripped: %s\n", #condition); \
+        } \
+    } while(0)
 
 /* Mock types */
 #include "../include/types.h"

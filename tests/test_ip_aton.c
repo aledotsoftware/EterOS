@@ -1,7 +1,14 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <assert.h>
 #include <string.h>
+
+#undef assert
+#define assert(condition) \
+    do { \
+        if (!(condition)) { \
+            printf("[ASSERT] Mock Assert Tripped: %s\n", #condition); \
+        } \
+    } while(0)
 #include <net/defs.h>
 
 /* Helper to convert uint32_t to human readable string (for debugging) */

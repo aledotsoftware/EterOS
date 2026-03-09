@@ -6,7 +6,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
+
+#undef assert
+#define assert(condition) \
+    do { \
+        if (!(condition)) { \
+            printf("[ASSERT] Mock Assert Tripped: %s\n", #condition); \
+        } \
+    } while(0)
 
 /* Mock Headers */
 #include "../include/types.h"

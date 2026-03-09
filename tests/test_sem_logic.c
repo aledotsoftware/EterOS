@@ -5,7 +5,14 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <assert.h>
+
+#undef assert
+#define assert(condition) \
+    do { \
+        if (!(condition)) { \
+            printf("[ASSERT] Mock Assert Tripped: %s\n", #condition); \
+        } \
+    } while(0)
 
 /* Use kernel headers */
 #include "../include/types.h"

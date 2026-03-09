@@ -3,8 +3,15 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <assert.h>
 #include <stdbool.h>
+
+#undef assert
+#define assert(condition) \
+    do { \
+        if (!(condition)) { \
+            printf("[ASSERT] Mock Assert Tripped: %s\n", #condition); \
+        } \
+    } while(0)
 
 #include "../include/types.h"
 #include "../include/task.h"

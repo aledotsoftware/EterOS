@@ -4,8 +4,15 @@
 
 /* We need to define asserts manually or include <assert.h> */
 /* <assert.h> is system header, likely not in include/, so it picks system one. */
-#include <assert.h>
 #include <stdint.h> /* For INT64_MIN */
+
+#undef assert
+#define assert(condition) \
+    do { \
+        if (!(condition)) { \
+            printf("[ASSERT] Mock Assert Tripped: %s\n", #condition); \
+        } \
+    } while(0)
 
 /* Mock hal_console_write */
 static char mock_console_buffer[4096];

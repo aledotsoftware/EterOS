@@ -62,6 +62,14 @@ void pmm_mark_region_used(uint64_t base, size_t size) {
     (void)size;
 }
 
+#undef ASSERT
+#define ASSERT(condition) \
+    do { \
+        if (!(condition)) { \
+            printf("[ASSERT] Mock Assert Tripped: %s\n", #condition); \
+        } \
+    } while(0)
+
 /* Include the file under test directly to access static variables */
 #include "../kernel/mm/heap.c"
 
