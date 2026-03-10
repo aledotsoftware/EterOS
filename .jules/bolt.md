@@ -60,3 +60,7 @@
 ## 2026-03-09 - [Render Fallback Loop Pointer Math]
 **Learning:** In fallback rendering paths (e.g., legacy BPP support for windows or images), per-pixel math like `buffer[y * width + x]` adds massive overhead inside nested `y`/`x` loops.
 **Action:** When a fallback path cannot utilize block memory operations (`memcpy`), hoist coordinate calculations out of the inner loop and use simple linear pointer increments (`*src++`) whenever drawing contiguous pixel regions.
+
+## 2026-03-10 - [Small Block memset16/32 Overhead]
+**Learning:** Similarly to `memcpy` and `memset`, the specialized `memset16` and `memset32` functions using `rep stosq` suffer from significant microcode setup overhead when initializing very small contiguous blocks (e.g. less than 64 bytes). Drawing primitives, like single characters or small UI element lines, fall into this category, taking a 10x-15x performance hit per call due to setup.
+**Action:** Include a fast-path fallback utilizing an unrolled 64-bit assignment loop for small element sizes in `memset16` (n < 32) and `memset32` (n < 16) prior to delegating to `rep stosq` for large allocations.

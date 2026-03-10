@@ -125,6 +125,18 @@ void* memset16(void* dest, uint16_t c, size_t n) {
     uint64_t pattern = c | ((uint64_t)c << 16);
     pattern |= (pattern << 32);
 
+    /* ⚡ BOLT Optimization: Fast path for small blocks (< 64 bytes) to avoid
+       the setup overhead of the `rep` microcode on modern x86_64. */
+    if (n < 32) {
+        uint16_t* d = (uint16_t*)dest;
+        while (n >= 4) {
+            *(uint64_t*)d = pattern;
+            d += 4; n -= 4;
+        }
+        while (n--) *d++ = c;
+        return original_dest;
+    }
+
     size_t qwords = n / 4;
     size_t remainder = n % 4;
 
@@ -160,6 +172,19 @@ void* memset32(void* dest, uint32_t c, size_t n) {
     /* ⚡ BOLT Optimization: Use rep stosq (64-bit) for bulk of memset32. */
     /* This processes 8 bytes per instruction instead of 4. */
     uint64_t pattern = c | ((uint64_t)c << 32);
+
+    /* ⚡ BOLT Optimization: Fast path for small blocks (< 64 bytes) to avoid
+       the setup overhead of the `rep` microcode on modern x86_64. */
+    if (n < 16) {
+        uint32_t* d = (uint32_t*)dest;
+        while (n >= 2) {
+            *(uint64_t*)d = pattern;
+            d += 2; n -= 2;
+        }
+        if (n) *d = c;
+        return original_dest;
+    }
+
     size_t qwords = n / 2;
 
     __asm__ volatile (
