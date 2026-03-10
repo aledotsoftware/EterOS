@@ -60,3 +60,7 @@
 ## 2026-03-09 - [Render Fallback Loop Pointer Math]
 **Learning:** In fallback rendering paths (e.g., legacy BPP support for windows or images), per-pixel math like `buffer[y * width + x]` adds massive overhead inside nested `y`/`x` loops.
 **Action:** When a fallback path cannot utilize block memory operations (`memcpy`), hoist coordinate calculations out of the inner loop and use simple linear pointer increments (`*src++`) whenever drawing contiguous pixel regions.
+
+## 2024-03-10 - Pointer Advancement Over Array Indexing
+**Learning:** In highly iterated loops such as image decoding and pixel data manipulation (`kernel/gfx/png.c`), maintaining the pixel array index by recalculating coordinates (`[y * width + x]`) causes a large overhead. By simply maintaining a pointer and incrementing it per iteration (e.g., `*dest++` and `*src++`), you bypass continuous index recalculation. Also, lifting simple condition checking (`bpp == 4`) to the exterior of the loop saves significant execution time.
+**Action:** When iterating over contiguous C arrays sequentially in multi-dimensional logic, employ pointer tracking (`++`) instead of recalculating 1D indexes via multiplying and adding loop variables.
