@@ -313,6 +313,24 @@ static fs_node_t *proc_self_finddir(fs_node_t *node, char *name) {
 }
 
 
+static ssize_t proc_self_symlink_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+    (void)node; (void)offset;
+    task_t* current = task_get_current();
+    if (!current) return 0;
+
+    char pid_str[32];
+    itoa_s((int64_t)current->id, pid_str, sizeof(pid_str), 10);
+
+    char link_target[64];
+    strlcpy(link_target, "/proc/", sizeof(link_target));
+    strlcat(link_target, pid_str, sizeof(link_target));
+
+    int len = strlen(link_target);
+    if (len > (int)size) len = size;
+    memcpy(buffer, link_target, len);
+    return len;
+}
+
 /* ========================================================================= */
 /* ProcFS Directory Operations                                               */
 /* ========================================================================= */
@@ -338,6 +356,20 @@ static int procfs_readdir(fs_node_t *node, uint32_t index, struct dirent *entry)
         entry->inode = 3;
         return 0;
     }
+
+    index -= 4; // Shift index for tasks
+
+    // We should really read tasks from task manager instead of only current task.
+    // For now we will return current task if index matches, to allow proc/<pid> discovery
+    task_t* current = task_get_current();
+    if (current && index == 0) {
+        char pid_str[32];
+        itoa_s((int64_t)current->id, pid_str, sizeof(pid_str), 10);
+        strlcpy(entry->name, pid_str, sizeof(entry->name));
+        entry->inode = 100 + current->id;
+        return 0;
+    }
+
     return 1; /* EOF */
 }
 
@@ -365,11 +397,31 @@ static fs_node_t *procfs_finddir(fs_node_t *node, char *name) {
         fnode->inode = 2;
     } else if (strcmp(name, "self") == 0) {
         strlcpy(fnode->name, "self", sizeof(fnode->name));
-        fnode->flags = FS_DIRECTORY;
-        fnode->readdir = proc_self_readdir;
-        fnode->finddir = proc_self_finddir;
+        fnode->flags = FS_SYMLINK;
+        fnode->read = proc_self_symlink_read;
         fnode->inode = 3;
     } else {
+        // Attempt to parse name as PID
+        int pid = 0;
+        int is_pid = 1;
+        for (int i = 0; name[i]; i++) {
+            if (name[i] >= '0' && name[i] <= '9') {
+                pid = pid * 10 + (name[i] - '0');
+            } else {
+                is_pid = 0;
+                break;
+            }
+        }
+
+        if (is_pid && pid == (int)task_get_current()->id) {
+            strlcpy(fnode->name, name, sizeof(fnode->name));
+            fnode->flags = FS_DIRECTORY;
+            fnode->readdir = proc_self_readdir; // Reuse self functions for now since we only support current process info effectively
+            fnode->finddir = proc_self_finddir;
+            fnode->inode = 100 + pid;
+            return fnode;
+        }
+
         kfree(fnode);
         return 0;
     }

@@ -178,8 +178,11 @@ void test_proc_directory() {
     ASSERT(root->readdir(root, 3, &entry) == 0);
     ASSERT(eteros_strcmp(entry.name, "self") == 0);
 
-    /* Index 4: EOF */
-    ASSERT(root->readdir(root, 4, &entry) != 0);
+    /* Test PID symlink */
+    fs_node_t* self_node = root->finddir(root, "self");
+    ASSERT(self_node != NULL);
+    ASSERT(self_node->flags == FS_SYMLINK);
+    kfree(self_node);
 
     /* Find invalid */
     fs_node_t* invalid = root->finddir(root, "invalid");

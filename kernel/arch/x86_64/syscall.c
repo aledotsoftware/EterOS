@@ -392,8 +392,26 @@ static int64_t sys_mmap(void* addr, size_t len, int prot, int flags, int fd, int
                 }
             }
             spin_unlock(&shm_obj->lock);
+        } else if (file_node && file_node->read) {
+            /* Regular file-backed mapping */
+            void* phys = pmm_alloc_page();
+            if (!phys) return -ENOMEM;
+
+            hal_mem_map((uint64_t)phys, v, map_flags);
+#ifndef __ETEROS_HOST_TEST__
+            memset((void*)v, 0, PAGE_SIZE);
+
+            uint32_t file_offset = offset + (v - start);
+            if (file_offset < file_node->length) {
+                uint32_t to_read = PAGE_SIZE;
+                if (file_offset + to_read > file_node->length) {
+                    to_read = file_node->length - file_offset;
+                }
+                file_node->read(file_node, file_offset, to_read, (uint8_t*)v);
+            }
+#endif
         } else {
-            /* Anonymous or regular file-backed mapping */
+            /* Anonymous */
             void* phys = pmm_alloc_page();
             if (!phys) return -ENOMEM;
             
@@ -2030,6 +2048,8 @@ static int64_t sys_getdents64(int fd, struct linux_dirent64* dirp, unsigned int 
         // but for now let's do a basic lookup or guess based on the node,
         // however readdir_fs doesn't return type. Let's do finddir_fs.
         uint8_t d_type = DT_UNKNOWN;
+
+        // Minor optimization, bypass full search in common fs if possible, but safely.
         fs_node_t* child = finddir_fs(node, entry.name);
         if (child) {
             uint32_t type = child->flags & 0x7;
