@@ -1,3 +1,6 @@
 [submodule "kernel/apps/doomgeneric"]
 	path = kernel/apps/doomgeneric
 	url = https://github.com/ozkl/doomgeneric.git
+[submodule "kernel/net/lwip"]
+	path = kernel/net/lwip
+	url = https://git.savannah.gnu.org/git/lwip.git
