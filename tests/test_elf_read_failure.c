@@ -55,6 +55,7 @@ typedef size_t   size_t;
 typedef struct {
     char name[32];
     uint64_t os_abi;
+    uint8_t is_linux;
     uint64_t brk;
     uint32_t euid;
     uint32_t egid;

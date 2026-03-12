@@ -68,6 +68,7 @@ uint64_t elf_load_file(const char* path, uint64_t base_vaddr) {
         current->os_abi = header.e_ident[EI_OSABI];
         if (current->os_abi == ELFOSABI_LINUX || current->os_abi == ELFOSABI_NONE) {
              current->os_abi = ELFOSABI_LINUX;
+             current->is_linux = 1;
              serial_write_string("[ELF] Detected Linux ABI.\n");
         } else {
              serial_write_string("[ELF] Detected Native/SysV ABI.\n");

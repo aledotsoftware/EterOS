@@ -31,7 +31,7 @@ void futex_init(void);
  * @param timeout Pointer to timespec (optional, currently ignored).
  * @return 0 on success, or negative error code.
  */
-int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout);
+int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout, int op);
 
 /**
  * Wake up tasks waiting on a futex variable.
@@ -40,6 +40,6 @@ int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout);
  * @param count Maximum number of tasks to wake up.
  * @return Number of tasks woken up.
  */
-int futex_wake(uint32_t *uaddr, int count);
+int futex_wake(uint32_t *uaddr, int count, int op);
 
 #endif /* ETEROS_FUTEX_H */

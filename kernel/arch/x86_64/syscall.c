@@ -290,7 +290,7 @@ static int64_t sys_mmap(void* addr, size_t len, int prot, int flags, int fd, int
     /* If neither MAP_PRIVATE (0x02) nor MAP_SHARED (0x01) are set */
     if (!(flags & 0x03)) {
         if (current && current->os_abi == ELFOSABI_LINUX && fd != -1) {
-            /* Allow file-backed mmap without MAP_ANONYMOUS in Linux */
+            /* Allow file-backed mmap without MAP_ANONYMOUS in Linux ABI */
         } else {
             return -ENODEV;
         }
@@ -1079,6 +1079,7 @@ static int64_t sys_brk(uint64_t brk) {
     return current->brk;
 }
 
+/* TLS support via arch_prctl */
 static int64_t sys_arch_prctl(int code, uint64_t addr) {
     task_t* current = task_get_current();
     if (code == ARCH_SET_FS) { current->fs_base = addr; wrmsr(MSR_FS_BASE, addr); return 0; }
@@ -1220,9 +1221,9 @@ static int64_t sys_futex(uint32_t *uaddr, int op, uint32_t val, void *timeout, u
     int cmd = op & FUTEX_CMD_MASK;
     if (cmd == FUTEX_WAIT) {
         if (timeout && !vmm_verify_user_access(timeout, sizeof(struct timespec), 0)) return -EFAULT;
-        return futex_wait(uaddr, val, timeout);
+        return futex_wait(uaddr, val, timeout, op);
     }
-    else if (cmd == FUTEX_WAKE) return futex_wake(uaddr, (int)val);
+    else if (cmd == FUTEX_WAKE) return futex_wake(uaddr, (int)val, op);
     return -ENOSYS;
 }
 
@@ -2398,6 +2399,122 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [267] = (syscall_ptr_t)sys_readlinkat,
 };
 
+
+static syscall_ptr_t syscall_linux32_table[MAX_SYSCALL_NUM] = {
+    [0 ... MAX_SYSCALL_NUM - 1] = sys_ni_syscall,
+    [3] = (syscall_ptr_t)sys_read,
+    [4] = (syscall_ptr_t)sys_write,
+    [5] = (syscall_ptr_t)sys_open,
+    [6] = (syscall_ptr_t)sys_close,
+    [18] = (syscall_ptr_t)sys_stat,
+    [28] = (syscall_ptr_t)sys_fstat,
+    [168] = (syscall_ptr_t)sys_poll,
+    [19] = (syscall_ptr_t)sys_lseek,
+    [90] = (syscall_ptr_t)sys_mmap,
+    [125] = (syscall_ptr_t)sys_mprotect,
+    [91] = (syscall_ptr_t)sys_munmap,
+    [45] = (syscall_ptr_t)sys_brk,
+    [174] = (syscall_ptr_t)sys_rt_sigaction,
+    [175] = (syscall_ptr_t)sys_rt_sigprocmask,
+    [54] = (syscall_ptr_t)sys_ioctl,
+    [145] = (syscall_ptr_t)sys_readv,
+    [146] = (syscall_ptr_t)sys_writev,
+    [33] = (syscall_ptr_t)sys_access,
+    [42] = (syscall_ptr_t)sys_pipe,
+    [82] = (syscall_ptr_t)sys_select,
+    [41] = (syscall_ptr_t)sys_dup,
+    [63] = (syscall_ptr_t)sys_dup2,
+    [162] = (syscall_ptr_t)sys_nanosleep,
+    [20] = (syscall_ptr_t)sys_getpid,
+    [114] = (syscall_ptr_t)sys_wait4,
+    [37] = (syscall_ptr_t)sys_kill,
+    [109] = (syscall_ptr_t)sys_uname,
+    [55] = (syscall_ptr_t)sys_fcntl,
+    [93] = (syscall_ptr_t)sys_ftruncate,
+    [131] = (syscall_ptr_t)sys_sigaltstack,
+    [183] = (syscall_ptr_t)sys_getcwd,
+    [12] = (syscall_ptr_t)sys_chdir,
+    [39] = (syscall_ptr_t)sys_mkdir,
+    [10] = (syscall_ptr_t)sys_unlink,
+    [199] = (syscall_ptr_t)sys_getuid,
+    [213] = (syscall_ptr_t)sys_setuid,
+    [214] = (syscall_ptr_t)sys_setgid,
+    [200] = (syscall_ptr_t)sys_getgid,
+    [201] = (syscall_ptr_t)sys_geteuid,
+    [202] = (syscall_ptr_t)sys_getegid,
+    [64] = (syscall_ptr_t)sys_getppid,
+    [224] = (syscall_ptr_t)sys_gettid,
+    [240] = (syscall_ptr_t)sys_futex,
+    [141] = (syscall_ptr_t)sys_getdents64,
+    [258] = (syscall_ptr_t)sys_set_tid_address,
+    [265] = (syscall_ptr_t)sys_clock_gettime,
+    [266] = (syscall_ptr_t)sys_clock_getres,
+    [252] = (syscall_ptr_t)sys_epoll_wait,
+    [295] = (syscall_ptr_t)sys_openat,
+    [296] = (syscall_ptr_t)sys_mkdirat,
+    [300] = (syscall_ptr_t)sys_newfstatat,
+    [302] = (syscall_ptr_t)sys_renameat,
+    [304] = (syscall_ptr_t)sys_symlinkat,
+    [301] = (syscall_ptr_t)sys_unlinkat,
+    [307] = (syscall_ptr_t)sys_faccessat,
+    [308] = (syscall_ptr_t)sys_pselect6,
+    [309] = (syscall_ptr_t)sys_ppoll,
+    [311] = (syscall_ptr_t)sys_set_robust_list,
+    [320] = (syscall_ptr_t)sys_utimensat,
+    [332] = (syscall_ptr_t)sys_dup3,
+    [331] = (syscall_ptr_t)sys_pipe2,
+    [339] = (syscall_ptr_t)sys_prlimit64,
+    [355] = (syscall_ptr_t)sys_getrandom,
+    [152] = (syscall_ptr_t)sys_sched_yield_wrapper,
+    [1] = (syscall_ptr_t)sys_exit_wrapper,
+    [38] = (syscall_ptr_t)sys_rename,
+    [83] = (syscall_ptr_t)sys_symlink,
+    [85] = (syscall_ptr_t)sys_readlink,
+    [305] = (syscall_ptr_t)sys_readlinkat,
+};
+
+
+
+static void syscall_linux32_handler(struct syscall_regs* regs) {
+    uint64_t ret = (uint64_t)-ENOSYS;
+    task_t* current = task_get_current();
+    cpu_info_t* cpu = get_current_cpu();
+    if (current && cpu) {
+        current->user_rsp = cpu->user_stack_scratch;
+    }
+
+    if (regs->rax >= MAX_SYSCALL_NUM) {
+        regs->rax = (uint64_t)-ENOSYS;
+        return;
+    }
+
+    if (regs->rax == 119) { /* SYS_rt_sigreturn */
+        sys_rt_sigreturn(regs);
+        return;
+    }
+    if (regs->rax == 120) { /* SYS_clone for 32-bit */
+        regs->rax = (uint64_t)task_clone(regs->rdi, regs->rsi, (uint32_t*)regs->rdx, (uint32_t*)regs->r10, regs->r8, regs);
+        return;
+    }
+    if (regs->rax == 2) { /* SYS_fork for 32-bit */
+        regs->rax = (uint64_t)task_fork((void*)regs);
+        return;
+    }
+    if (regs->rax == 11) { /* SYS_execve for 32-bit */
+        regs->rax = (uint64_t)sys_execve((const char*)regs->rdi, (char* const*)regs->rsi, (char* const*)regs->rdx, regs);
+        return;
+    }
+
+    syscall_ptr_t handler = syscall_linux32_table[regs->rax];
+    if (handler) {
+        ret = handler(regs->rdi, regs->rsi, regs->rdx, regs->r10, regs->r8, regs->r9);
+    }
+
+    regs->rax = ret;
+    handle_signal(regs);
+}
+
+
 #pragma GCC diagnostic pop
 static void syscall_native_handler(struct syscall_regs* regs) {
     uint64_t ret = (uint64_t)-ENOSYS;
@@ -2502,7 +2619,7 @@ void syscall_int80_handler(struct syscall_regs* regs) {
     mapped_regs.r9  = regs->rbp & 0xFFFFFFFF;
 
     /* Call the linux handler directly */
-    syscall_linux_handler(&mapped_regs);
+    syscall_linux32_handler(&mapped_regs);
 
     /* Return result in RAX */
     regs->rax = mapped_regs.rax;
@@ -2510,7 +2627,7 @@ void syscall_int80_handler(struct syscall_regs* regs) {
 
 void syscall_handler(struct syscall_regs* regs) {
     task_t* current = task_get_current();
-    if (current && current->os_abi == ELFOSABI_LINUX) {
+    if (current && current->is_linux) {
         syscall_linux_handler(regs);
     } else {
         syscall_native_handler(regs);

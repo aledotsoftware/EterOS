@@ -30,11 +30,11 @@ typedef struct {
 
 static futex_bucket_t buckets[FUTEX_BUCKETS];
 
-static int futex_hash(uint32_t *uaddr) {
+static int futex_hash(uint32_t *uaddr, int is_private) {
     task_t* current = task_get_current();
     uint64_t addr = (uint64_t)uaddr;
     /* Mix CR3 into the hash to isolate processes, but threads sharing VM will match */
-    uint64_t cr3 = current ? current->cr3 : 0;
+    uint64_t cr3 = (current && !is_private) ? current->cr3 : 0;
     return ((addr >> 2) ^ (cr3 >> 12)) % FUTEX_BUCKETS;
 }
 
@@ -57,7 +57,7 @@ static int validate_uaddr(uint32_t *uaddr) {
     return 1;
 }
 
-int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout) {
+int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout, int op) {
     const struct timespec *ts = (const struct timespec *)timeout;
     uint64_t target_tick = 0;
     int has_timeout = 0;
@@ -79,7 +79,8 @@ int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout) {
        For now, we assume direct access is possible but unsafe. */
     if (*uaddr != val) return -EAGAIN;
 
-    int bucket_idx = futex_hash(uaddr);
+    int is_private = (op & FUTEX_PRIVATE_FLAG) ? 1 : 0;
+    int bucket_idx = futex_hash(uaddr, is_private);
     futex_bucket_t *b = &buckets[bucket_idx];
 
     /* 2. Allocate node before locking to minimize critical section */
@@ -159,10 +160,11 @@ int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout) {
     return 0;
 }
 
-int futex_wake(uint32_t *uaddr, int count) {
+int futex_wake(uint32_t *uaddr, int count, int op) {
     if (!validate_uaddr(uaddr)) return -EFAULT;
 
-    int bucket_idx = futex_hash(uaddr);
+    int is_private = (op & FUTEX_PRIVATE_FLAG) ? 1 : 0;
+    int bucket_idx = futex_hash(uaddr, is_private);
     futex_bucket_t *b = &buckets[bucket_idx];
 
     spin_lock(&b->lock);
@@ -173,7 +175,7 @@ int futex_wake(uint32_t *uaddr, int count) {
     task_t* current = task_get_current();
 
     while (curr && woken < count) {
-        if (curr->uaddr == uaddr && curr->task->cr3 == current->cr3) {
+        if (curr->uaddr == uaddr && (is_private || curr->task->cr3 == current->cr3)) {
             /* Wake up this task */
             if (curr->task->state == TASK_BLOCKED) {
                 task_wakeup(curr->task);
