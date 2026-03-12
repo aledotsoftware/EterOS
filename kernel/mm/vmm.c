@@ -375,7 +375,7 @@ static void clone_pt_recursive(pt_entry_t* dest, pt_entry_t* src, int level, int
 
             if (cow) {
                 /* CoW Logic */
-                /* Update Source: Read-Only, CoW */
+                /* Update Source: Read-Only, CoW (Aether-Linux-Subsystem Phase 5.5) */
                 src[i] |= PAGE_COW;
                 src[i] &= ~PAGE_WRITE;
 
@@ -464,7 +464,7 @@ int vmm_handle_page_fault(uint64_t addr, uint64_t error_code) {
     int write   = error_code & 2;
     int user    = error_code & 4;
 
-    /* Handle CoW: Write + Present + User */
+    /* Handle CoW: Write + Present + User (Aether-Linux-Subsystem Phase 5.5) */
     if (present && write && user) {
         /* Walk to find the entry */
         uint64_t pml4_idx = PML4_INDEX(addr);

@@ -3,6 +3,7 @@
 
 #include <types.h>
 
+/* Linux x86_64 stat structure for ABI compatibility */
 struct linux_stat {
     uint64_t st_dev;
     uint64_t st_ino;
