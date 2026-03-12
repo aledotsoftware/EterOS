@@ -113,9 +113,11 @@ static const char* current_map_shift = scancode_to_ascii_shift;
 /* Estado para scancodes extendidos (prefijo 0xE0) */
 static volatile bool extended_scancode = false;
 
+void compositor_wake(void);
+
 void keyboard_process_scancode(uint8_t scancode) {
     /* Wake up the compositor on input */
-    /* compositor_wake(); // Disabled so it doesn't fight with Marea Shell over fb0 */
+    compositor_wake(); // Re-enabled to wake up compositor screen sleep
 
     /* Detectar prefijo de scancode extendido */
     if (scancode == 0xE0) {
