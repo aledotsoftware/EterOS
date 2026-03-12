@@ -712,7 +712,7 @@ void task_exit(int status) {
     if (current->clear_child_tid != NULL) {
         if (vmm_verify_user_access(current->clear_child_tid, sizeof(uint32_t), 1)) {
             *current->clear_child_tid = 0;
-            futex_wake(current->clear_child_tid, 1);
+            futex_wake(current->clear_child_tid, 1, FUTEX_WAKE);
         }
     }
 
