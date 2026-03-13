@@ -26,13 +26,13 @@
 #include <fs/shmfs.h>
 #include <fs/procfs.h>
 #include <fs/jfs.h>
+#include <fs/bcache.h>
 #include <vga.h>
 #include <gfx/gfx.h>
 #include <task.h>
 #include <net/defs.h>
 #include <net/socket.h>
 #include <cpu.h>
-
 #include <net/e1000.h>
 #include <acpi.h>
 #include <apic.h>
@@ -144,7 +144,6 @@ void __attribute__((section(".text.boot"))) kmain(void) {
 
     /* ---- 3. Inicializar Memory Managers (Solo Tier 2+) ---- */
     #if ETEROS_TIER >= 2
-        #include <fs/bcache.h>
 
         /* Memory Management Unit (Paging/MPU) */
 
@@ -314,24 +313,22 @@ static void kernel_print_banner(void) {
     hal_console_write("\n");
     
     /* Logo de éterOS en arte ASCII (Austral Aurora theme) */
-    hal_console_write("\033[38;2;135;206;235m"); /* Sky blue */
-    hal_console_write("          _             \033[38;2;64;224;208m___  ____  \n");
-    hal_console_write("     \033[38;2;135;206;235m___ | |_ ___  _ _ \033[38;2;64;224;208m/ _ \\/ ___| \n");
-    hal_console_write("    \033[38;2;135;206;235m/ _ \\| __/ _ \\| '_|\033[38;2;64;224;208m | | \\___ \\ \n");
-    hal_console_write("   \033[38;2;135;206;235m|  __/| ||  __/| | \033[38;2;64;224;208m| |_| |___) |\n");
-    hal_console_write("    \033[38;2;135;206;235m\\___| \\__\\___||_|\033[38;2;64;224;208m  \\___/|____/ \033[0m\n");
+    hal_console_write("\033[38;2;142;240;227m      __              \033[38;2;64;224;208m____  ____  \n");
+    hal_console_write("\033[38;2;135;206;235m  ___/ /____ ____ ___ \033[38;2;50;180;180m/ __ \\/ ___|\n");
+    hal_console_write("\033[38;2;100;180;250m / -_) __/ -_) __/ _ \\\033[38;2;40;150;160m /_/ /\\__ \\ \n");
+    hal_console_write("\033[38;2;65;105;225m \\__/\\__/\\__/_/  \\___/\033[38;2;30;120;140m\\____/____/ \033[0m\n");
 
     hal_console_write("\n");
-    hal_console_write("\033[38;2;0;191;255m  ========================================\033[0m\n");
+    hal_console_write("\033[38;2;40;180;200m  ========================================\033[0m\n");
     
     /* Versión y codename */
-    kprintf("    \033[1;37mVersion %d.%d.%d (\"%s\")\033[0m\n",
+    kprintf("    \033[38;2;255;255;255mVersion %d.%d.%d (\"%s\")\033[0m\n",
             ETEROS_VERSION_MAJOR, ETEROS_VERSION_MINOR, ETEROS_VERSION_PATCH, ETEROS_CODENAME);
 
     /* Copyright */
-    hal_console_write("    \033[90m(c) 2026 Tudex Networks\033[0m\n");
+    hal_console_write("    \033[38;2;150;150;150m(c) 2026 Tudex Networks\033[0m\n");
     
-    hal_console_write("\033[38;2;0;191;255m  ========================================\033[0m\n");
+    hal_console_write("\033[38;2;40;180;200m  ========================================\033[0m\n");
     hal_console_write("\n");
 }
 
