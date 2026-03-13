@@ -236,6 +236,17 @@ static void task_entry_wrapper(void) {
 /* API del Scheduler                                                         */
 /* ========================================================================= */
 
+/**
+ * @brief Initializes the scheduler and creates the initial kernel task.
+ *
+ * This function sets up the task array, initializes the ready queue,
+ * and configures the first task (Task 0) which represents the current
+ * thread of execution (typically the kernel or shell). It sets up the
+ * initial stack, POSIX and Linux compatibility fields, and marks the
+ * scheduler as active.
+ *
+ * @return None.
+ */
 void scheduler_init(void) {
     memset(tasks, 0, sizeof(tasks));
     task_bitmap = 1; /* Task 0 used */
@@ -516,6 +527,8 @@ static task_t* find_next_task(task_t* current) {
  * Handles SMP CPU load tracking, updates TLS (FS/GS bases),
  * switches address spaces (CR3) if necessary, and performs the architecture-specific
  * context switch. Uses spinlocks to safely modify global state.
+ *
+ * @return None.
  */
 void schedule(void) {
     if (!scheduler_active) return;
@@ -655,6 +668,15 @@ void schedule(void) {
     __asm__ volatile("sti");
 }
 
+/**
+ * @brief Voluntarily yields the CPU to the next ready task.
+ *
+ * If the scheduler is active and the current CPU can be determined,
+ * this function immediately invokes the scheduler to switch to another
+ * task. It allows tasks to relinquish their time slice cooperatively.
+ *
+ * @return None.
+ */
 void task_yield(void) {
     if (!scheduler_active) return;
     
