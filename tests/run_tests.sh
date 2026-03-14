@@ -62,7 +62,7 @@ rm tests/test_jfs
 # Test Crypto
 echo "---------------------------------------------------"
 echo "Running test_crypto..."
-gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_crypto.c kernel/crypto/sha256.c kernel/crypto/ed25519.c kernel/string.c -o tests/test_crypto
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_crypto.c kernel/crypto/sha256.c kernel/crypto/sha512.c kernel/crypto/ed25519.c kernel/string.c -o tests/test_crypto
 ./tests/test_crypto
 rm tests/test_crypto
 
