@@ -440,6 +440,17 @@ function Invoke-UserspaceBuild {
 
     # libc objects
     $libcObjs = @()
+    
+    # CRT0
+    $crt0Src = "$libcSrc\crt0.asm"
+    $crt0Obj = "$libcObjDir\crt0.o"
+    if ($Arch -eq "x86_64") {
+        & $AS -f elf64 $crt0Src -o $crt0Obj
+    } else {
+        & $AS -f elf32 $crt0Src -o $crt0Obj
+    }
+    if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al compilar crt0.asm"; exit 1 }
+    $libcObjs += $crt0Obj
     $libcSources = Get-ChildItem "$libcSrc\*.c"
     foreach ($src in $libcSources) {
         $obj = "$libcObjDir\$($src.Name -replace '\.c$', '.o')"
