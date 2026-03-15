@@ -269,6 +269,7 @@ $KERNEL_SRCS = @(
     "$KERNEL_DIR\gfx\window.c",
     "$KERNEL_DIR\fs\elf.c",
     "$KERNEL_DIR\crypto\sha256.c",
+    "$KERNEL_DIR\crypto\sha512.c",
     "$KERNEL_DIR\crypto\ed25519.c"
 )
 
