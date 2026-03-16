@@ -346,7 +346,7 @@ load_kernel:
     ; Leer sectores del Kernel
     mov eax, KERNEL_START_LBA       ; LBA Inicio
     mov ecx, KERNEL_SECTORS         ; Cantidad de sectores
-    mov edi, KERNEL_LOAD_ADDR       ; Destino temporal (Linear Addr 0x10000)
+    mov edi, KERNEL_LOAD_ADDR       ; Destino (Linear Addr 0x10000)
 
     call read_sectors_lba
     ret

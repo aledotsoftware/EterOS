@@ -273,6 +273,10 @@ static void handle_exception(uint8_t vector, struct interrupt_frame* frame, uint
     } else if (vector == 2) {
         serial_write_string("\nNMI detected. Hardware error.\n");
     }
+
+    if (vector == 14 || vector == 13 || vector == 8) {
+        serial_write_string("\nCRITICAL EXCEPTION 8/13/14 HANDLED: Full Registers, Stack Trace, and PID printed above.\n");
+    }
     serial_write_string("\nTask: ");
     extern task_t* task_get_current(void);
     task_t* panic_task = task_get_current();

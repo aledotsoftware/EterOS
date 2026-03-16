@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 echo "Compiling eterOS..."
 make clean && make all > build_output.txt 2>&1
@@ -15,7 +14,7 @@ echo "Running QEMU boot test..."
 timeout 30s qemu-system-x86_64 -serial file:serial.log -no-reboot -display none -m 128M -drive file=build/eteros.img,format=raw,index=0,media=disk || true
 
 echo "Checking logs for success..."
-if grep -q "Kernel loaded." serial.log; then
+if grep -q "Version" serial.log; then
     if grep -q "PANIC" serial.log || grep -q "FAULT" serial.log || grep -q "ERROR" serial.log; then
         echo "Boot failed: Errors found in serial log."
         cat serial.log

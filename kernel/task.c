@@ -189,7 +189,7 @@ static uint64_t cpu_idle_ticks = 0;
 static int      cpu_last_load = 0;
 
 /* Variable global para el stack del kernel (usada por syscall_entry) */
-uint64_t kernel_stack_top = 0;
+uint64_t kernel_stack_top = 0x90000;
 
 static int find_free_slot(void) {
     if (~task_bitmap == 0) return -1;
