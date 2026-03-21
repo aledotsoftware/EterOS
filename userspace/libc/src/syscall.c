@@ -1,8 +1,10 @@
 #include <sys/syscall.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <stdarg.h>
 
@@ -123,6 +125,34 @@ int ioctl(int fd, int request, void *arg) {
     long ret = syscall3(SYS_ioctl, fd, request, (long)arg);
     if (ret < 0) { errno = -ret; return -1; }
     return (int)ret;
+}
+
+int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
+    long ret = syscall3(SYS_poll, (long)fds, (long)nfds, timeout);
+    if (ret >= 0) {
+        return (int)ret;
+    }
+
+    /* Fallback for early kernels where SYS_poll is still incomplete.
+       We only need POLLIN readiness for tty/input devices right now. */
+    if (-ret == ENOSYS || -ret == EINVAL) {
+        int ready = 0;
+
+        for (nfds_t i = 0; i < nfds; ++i) {
+            int available = 0;
+            fds[i].revents = 0;
+
+            if ((fds[i].events & POLLIN) && ioctl(fds[i].fd, FIONREAD, &available) == 0 && available > 0) {
+                fds[i].revents |= POLLIN;
+                ready++;
+            }
+        }
+
+        return ready;
+    }
+
+    errno = (int)-ret;
+    return -1;
 }
 
 int close(int fd) {
