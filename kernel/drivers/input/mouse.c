@@ -24,6 +24,35 @@ static uint8_t mouse_cycle = 0;
 static uint8_t mouse_bytes[3];
 static uint8_t prev_buttons = 0;
 static mouse_callback_t active_callback = (void*)0;
+static uint32_t mouse_debug_packets = 0;
+
+static void mouse_debug_write_i32(int32_t value) {
+    char buf[16];
+    int i = 0;
+    uint32_t magnitude;
+
+    if (value == 0) {
+        serial_write_string("0");
+        return;
+    }
+
+    if (value < 0) {
+        serial_write_string("-");
+        magnitude = (uint32_t)(-value);
+    } else {
+        magnitude = (uint32_t)value;
+    }
+
+    while (magnitude > 0 && i < (int)sizeof(buf)) {
+        buf[i++] = (char)('0' + (magnitude % 10));
+        magnitude /= 10;
+    }
+
+    while (i-- > 0) {
+        char out[2] = { buf[i], '\0' };
+        serial_write_string(out);
+    }
+}
 
 static void mouse_wait(uint8_t type) {
     uint32_t timeout = 100000;
@@ -96,6 +125,17 @@ void mouse_process_byte(uint8_t byte) {
         int32_t dx = (int8_t)mouse_bytes[1];
         int32_t dy = (int8_t)mouse_bytes[2];
         uint8_t buttons = mouse_bytes[0] & 0x07;
+
+        if (mouse_debug_packets < 12 && (dx != 0 || dy != 0 || buttons != prev_buttons)) {
+            serial_write_string("[MOUSE] Packet dx=");
+            mouse_debug_write_i32(dx);
+            serial_write_string(" dy=");
+            mouse_debug_write_i32(dy);
+            serial_write_string(" buttons=");
+            mouse_debug_write_i32(buttons);
+            serial_write_string("\n");
+            mouse_debug_packets++;
+        }
 
         if (dx != 0) input_mouse_push(EV_REL, REL_X, dx);
         if (dy != 0) input_mouse_push(EV_REL, REL_Y, -dy);
