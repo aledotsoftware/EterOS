@@ -75,6 +75,16 @@ static ssize_t dev_event_read(fs_node_t *node, uint32_t offset, uint32_t size, u
     return read * sizeof(input_event_t);
 }
 
+static int dev_event_ioctl(fs_node_t *node, int request, void *arg) {
+    (void)node;
+    if (!arg) return -1;
+    if (request == FIONREAD) {
+        *(int*)arg = input_pending() * (int)sizeof(input_event_t);
+        return 0;
+    }
+    return -1;
+}
+
 /* ========================================================================= */
 /* /dev/input/mouse0 Implementation                                          */
 /* ========================================================================= */
@@ -87,6 +97,16 @@ static ssize_t dev_mouse_read(fs_node_t *node, uint32_t offset, uint32_t size, u
     int read = input_read_mouse((input_event_t*)buffer, count);
 
     return read * sizeof(input_event_t);
+}
+
+static int dev_mouse_ioctl(fs_node_t *node, int request, void *arg) {
+    (void)node;
+    if (!arg) return -1;
+    if (request == FIONREAD) {
+        *(int*)arg = input_mouse_pending() * (int)sizeof(input_event_t);
+        return 0;
+    }
+    return -1;
 }
 
 /* ========================================================================= */
@@ -120,10 +140,12 @@ static fs_node_t *devfs_input_finddir(fs_node_t *node, char *name) {
     if (strcmp(name, "event0") == 0) {
         strlcpy(fnode->name, "event0", sizeof(fnode->name));
         fnode->read = dev_event_read;
+        fnode->ioctl = dev_event_ioctl;
         fnode->inode = 7;
     } else if (strcmp(name, "mouse0") == 0) {
         strlcpy(fnode->name, "mouse0", sizeof(fnode->name));
         fnode->read = dev_mouse_read;
+        fnode->ioctl = dev_mouse_ioctl;
         fnode->inode = 6;
     } else {
         kfree(fnode);

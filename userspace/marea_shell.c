@@ -17,6 +17,7 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include "font.h"
@@ -132,6 +133,9 @@ static int mouse_btn = 0;
 #define CURSOR_W 12
 #define CURSOR_H 18
 static uint32_t cursor_save[CURSOR_W * CURSOR_H];
+
+static void handle_mouse_event(const input_event_t* ev);
+static void handle_keyboard_char(char c);
 
 /* ========================================================================= */
 /* Menu State                                                                */
@@ -890,6 +894,148 @@ static void cursor_draw(int cx, int cy) {
     }
 }
 
+static void handle_mouse_event(const input_event_t* ev) {
+    if (ev->type == EV_REL) {
+        cursor_restore_bg(mouse_x, mouse_y);
+
+        if (ev->code == REL_X) mouse_x += ev->value;
+        if (ev->code == REL_Y) mouse_y += ev->value;
+
+        if (mouse_x < 0) mouse_x = 0;
+        if (mouse_y < 0) mouse_y = 0;
+        if (mouse_x >= (int)fb_info.width - CURSOR_W) mouse_x = fb_info.width - CURSOR_W;
+        if (mouse_y >= (int)fb_info.height - CURSOR_H) mouse_y = fb_info.height - CURSOR_H;
+
+        if (dragging && drag_win >= 0) {
+            windows[drag_win].x = mouse_x - drag_offset_x;
+            windows[drag_win].y = mouse_y - drag_offset_y;
+
+            if (windows[drag_win].y < 0) windows[drag_win].y = 0;
+            if (windows[drag_win].y + windows[drag_win].h > (int)fb_info.height - TASKBAR_HEIGHT) {
+                windows[drag_win].y = fb_info.height - TASKBAR_HEIGHT - windows[drag_win].h;
+            }
+
+            redraw_all();
+        } else {
+            static int last_hovered_win = -1;
+            int hovered_win = find_window_at(mouse_x, mouse_y);
+            if (hovered_win >= 0) {
+                marea_window_t* win = &windows[hovered_win];
+                if (mouse_y >= win->y && mouse_y <= win->y + TITLEBAR_HEIGHT) {
+                    draw_window_chrome(win);
+                }
+            }
+            if (last_hovered_win >= 0 && last_hovered_win != hovered_win && windows[last_hovered_win].visible) {
+                draw_window_chrome(&windows[last_hovered_win]);
+            }
+            last_hovered_win = hovered_win;
+        }
+
+        cursor_save_bg(mouse_x, mouse_y);
+        cursor_draw(mouse_x, mouse_y);
+        return;
+    }
+
+    if (ev->type == EV_KEY && ev->code == BTN_LEFT) {
+        if (ev->value == 1) {
+            mouse_btn = 1;
+
+            if (menu_open) {
+                int item = hit_menu_item(mouse_x, mouse_y);
+                if (item >= 0) {
+                    if (strcmp(menu_items[item].label, "Terminal") == 0) {
+                        create_terminal_window();
+                        redraw_all();
+                        cursor_save_bg(mouse_x, mouse_y);
+                        cursor_draw(mouse_x, mouse_y);
+                    }
+                    menu_open = 0;
+                    redraw_all();
+                    cursor_save_bg(mouse_x, mouse_y);
+                    cursor_draw(mouse_x, mouse_y);
+                    return;
+                }
+            }
+
+            if (hit_start_button(mouse_x, mouse_y)) {
+                menu_open = !menu_open;
+                redraw_all();
+                cursor_save_bg(mouse_x, mouse_y);
+                cursor_draw(mouse_x, mouse_y);
+                return;
+            }
+
+            if (menu_open) {
+                menu_open = 0;
+                redraw_all();
+                cursor_save_bg(mouse_x, mouse_y);
+                cursor_draw(mouse_x, mouse_y);
+            }
+
+            int win_idx = find_window_at(mouse_x, mouse_y);
+            if (win_idx >= 0) {
+                marea_window_t* win = &windows[win_idx];
+
+                if (focused_window != win_idx) {
+                    if (focused_window >= 0) windows[focused_window].focused = 0;
+                    win->focused = 1;
+                    focused_window = win_idx;
+                    redraw_all();
+                    cursor_save_bg(mouse_x, mouse_y);
+                    cursor_draw(mouse_x, mouse_y);
+                }
+
+                if (hit_close_button(win, mouse_x, mouse_y)) {
+                    win->visible = 0;
+                    win->focused = 0;
+                    if (focused_window == win_idx) focused_window = -1;
+                    redraw_all();
+                    cursor_save_bg(mouse_x, mouse_y);
+                    cursor_draw(mouse_x, mouse_y);
+                    return;
+                }
+
+                if (hit_titlebar(win, mouse_x, mouse_y)) {
+                    dragging = 1;
+                    drag_win = win_idx;
+                    drag_offset_x = mouse_x - win->x;
+                    drag_offset_y = mouse_y - win->y;
+                }
+            }
+        } else {
+            mouse_btn = 0;
+            dragging = 0;
+            drag_win = -1;
+        }
+    }
+}
+
+static void handle_keyboard_char(char c) {
+    if (focused_window < 0 || !windows[focused_window].visible) {
+        return;
+    }
+
+    marea_window_t* win = &windows[focused_window];
+    cursor_restore_bg(mouse_x, mouse_y);
+
+    if (c == '\r' || c == '\n') {
+        term_execute(win);
+    } else if (c == '\b' || c == 0x08 || c == 0x7F) {
+        if (win->input_len > 0) {
+            win->input_len--;
+            term_putchar(win, '\b', COL_TERM_FG);
+        }
+    } else if (c >= 32 && c <= 126) {
+        if (win->input_len < (int)sizeof(win->input_buf) - 1) {
+            win->input_buf[win->input_len++] = c;
+            term_putchar(win, c, COL_TERM_FG);
+        }
+    }
+
+    cursor_save_bg(mouse_x, mouse_y);
+    cursor_draw(mouse_x, mouse_y);
+}
+
 /* ========================================================================= */
 /* Hit Testing                                                               */
 /* ========================================================================= */
@@ -1027,189 +1173,59 @@ int main(int argc, char* argv[]) {
     cursor_save_bg(mouse_x, mouse_y);
     cursor_draw(mouse_x, mouse_y);
 
-    /* 4. Fork mouse reader */
-    int mouse_pid = fork();
-    if (mouse_pid == 0) {
-        /* Child: Mouse input loop */
-        sleep(1); /* Let parent render first */
-
-        int mfd = open("/dev/input/mouse0", O_RDONLY);
-        if (mfd < 0) {
-            printf("[Marea] Critical Error: Cannot open /dev/input/mouse0\n");
-            exit(1);
-        }
-
-        input_event_t ev;
-        while (read(mfd, &ev, sizeof(ev)) > 0) {
-            /* Visual debug: flick red square in top left when mouse events arrive */
-            fill_rect(0, 0, 8, 8, 0xFF0000); 
-
-            if (ev.type == EV_REL) {
-                /* Erase old cursor */
-                cursor_restore_bg(mouse_x, mouse_y);
-
-                if (ev.code == REL_X) mouse_x += ev.value;
-                if (ev.code == REL_Y) mouse_y += ev.value;
-
-                /* Clamp */
-                if (mouse_x < 0) mouse_x = 0;
-                if (mouse_y < 0) mouse_y = 0;
-                if (mouse_x >= (int)fb_info.width - CURSOR_W) mouse_x = fb_info.width - CURSOR_W;
-                if (mouse_y >= (int)fb_info.height - CURSOR_H) mouse_y = fb_info.height - CURSOR_H;
-
-                /* Dragging? */
-                if (dragging && drag_win >= 0) {
-                    windows[drag_win].x = mouse_x - drag_offset_x;
-                    windows[drag_win].y = mouse_y - drag_offset_y;
-
-                    /* Clamp window position */
-                    if (windows[drag_win].y < 0) windows[drag_win].y = 0;
-                    if (windows[drag_win].y + windows[drag_win].h > (int)fb_info.height - TASKBAR_HEIGHT)
-                        windows[drag_win].y = fb_info.height - TASKBAR_HEIGHT - windows[drag_win].h;
-
-                    /* Redraw everything (simple approach for now) */
-                    redraw_all();
-                } else {
-                    /* Not dragging, check if we need to redraw window chrome for hover states */
-                    static int last_hovered_win = -1;
-                    int hovered_win = find_window_at(mouse_x, mouse_y);
-                    if (hovered_win >= 0) {
-                        marea_window_t* win = &windows[hovered_win];
-                        if (mouse_y >= win->y && mouse_y <= win->y + TITLEBAR_HEIGHT) {
-                            draw_window_chrome(win);
-                        }
-                    }
-                    if (last_hovered_win >= 0 && last_hovered_win != hovered_win && windows[last_hovered_win].visible) {
-                        draw_window_chrome(&windows[last_hovered_win]);
-                    }
-                    last_hovered_win = hovered_win;
-                }
-
-                /* Draw new cursor */
-                cursor_save_bg(mouse_x, mouse_y);
-                cursor_draw(mouse_x, mouse_y);
-
-            } else if (ev.type == EV_KEY && ev.code == BTN_LEFT) {
-                if (ev.value == 1) {
-                    /* Mouse press */
-                    mouse_btn = 1;
-
-                    /* Check menu click first */
-                    if (menu_open) {
-                        int item = hit_menu_item(mouse_x, mouse_y);
-                        if (item >= 0) {
-                            /* Handle menu action */
-                            if (strcmp(menu_items[item].label, "Terminal") == 0) {
-                                create_terminal_window();
-                                redraw_all();
-                                cursor_save_bg(mouse_x, mouse_y);
-                                cursor_draw(mouse_x, mouse_y);
-                            }
-                            /* Close menu after action */
-                            menu_open = 0;
-                            redraw_all();
-                            cursor_save_bg(mouse_x, mouse_y);
-                            cursor_draw(mouse_x, mouse_y);
-                            continue;
-                        }
-                    }
-
-                    /* Check start button */
-                    if (hit_start_button(mouse_x, mouse_y)) {
-                        menu_open = !menu_open;
-                        redraw_all();
-                        cursor_save_bg(mouse_x, mouse_y);
-                        cursor_draw(mouse_x, mouse_y);
-                        continue;
-                    }
-
-                    /* Close menu if clicking elsewhere */
-                    if (menu_open) {
-                        menu_open = 0;
-                        redraw_all();
-                        cursor_save_bg(mouse_x, mouse_y);
-                        cursor_draw(mouse_x, mouse_y);
-                    }
-
-                    /* Check window interaction */
-                    int win_idx = find_window_at(mouse_x, mouse_y);
-                    if (win_idx >= 0) {
-                        marea_window_t* win = &windows[win_idx];
-
-                        /* Focus */
-                        if (focused_window != win_idx) {
-                            if (focused_window >= 0) windows[focused_window].focused = 0;
-                            win->focused = 1;
-                            focused_window = win_idx;
-                            redraw_all();
-                            cursor_save_bg(mouse_x, mouse_y);
-                            cursor_draw(mouse_x, mouse_y);
-                        }
-
-                        /* Close button */
-                        if (hit_close_button(win, mouse_x, mouse_y)) {
-                            win->visible = 0;
-                            win->focused = 0;
-                            if (focused_window == win_idx) focused_window = -1;
-                            redraw_all();
-                            cursor_save_bg(mouse_x, mouse_y);
-                            cursor_draw(mouse_x, mouse_y);
-                            continue;
-                        }
-
-                        /* Titlebar drag */
-                        if (hit_titlebar(win, mouse_x, mouse_y)) {
-                            dragging = 1;
-                            drag_win = win_idx;
-                            drag_offset_x = mouse_x - win->x;
-                            drag_offset_y = mouse_y - win->y;
-                        }
-                    }
-
-                } else {
-                    /* Mouse release */
-                    mouse_btn = 0;
-                    dragging = 0;
-                    drag_win = -1;
-                }
-            }
-        }
-        exit(0);
+    /* 4. Open input devices */
+    int mfd = open("/dev/input/mouse0", O_RDONLY);
+    if (mfd < 0) {
+        printf("[Marea] Warning: Cannot open /dev/input/mouse0\n");
     }
 
-    /* 5. Parent: Keyboard input loop */
+    /* 5. Keyboard input loop */
     int tfd = open("/dev/tty", O_RDWR);
     if (tfd < 0) {
         printf("[Marea] Warning: Cannot open /dev/tty\n");
     }
 
     while (1) {
-        char c;
-        if (tfd >= 0 && read(tfd, &c, 1) > 0) {
-            /* Route to focused terminal window */
-            if (focused_window >= 0 && windows[focused_window].visible) {
-                marea_window_t* win = &windows[focused_window];
+        struct pollfd fds[2];
+        int nfds = 0;
 
-                /* Erase cursor briefly for redraw */
-                cursor_restore_bg(mouse_x, mouse_y);
+        if (mfd >= 0) {
+            fds[nfds].fd = mfd;
+            fds[nfds].events = POLLIN;
+            fds[nfds].revents = 0;
+            nfds++;
+        }
+        if (tfd >= 0) {
+            fds[nfds].fd = tfd;
+            fds[nfds].events = POLLIN;
+            fds[nfds].revents = 0;
+            nfds++;
+        }
 
-                if (c == '\r' || c == '\n') {
-                    term_execute(win);
-                } else if (c == '\b' || c == 0x08 || c == 0x7F) {
-                    if (win->input_len > 0) {
-                        win->input_len--;
-                        term_putchar(win, '\b', COL_TERM_FG);
-                    }
-                } else if (c >= 32 && c <= 126) {
-                    if (win->input_len < (int)sizeof(win->input_buf) - 1) {
-                        win->input_buf[win->input_len++] = c;
-                        term_putchar(win, c, COL_TERM_FG);
-                    }
+        if (nfds == 0) {
+            sleep(1);
+            continue;
+        }
+
+        if (poll(fds, (nfds_t)nfds, -1) <= 0) {
+            continue;
+        }
+
+        for (int i = 0; i < nfds; i++) {
+            if (!(fds[i].revents & POLLIN)) {
+                continue;
+            }
+
+            if (fds[i].fd == mfd) {
+                input_event_t ev;
+                if (read(mfd, &ev, sizeof(ev)) == (ssize_t)sizeof(ev)) {
+                    handle_mouse_event(&ev);
                 }
-
-                /* Restore cursor */
-                cursor_save_bg(mouse_x, mouse_y);
-                cursor_draw(mouse_x, mouse_y);
+            } else if (fds[i].fd == tfd) {
+                char c;
+                if (read(tfd, &c, 1) > 0) {
+                    handle_keyboard_char(c);
+                }
             }
         }
     }
