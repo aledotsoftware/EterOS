@@ -10,6 +10,99 @@
 #include "../../include/user_mode.h"
 #include "../../include/string.h"
 #include "../../include/elf.h"
+#include "../../include/task.h"
+#include "../../include/cpu.h"
+#include "../../include/fs/vfs.h"
+#include "../../include/mm.h"
+
+extern cpu_info_t* get_current_cpu(void);
+
+static char pending_run_path[256];
+
+static void shell_run_user_task(void) {
+    char path[256];
+    strlcpy(path, pending_run_path, sizeof(path));
+
+    fs_node_t* tty_node = vfs_lookup(fs_root, "/dev/tty");
+    task_t* current = task_get_current();
+    if (tty_node) {
+        current->fd_table[0].node = tty_node;
+        current->fd_table[0].flags = 2;
+        current->fd_table[0].offset = 0;
+        tty_node->ref_count++;
+
+        current->fd_table[1].node = tty_node;
+        current->fd_table[1].flags = 2;
+        current->fd_table[1].offset = 0;
+        tty_node->ref_count++;
+
+        current->fd_table[2].node = tty_node;
+        current->fd_table[2].flags = 2;
+        current->fd_table[2].offset = 0;
+    }
+
+    uint64_t entry_point = elf_load_file(path, 0x200000000);
+    if (entry_point == 0) {
+        serial_write_string("[RUN] Error: No se pudo cargar el ELF en la tarea de usuario.\n");
+        return;
+    }
+
+    uint64_t stack_top = 0x300000000 + PAGE_SIZE;
+    for (int i = 1; i <= 4; i++) {
+        void* stack_phys = pmm_alloc_page();
+        if (!stack_phys) {
+            serial_write_string("[RUN] Error: No se pudo asignar stack de usuario.\n");
+            return;
+        }
+        uint64_t stack_page = stack_top - ((uint64_t)i * PAGE_SIZE);
+        if (hal_mem_map((uint64_t)stack_phys, stack_page, HAL_MEM_READ | HAL_MEM_WRITE | HAL_MEM_USER) < 0) {
+            serial_write_string("[RUN] Error: No se pudo mapear stack de usuario.\n");
+            return;
+        }
+        memset((void*)stack_page, 0, PAGE_SIZE);
+    }
+
+    const char* arg0 = path;
+    const char* slash = path;
+    while (*slash) {
+        if (*slash == '/') arg0 = slash + 1;
+        slash++;
+    }
+    if (*arg0 == '\0') arg0 = path;
+
+    uint64_t rsp = stack_top;
+    size_t arg0_len = strlen(arg0) + 1;
+    rsp -= arg0_len;
+    memcpy((void*)rsp, arg0, arg0_len);
+    uint64_t arg0_user_ptr = rsp;
+    uint64_t uargv[2];
+    uint64_t uenvp[1];
+
+    uargv[0] = arg0_user_ptr;
+    uargv[1] = 0;
+    uenvp[0] = 0;
+
+    rsp &= ~0xFULL;
+
+    rsp -= 16;
+    ((uint64_t*)rsp)[0] = 0; /* auxv AT_NULL */
+    ((uint64_t*)rsp)[1] = 0;
+
+    rsp -= sizeof(uenvp);
+    memcpy((void*)rsp, uenvp, sizeof(uenvp));
+
+    rsp -= sizeof(uargv);
+    memcpy((void*)rsp, uargv, sizeof(uargv));
+
+    rsp -= 8;
+    *(uint64_t*)rsp = 1;
+
+    current->user_rsp = rsp;
+    cpu_info_t* cpu = get_current_cpu();
+    if (cpu) cpu->user_stack_scratch = rsp;
+
+    enter_user_mode((void*)entry_point, (void*)rsp);
+}
 
 #define ETEROS_VERSION      "0.1.0"
 #define ETEROS_CODENAME     "Genesis"
@@ -272,26 +365,33 @@ void cmd_run(const char* args) {
         return;
     }
 
-    /* 1. Load ELF */
-    uint64_t entry_point = elf_load_file(args, 0x200000000);
-    if (entry_point == 0) {
-        terminal_write_string("  Error: No se pudo cargar el archivo ELF: ");
-        terminal_write_string(args);
-        terminal_write_string("\n");
+    task_t* current = task_get_current();
+    char path[256];
+    if (vfs_normalize_path(path, sizeof(path), args, current->cwd) != 0) {
+        terminal_write_string("  Error: Ruta invalida.\n");
         return;
     }
 
-    terminal_write_string("  [ELF] Cargado exitosamente. Preparando modo usuario...\n");
-    terminal_write_string("  [RUN] Punto de entrada detectado: 0x");
-    char buf[32]; utoa_hex_s(entry_point, buf, sizeof(buf));
-    terminal_write_string(buf);
-    terminal_write_string("\n");
-    terminal_write_string("  [RUN] ADVERTENCIA: Ejecucion directa desde el Kernel Shell es experimental.\n");
-}
+    fs_node_t* node = vfs_lookup(fs_root, path);
+    if (!node) {
+        terminal_write_string("  Error: No se encontro el archivo ELF: ");
+        terminal_write_string(path);
+        terminal_write_string("\n");
+        return;
+    }
+    kfree(node);
 
-#include "../../include/task.h"
-#include "../../include/fs/vfs.h"
-#include "../../include/mm.h"
+    strlcpy(pending_run_path, path, sizeof(pending_run_path));
+    int pid = task_create("UserRun", shell_run_user_task);
+    if (pid < 0) {
+        terminal_write_string("  Error: No se pudo crear la tarea de usuario.\n");
+        return;
+    }
+
+    terminal_write_string("  [RUN] Tarea de usuario creada para: ");
+    terminal_write_string(path);
+    terminal_write_string("\n");
+}
 
 void cmd_ls(const char* args) {
     task_t* current = task_get_current();
