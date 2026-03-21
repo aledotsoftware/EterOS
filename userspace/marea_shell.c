@@ -125,6 +125,7 @@ typedef struct {
 #define REL_X    0x00
 #define REL_Y    0x01
 #define BTN_LEFT 0x110
+#define MOUSE_SENSITIVITY 3
 
 static int mouse_x, mouse_y;
 static int mouse_btn = 0;
@@ -139,6 +140,7 @@ static int drag_offset_x = 0, drag_offset_y = 0;
 
 static void handle_mouse_event(const input_event_t* ev);
 static void handle_keyboard_char(char c);
+static void drain_mouse_events(int fd);
 static int hit_start_button(int mx, int my);
 static int hit_titlebar(marea_window_t* win, int mx, int my);
 static int find_window_at(int mx, int my);
@@ -904,10 +906,12 @@ static void cursor_draw(int cx, int cy) {
 
 static void handle_mouse_event(const input_event_t* ev) {
     if (ev->type == EV_REL) {
+        int delta = ev->value * MOUSE_SENSITIVITY;
+
         cursor_restore_bg(mouse_x, mouse_y);
 
-        if (ev->code == REL_X) mouse_x += ev->value;
-        if (ev->code == REL_Y) mouse_y += ev->value;
+        if (ev->code == REL_X) mouse_x += delta;
+        if (ev->code == REL_Y) mouse_y += delta;
 
         if (mouse_x < 0) mouse_x = 0;
         if (mouse_y < 0) mouse_y = 0;
@@ -1042,6 +1046,23 @@ static void handle_keyboard_char(char c) {
 
     cursor_save_bg(mouse_x, mouse_y);
     cursor_draw(mouse_x, mouse_y);
+}
+
+static void drain_mouse_events(int fd) {
+    input_event_t ev;
+    int available = 0;
+
+    do {
+        if (read(fd, &ev, sizeof(ev)) != (ssize_t)sizeof(ev)) {
+            break;
+        }
+        handle_mouse_event(&ev);
+
+        available = 0;
+        if (ioctl(fd, FIONREAD, &available) != 0) {
+            break;
+        }
+    } while (available >= (int)sizeof(ev));
 }
 
 /* ========================================================================= */
@@ -1221,10 +1242,7 @@ int main(int argc, char* argv[]) {
             }
 
             if (fds[i].fd == mfd) {
-                input_event_t ev;
-                if (read(mfd, &ev, sizeof(ev)) == (ssize_t)sizeof(ev)) {
-                    handle_mouse_event(&ev);
-                }
+                drain_mouse_events(mfd);
             } else if (fds[i].fd == tfd) {
                 char c;
                 if (read(tfd, &c, 1) > 0) {
