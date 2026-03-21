@@ -10,9 +10,39 @@
 #include <ioctl.h>
 #include <crypto/sha256.h>
 #include <framebuffer.h>
+#include <serial.h>
 
 /* Global root node for DevFS */
 static fs_node_t* devfs_root = NULL;
+static uint32_t dev_mouse_read_debug = 0;
+
+static void devfs_debug_write_i32(int32_t value) {
+    char buf[16];
+    int i = 0;
+    uint32_t magnitude;
+
+    if (value == 0) {
+        serial_write_string("0");
+        return;
+    }
+
+    if (value < 0) {
+        serial_write_string("-");
+        magnitude = (uint32_t)(-value);
+    } else {
+        magnitude = (uint32_t)value;
+    }
+
+    while (magnitude > 0 && i < (int)sizeof(buf)) {
+        buf[i++] = (char)('0' + (magnitude % 10));
+        magnitude /= 10;
+    }
+
+    while (i-- > 0) {
+        char out[2] = { buf[i], '\0' };
+        serial_write_string(out);
+    }
+}
 
 /* ========================================================================= */
 /* /dev/null Implementation                                                  */
@@ -96,6 +126,18 @@ static ssize_t dev_mouse_read(fs_node_t *node, uint32_t offset, uint32_t size, u
 
     int count = size / sizeof(input_event_t);
     int read = input_read_mouse((input_event_t*)buffer, count);
+
+    if (read > 0 && dev_mouse_read_debug < 12) {
+        input_event_t *ev = (input_event_t*)buffer;
+        serial_write_string("[DEVFS] mouse0 read type=");
+        devfs_debug_write_i32(ev[0].type);
+        serial_write_string(" code=");
+        devfs_debug_write_i32(ev[0].code);
+        serial_write_string(" value=");
+        devfs_debug_write_i32(ev[0].value);
+        serial_write_string("\n");
+        dev_mouse_read_debug++;
+    }
 
     return read * sizeof(input_event_t);
 }
