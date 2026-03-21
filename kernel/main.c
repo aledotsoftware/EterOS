@@ -61,6 +61,7 @@ extern void net_poll(void);
 extern uint32_t my_ip;
 
 extern void dhcp_discover(void);
+static bool desktop_autostart = false;
 
 static void network_task(void) {
     /* Ejecutar DHCP Discover ahora que las interrupciones y el scheduler están activos */
@@ -183,7 +184,7 @@ void __attribute__((section(".text.boot"))) kmain(void) {
         /* Now that PMM, VMM, and heap are ready, switch console to framebuffer */
         if (boot_info && boot_info->fb_addr != 0) {
             terminal_switch_to_framebuffer(boot_info);
-            // terminal_set_silent(true); /* Deshabilitado para depuración visual completa */
+            terminal_set_silent(true);
         }
     #endif
 
@@ -203,6 +204,7 @@ void __attribute__((section(".text.boot"))) kmain(void) {
             fs_root = initialise_initrd(boot_info->initrd_addr, boot_info->initrd_size);
             if (fs_root) {
                 hal_console_write("[VFS] Initrd mounted at /\n");
+                desktop_autostart = (finddir_fs(fs_root, "marea_shell.elf") != NULL);
 
                 /* Dynamic Mounts */
                 vfs_mkdir("/dev", 0);
@@ -289,6 +291,15 @@ void __attribute__((section(".text.boot"))) kmain(void) {
  
     /* ---- 8. Lanzar shell interactivo ---- */
     hal_interrupts_enable();
+
+    if (desktop_autostart) {
+        terminal_set_silent(true);
+        serial_write_string("[ETER] Desktop autostart detected. Kernel framebuffer terminal disabled.\n");
+        while(1) {
+            hal_cpu_halt();
+            task_yield();
+        }
+    }
  
     /* Show system splash screen */
     // show_splash();

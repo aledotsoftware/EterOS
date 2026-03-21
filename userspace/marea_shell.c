@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <poll.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "font.h"
@@ -76,7 +77,79 @@ typedef struct {
 } fb_info_t;
 
 static uint8_t* fb_ptr = NULL;
+static uint8_t* backbuffer_ptr = NULL;
 static fb_info_t fb_info;
+static int dirty_valid = 0;
+static int dirty_x1 = 0;
+static int dirty_y1 = 0;
+static int dirty_x2 = 0;
+static int dirty_y2 = 0;
+
+static inline uint8_t* active_surface(void) {
+    return backbuffer_ptr ? backbuffer_ptr : fb_ptr;
+}
+
+static void mark_dirty_rect(int x, int y, int w, int h) {
+    int x2;
+    int y2;
+
+    if (w <= 0 || h <= 0) return;
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x >= (int)fb_info.width || y >= (int)fb_info.height) return;
+    if (x + w > (int)fb_info.width) w = (int)fb_info.width - x;
+    if (y + h > (int)fb_info.height) h = (int)fb_info.height - y;
+    if (w <= 0 || h <= 0) return;
+
+    x2 = x + w;
+    y2 = y + h;
+
+    if (!dirty_valid) {
+        dirty_x1 = x;
+        dirty_y1 = y;
+        dirty_x2 = x2;
+        dirty_y2 = y2;
+        dirty_valid = 1;
+        return;
+    }
+
+    if (x < dirty_x1) dirty_x1 = x;
+    if (y < dirty_y1) dirty_y1 = y;
+    if (x2 > dirty_x2) dirty_x2 = x2;
+    if (y2 > dirty_y2) dirty_y2 = y2;
+}
+
+static void present(void) {
+    int x;
+    int y;
+    int w;
+    int h;
+    int bytes_per_pixel;
+    size_t row_bytes;
+
+    if (!fb_ptr || !backbuffer_ptr) {
+        return;
+    }
+
+    if (!dirty_valid) {
+        return;
+    }
+
+    x = dirty_x1;
+    y = dirty_y1;
+    w = dirty_x2 - dirty_x1;
+    h = dirty_y2 - dirty_y1;
+    bytes_per_pixel = (int)(fb_info.bpp / 8);
+    row_bytes = (size_t)w * bytes_per_pixel;
+
+    for (int row = 0; row < h; ++row) {
+        uint8_t* src = backbuffer_ptr + (y + row) * fb_info.pitch + x * bytes_per_pixel;
+        uint8_t* dst = fb_ptr + (y + row) * fb_info.pitch + x * bytes_per_pixel;
+        memcpy(dst, src, row_bytes);
+    }
+
+    dirty_valid = 0;
+}
 
 #define TASKBAR_HEIGHT 44
 #define TITLEBAR_HEIGHT 32
@@ -176,12 +249,14 @@ static const menu_item_t menu_items[] = {
 /* ========================================================================= */
 
 static inline void put_pixel(int x, int y, uint32_t color) {
+    uint8_t* surface = active_surface();
+
     if (x < 0 || x >= (int)fb_info.width || y < 0 || y >= (int)fb_info.height) return;
     if (fb_info.bpp == 32) {
-        uint32_t* p = (uint32_t*)(fb_ptr + y * fb_info.pitch + x * 4);
+        uint32_t* p = (uint32_t*)(surface + y * fb_info.pitch + x * 4);
         *p = color;
     } else if (fb_info.bpp == 24) {
-        uint8_t* p = fb_ptr + y * fb_info.pitch + x * 3;
+        uint8_t* p = surface + y * fb_info.pitch + x * 3;
         p[0] = color & 0xFF;
         p[1] = (color >> 8) & 0xFF;
         p[2] = (color >> 16) & 0xFF;
@@ -189,17 +264,21 @@ static inline void put_pixel(int x, int y, uint32_t color) {
 }
 
 static inline uint32_t get_pixel(int x, int y) {
+    uint8_t* surface = active_surface();
+
     if (x < 0 || x >= (int)fb_info.width || y < 0 || y >= (int)fb_info.height) return 0;
     if (fb_info.bpp == 32) {
-        return *(uint32_t*)(fb_ptr + y * fb_info.pitch + x * 4);
+        return *(uint32_t*)(surface + y * fb_info.pitch + x * 4);
     } else if (fb_info.bpp == 24) {
-        uint8_t* p = fb_ptr + y * fb_info.pitch + x * 3;
+        uint8_t* p = surface + y * fb_info.pitch + x * 3;
         return 0xFF000000 | ((uint32_t)p[2] << 16) | ((uint32_t)p[1] << 8) | p[0];
     }
     return 0;
 }
 
 static void fill_rect(int x, int y, int w, int h, uint32_t color) {
+    uint8_t* surface = active_surface();
+
     /* Clip */
     if (x < 0) { w += x; x = 0; }
     if (y < 0) { h += y; y = 0; }
@@ -210,7 +289,7 @@ static void fill_rect(int x, int y, int w, int h, uint32_t color) {
     if (fb_info.bpp == 32) {
         /* ⚡ BOLT Optimization: Build the first row once, then copy it with memcpy
            to subsequent rows instead of per-pixel assignments. */
-        uint32_t* first_row = (uint32_t*)(fb_ptr + y * fb_info.pitch + x * 4);
+        uint32_t* first_row = (uint32_t*)(surface + y * fb_info.pitch + x * 4);
         for (int j = 0; j < w; j++) {
             first_row[j] = color;
         }
@@ -227,7 +306,7 @@ static void fill_rect(int x, int y, int w, int h, uint32_t color) {
         uint8_t r = (color >> 16) & 0xFF;
 
         /* ⚡ BOLT Optimization: Build the first row segment once, then use memcpy */
-        uint8_t* first_row = fb_ptr + y * fb_info.pitch + x * 3;
+        uint8_t* first_row = surface + y * fb_info.pitch + x * 3;
         uint8_t* p = first_row;
         for (int j = 0; j < w; j++) {
             *p++ = b;
@@ -245,6 +324,8 @@ static void fill_rect(int x, int y, int w, int h, uint32_t color) {
 }
 
 static void fill_rect_alpha(int x, int y, int w, int h, uint32_t color) {
+    uint8_t* surface = active_surface();
+
     uint32_t a = (color >> 24) & 0xFF;
     if (a == 0xFF) { fill_rect(x, y, w, h, color); return; }
     if (a == 0) return;
@@ -258,7 +339,7 @@ static void fill_rect_alpha(int x, int y, int w, int h, uint32_t color) {
     uint32_t inv_a = 255 - a;
     if (fb_info.bpp == 32) {
         for (int i = 0; i < h; i++) {
-            uint32_t* row = (uint32_t*)(fb_ptr + (y + i) * fb_info.pitch + x * 4);
+            uint32_t* row = (uint32_t*)(surface + (y + i) * fb_info.pitch + x * 4);
             for (int j = 0; j < w; j++) {
                 uint32_t dc = row[j];
                 uint32_t rb = (((color & 0xFF00FF) * a + (dc & 0xFF00FF) * inv_a) >> 8) & 0xFF00FF;
@@ -410,6 +491,7 @@ static void draw_desktop_gradient(void) {
     int h = fb_info.height - TASKBAR_HEIGHT;
     int mid = h / 2;
     int bytes_pp = fb_info.bpp / 8;
+    uint8_t* surface = active_surface();
 
     for (int y = 0; y < h; y++) {
         uint32_t color;
@@ -419,7 +501,7 @@ static void draw_desktop_gradient(void) {
             color = lerp_color(GRAD_MID & 0xFFFFFF, GRAD_BOTTOM & 0xFFFFFF, y - mid, h - mid);
         }
 
-        uint8_t* row = fb_ptr + y * fb_info.pitch;
+        uint8_t* row = surface + y * fb_info.pitch;
         uint8_t b = color & 0xFF;
         uint8_t g = (color >> 8) & 0xFF;
         uint8_t r = (color >> 16) & 0xFF;
@@ -693,14 +775,15 @@ static void term_scroll(marea_window_t* win) {
     int by = win->y + TERM_MARGIN_T;
     int bw = win->w - TERM_MARGIN_L * 2;
     int bh = win->h - TERM_MARGIN_T - 8;
+    uint8_t* surface = active_surface();
 
     /* Move lines up by 16px */
     int bytes_per_pixel = fb_info.bpp / 8;
     int row_bytes = bw * bytes_per_pixel;
 
     for (int row = by; row < by + bh - 16; row++) {
-        uint8_t* dst = fb_ptr + row * fb_info.pitch + bx * bytes_per_pixel;
-        uint8_t* src = fb_ptr + (row + 16) * fb_info.pitch + bx * bytes_per_pixel;
+        uint8_t* dst = surface + row * fb_info.pitch + bx * bytes_per_pixel;
+        uint8_t* src = surface + (row + 16) * fb_info.pitch + bx * bytes_per_pixel;
         memmove(dst, src, row_bytes);
     }
 
@@ -907,8 +990,11 @@ static void cursor_draw(int cx, int cy) {
 static void handle_mouse_event(const input_event_t* ev) {
     if (ev->type == EV_REL) {
         int delta = ev->value * MOUSE_SENSITIVITY;
+        int old_x = mouse_x;
+        int old_y = mouse_y;
 
         cursor_restore_bg(mouse_x, mouse_y);
+        mark_dirty_rect(old_x, old_y, CURSOR_W, CURSOR_H);
 
         if (ev->code == REL_X) mouse_x += delta;
         if (ev->code == REL_Y) mouse_y += delta;
@@ -928,23 +1014,12 @@ static void handle_mouse_event(const input_event_t* ev) {
             }
 
             redraw_all();
-        } else {
-            static int last_hovered_win = -1;
-            int hovered_win = find_window_at(mouse_x, mouse_y);
-            if (hovered_win >= 0) {
-                marea_window_t* win = &windows[hovered_win];
-                if (mouse_y >= win->y && mouse_y <= win->y + TITLEBAR_HEIGHT) {
-                    draw_window_chrome(win);
-                }
-            }
-            if (last_hovered_win >= 0 && last_hovered_win != hovered_win && windows[last_hovered_win].visible) {
-                draw_window_chrome(&windows[last_hovered_win]);
-            }
-            last_hovered_win = hovered_win;
         }
 
         cursor_save_bg(mouse_x, mouse_y);
         cursor_draw(mouse_x, mouse_y);
+        mark_dirty_rect(mouse_x, mouse_y, CURSOR_W, CURSOR_H);
+        present();
         return;
     }
 
@@ -960,11 +1035,13 @@ static void handle_mouse_event(const input_event_t* ev) {
                         redraw_all();
                         cursor_save_bg(mouse_x, mouse_y);
                         cursor_draw(mouse_x, mouse_y);
+                        present();
                     }
                     menu_open = 0;
                     redraw_all();
                     cursor_save_bg(mouse_x, mouse_y);
                     cursor_draw(mouse_x, mouse_y);
+                    present();
                     return;
                 }
             }
@@ -974,6 +1051,7 @@ static void handle_mouse_event(const input_event_t* ev) {
                 redraw_all();
                 cursor_save_bg(mouse_x, mouse_y);
                 cursor_draw(mouse_x, mouse_y);
+                present();
                 return;
             }
 
@@ -982,6 +1060,7 @@ static void handle_mouse_event(const input_event_t* ev) {
                 redraw_all();
                 cursor_save_bg(mouse_x, mouse_y);
                 cursor_draw(mouse_x, mouse_y);
+                present();
             }
 
             int win_idx = find_window_at(mouse_x, mouse_y);
@@ -995,6 +1074,7 @@ static void handle_mouse_event(const input_event_t* ev) {
                     redraw_all();
                     cursor_save_bg(mouse_x, mouse_y);
                     cursor_draw(mouse_x, mouse_y);
+                    present();
                 }
 
                 if (hit_close_button(win, mouse_x, mouse_y)) {
@@ -1004,6 +1084,7 @@ static void handle_mouse_event(const input_event_t* ev) {
                     redraw_all();
                     cursor_save_bg(mouse_x, mouse_y);
                     cursor_draw(mouse_x, mouse_y);
+                    present();
                     return;
                 }
 
@@ -1023,12 +1104,16 @@ static void handle_mouse_event(const input_event_t* ev) {
 }
 
 static void handle_keyboard_char(char c) {
+    int old_x = mouse_x;
+    int old_y = mouse_y;
+
     if (focused_window < 0 || !windows[focused_window].visible) {
         return;
     }
 
     marea_window_t* win = &windows[focused_window];
     cursor_restore_bg(mouse_x, mouse_y);
+    mark_dirty_rect(old_x, old_y, CURSOR_W, CURSOR_H);
 
     if (c == '\r' || c == '\n') {
         term_execute(win);
@@ -1044,8 +1129,11 @@ static void handle_keyboard_char(char c) {
         }
     }
 
+    mark_dirty_rect(win->x, win->y, win->w, win->h);
     cursor_save_bg(mouse_x, mouse_y);
     cursor_draw(mouse_x, mouse_y);
+    mark_dirty_rect(mouse_x, mouse_y, CURSOR_W, CURSOR_H);
+    present();
 }
 
 static void drain_mouse_events(int fd) {
@@ -1136,6 +1224,7 @@ static void redraw_all(void) {
 
     draw_taskbar();
     draw_menu();
+    mark_dirty_rect(0, 0, (int)fb_info.width, (int)fb_info.height);
 }
 
 /* ========================================================================= */
@@ -1172,6 +1261,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    backbuffer_ptr = malloc(fb_size);
+    if (!backbuffer_ptr) {
+        printf("[Marea] Error: backbuffer alloc failed\n");
+        return 1;
+    }
+
     /* 2. Initialize mouse position */
     mouse_x = fb_info.width / 2;
     mouse_y = fb_info.height / 2;
@@ -1197,6 +1292,7 @@ int main(int argc, char* argv[]) {
     /* Initial cursor */
     cursor_save_bg(mouse_x, mouse_y);
     cursor_draw(mouse_x, mouse_y);
+    present();
 
     /* 4. Open input devices */
     int mfd = open("/dev/input/mouse0", O_RDONLY);
@@ -1208,6 +1304,12 @@ int main(int argc, char* argv[]) {
     int tfd = open("/dev/tty", O_RDWR);
     if (tfd < 0) {
         printf("[Marea] Warning: Cannot open /dev/tty\n");
+    } else {
+        struct termios tio;
+        if (ioctl(tfd, TCGETS, &tio) == 0) {
+            tio.c_lflag &= ~(ECHO | ICANON);
+            ioctl(tfd, TCSETS, &tio);
+        }
     }
 
     while (1) {
