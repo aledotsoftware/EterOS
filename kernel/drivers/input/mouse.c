@@ -24,6 +24,8 @@ static uint8_t mouse_cycle = 0;
 static uint8_t mouse_bytes[3];
 static uint8_t prev_buttons = 0;
 static mouse_callback_t active_callback = (void*)0;
+#define MOUSE_DEBUG_LOG_PACKETS 0
+#if MOUSE_DEBUG_LOG_PACKETS
 static uint32_t mouse_debug_packets = 0;
 
 static void mouse_debug_write_i32(int32_t value) {
@@ -53,6 +55,7 @@ static void mouse_debug_write_i32(int32_t value) {
         serial_write_string(out);
     }
 }
+#endif
 
 static void mouse_wait(uint8_t type) {
     uint32_t timeout = 100000;
@@ -126,6 +129,7 @@ void mouse_process_byte(uint8_t byte) {
         int32_t dy = (int8_t)mouse_bytes[2];
         uint8_t buttons = mouse_bytes[0] & 0x07;
 
+        #if MOUSE_DEBUG_LOG_PACKETS
         if (mouse_debug_packets < 12 && (dx != 0 || dy != 0 || buttons != prev_buttons)) {
             serial_write_string("[MOUSE] Packet dx=");
             mouse_debug_write_i32(dx);
@@ -136,6 +140,7 @@ void mouse_process_byte(uint8_t byte) {
             serial_write_string("\n");
             mouse_debug_packets++;
         }
+        #endif
 
         if (dx != 0) input_mouse_push(EV_REL, REL_X, dx);
         if (dy != 0) input_mouse_push(EV_REL, REL_Y, -dy);
