@@ -111,7 +111,7 @@ static void gdt_set_gate_ptr(struct gdt_entry* gdt_base, int num, uint64_t base,
     gdt_base[num].access      = access;
 }
 
-static void write_tss(int num, uint16_t ss0, uint64_t esp0) {
+static void write_tss(int num) {
     /* Calcular base y limite del TSS */
     uint64_t base = (uint64_t)&tss;
     uint64_t limit = sizeof(tss) - 1;
@@ -133,9 +133,6 @@ static void write_tss(int num, uint16_t ss0, uint64_t esp0) {
     tss.rsp0 = (uint64_t)kernel_stack_top;
     tss.ist[1] = tss.rsp0;
     tss.iomap_base = sizeof(tss); /* Sin I/O map */
-    
-    (void)ss0; /* Unused */
-    (void)esp0; /* Unused */
 }
 
 void gdt_init(void) {
@@ -160,7 +157,7 @@ void gdt_init(void) {
     gdt_set_gate(4, 0, 0, 0xFA, 0x20);
 
     /* 5: TSS (0x28) - 16 bytes */
-    write_tss(5, 0x10, 0); 
+    write_tss(5);
 
     /* Cargar GDTR */
     gdtr.limit = (sizeof(struct gdt_entry) * GDT_ENTRIES) - 1;
