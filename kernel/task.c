@@ -221,7 +221,7 @@ static uint64_t cpu_idle_ticks = 0;
 static int      cpu_last_load = 0;
 
 /* Variable global para el stack del kernel (usada por syscall_entry) */
-uint64_t kernel_stack_top = 0;
+uint64_t kernel_stack_top = 0x90000;
 
 static int find_free_slot(void) {
     if (~task_bitmap == 0) return -1;
@@ -300,8 +300,8 @@ void scheduler_init(void) {
     tasks[0].cr3 = cr3;
 
     /* Configurar stack inicial para Task 0 (Boot Stack en 128MB) */
-    kernel_stack_top = 0x7FF000;
-    tasks[0].kernel_stack = kernel_stack_top;
+    kernel_stack_top = 0x90000;
+    tasks[0].kernel_stack_top = kernel_stack_top;
 
     strlcpy(tasks[0].name, "kernel", sizeof(tasks[0].name));
 
@@ -382,7 +382,7 @@ void task_init_ap(void) {
     uint64_t cr3;
     __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
     tasks[slot].cr3 = cr3;
-    tasks[slot].kernel_stack = 0;
+    tasks[slot].kernel_stack_top = 0;
 
     cpu_info_t* cpu = get_current_cpu();
     char name[32] = "Idle AP ";
@@ -395,7 +395,7 @@ void task_init_ap(void) {
         cpu->sched_ticks = 0;
         /* Set RSP0 in TSS for this AP (using its current stack top) */
         tss_set_rsp0(cpu->kernel_stack_top);
-        tasks[slot].kernel_stack = cpu->kernel_stack_top;
+        tasks[slot].kernel_stack_top = cpu->kernel_stack_top;
     } else {
         strlcat(name, "?", 32);
     }
@@ -477,7 +477,7 @@ int task_create(const char* name, void (*entry)(void)) {
     tasks[slot].stack_base = stack;
 
     /* Configurar stack de kernel y CR3 */
-    tasks[slot].kernel_stack = (uint64_t)(stack + TASK_STACK_SIZE);
+    tasks[slot].kernel_stack_top = (uint64_t)(stack + TASK_STACK_SIZE);
 
     /* Heredar CR3 del kernel (por ahora, luego cada proceso tendrá su PML4) */
     uint64_t cr3;
@@ -691,8 +691,8 @@ void schedule(void) {
     cpu->current_task = next_task;
 
     /* Actualizar TSS RSP0 y Per-CPU Kernel Stack para Syscalls */
-    tss_set_rsp0(next_task->kernel_stack);
-    cpu->kernel_stack_top = next_task->kernel_stack;
+    tss_set_rsp0(next_task->kernel_stack_top);
+    cpu->kernel_stack_top = next_task->kernel_stack_top;
 
     /* Restore User Stack Pointer (for syscall exit / fork_return) */
     cpu->user_stack_scratch = next_task->user_rsp;
@@ -720,7 +720,7 @@ void schedule(void) {
 
     /* Context Switch holding the lock! */
     /* The next task will release it in schedule() return or task_entry_wrapper */
-    context_switch(&current->rsp, next_task->rsp, current->fpu_state, next_task->fpu_state);
+    context_switch(&current->rsp, &next_task->rsp, current->fpu_state, next_task->fpu_state);
 
     /* We are back in the old task (now current) */
     spin_unlock(&sched_lock);
@@ -1040,7 +1040,7 @@ int task_fork(void* regs_ptr) {
     tasks[slot].clear_child_tid = NULL;
     tasks[slot].state = TASK_READY;
     tasks[slot].stack_base = stack;
-    tasks[slot].kernel_stack = (uint64_t)(stack + TASK_STACK_SIZE);
+    tasks[slot].kernel_stack_top = (uint64_t)(stack + TASK_STACK_SIZE);
 
     /* 4. Clone Address Space (CoW) */
     /* Release lock to avoid deadlock during TLB shootdowns or heavy VM activity */
@@ -1093,7 +1093,7 @@ int task_fork(void* regs_ptr) {
 
     /* 6. Setup Child Stack for Return */
     /* We need to copy `regs` to child stack top */
-    uint64_t* sp = (uint64_t*)tasks[slot].kernel_stack;
+    uint64_t* sp = (uint64_t*)tasks[slot].kernel_stack_top;
 
     /* Push syscall_regs */
     sp = (uint64_t*)((uint8_t*)sp - sizeof(struct syscall_regs));
@@ -1193,7 +1193,7 @@ int task_clone(uint64_t clone_flags, uint64_t stack_top, uint32_t* parent_tid, u
 
     tasks[slot].state = TASK_READY;
     tasks[slot].stack_base = stack;
-    tasks[slot].kernel_stack = (uint64_t)(stack + TASK_STACK_SIZE);
+    tasks[slot].kernel_stack_top = (uint64_t)(stack + TASK_STACK_SIZE);
 
     if (clone_flags & CLONE_VM) {
         tasks[slot].cr3 = parent->cr3;
@@ -1274,7 +1274,7 @@ int task_clone(uint64_t clone_flags, uint64_t stack_top, uint32_t* parent_tid, u
     }
 
     /* 6. Setup Child Stack for Return */
-    uint64_t* sp = (uint64_t*)tasks[slot].kernel_stack;
+    uint64_t* sp = (uint64_t*)tasks[slot].kernel_stack_top;
 
     /* Push syscall_regs */
     sp = (uint64_t*)((uint8_t*)sp - sizeof(struct syscall_regs));
