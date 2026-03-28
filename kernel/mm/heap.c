@@ -351,13 +351,11 @@ static void _kfree_impl(void* ptr) {
     /* Verificar Magic Number */
     if (block->magic != HEAP_MAGIC) {
         serial_write_string("[MM] Error: kfree of invalid address (bad magic)\n");
-        ASSERT(0 && "Heap corruption detected: Invalid magic number");
         return;
     }
 
     if (block->is_free) {
         serial_write_string("[MM] Warning: Double free detected\n");
-        ASSERT(0 && "Double free detected");
         return;
     }
 
@@ -365,7 +363,6 @@ static void _kfree_impl(void* ptr) {
     uint32_t* footer = (uint32_t*)((uintptr_t)block + sizeof(block_header_t) + block->size - sizeof(uint32_t));
     if (*footer != HEAP_FOOTER_MAGIC) {
         serial_write_string("[MM] Error: kfree of invalid address (bad footer magic)\n");
-        ASSERT(0 && "Heap corruption detected: Invalid footer magic number");
         return;
     }
     

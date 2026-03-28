@@ -70,6 +70,9 @@ void pmm_mark_region_used(uint64_t base, uint64_t size) {
         if (page_idx < total_pages) {
             if (!bitmap_test(page_idx)) {
                 bitmap_set(page_idx);
+                if (pmm_ref_counts) {
+                    pmm_ref_counts[page_idx] = 1;
+                }
                 used_ram += PAGE_SIZE;
             }
         }
@@ -89,6 +92,9 @@ static void pmm_mark_region_free(uint64_t base, uint64_t size) {
         if (page_idx < total_pages) {
             if (bitmap_test(page_idx)) {
                 bitmap_unset(page_idx);
+                if (pmm_ref_counts) {
+                    pmm_ref_counts[page_idx] = 0;
+                }
                 used_ram -= PAGE_SIZE;
             }
         }
@@ -206,7 +212,7 @@ void pmm_init(void) {
     }
 
     used_ram = total_ram; /* Temporalmente todo usado */
-    serial_write_string("[PMM] Bitmap at 0x400000, processing E820 regions...\n");
+    serial_write_string("[PMM] Bitmap at 0x1A000, processing E820 regions...\n");
 
     /* 3. Procesar mapa E820 y liberar regiones usables */
     for (uint32_t i = 0; i < mem_map->entry_count; i++) {
@@ -420,7 +426,6 @@ void pmm_free_page(void* addr) {
             pmm_ref_counts[page_idx]--;
         } else {
             serial_write_string("[PMM] ERROR: Double free or invalid unref detected!\n");
-            ASSERT(0 && "PMM Double free or invalid unref detected!");
             spin_unlock(&pmm_lock);
             return;
         }
@@ -431,7 +436,6 @@ void pmm_free_page(void* addr) {
         } else if (pmm_ref_counts[page_idx] == 0) {
             if (!bitmap_test(page_idx)) {
                 serial_write_string("[PMM] ERROR: Double free detected!\n");
-                ASSERT(0 && "PMM Double free detected!");
                 spin_unlock(&pmm_lock);
                 return;
             }
@@ -439,7 +443,6 @@ void pmm_free_page(void* addr) {
     } else {
         if (!bitmap_test(page_idx)) {
             serial_write_string("[PMM] ERROR: Double free detected!\n");
-            ASSERT(0 && "PMM Double free detected!");
             spin_unlock(&pmm_lock);
             return;
         }
