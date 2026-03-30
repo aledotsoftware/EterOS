@@ -37,6 +37,7 @@ pwd
 /test_waitid.elf
 /test_procfs.elf
 /test_pty_jobcontrol.elf
+/test_shebang_exec.elf
 /eter_posix_validate.elf
 
 echo eter-tests: OK

@@ -18,7 +18,6 @@ typedef uint64_t Elf64_Xword;
 #define EI_OSABI  7
 
 #define ELFOSABI_NONE  0
-#define ELFOSABI_NONE 0
 #define ELFOSABI_LINUX 3
 
 typedef struct {
@@ -76,5 +75,6 @@ typedef struct {
 
 /* Function prototypes */
 uint64_t elf_load_file(const char* path, uint64_t base_vaddr);
+int elf_get_interp(const char* path, char* out_interp, uint32_t out_interp_size);
 
 #endif

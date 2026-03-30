@@ -48,6 +48,7 @@ int main(void) {
     char *a_waitid[] = {"/test_waitid.elf", NULL};
     char *a_procfs[] = {"/test_procfs.elf", NULL};
     char *a_ptyjc[] = {"/test_pty_jobcontrol.elf", NULL};
+    char *a_shebang[] = {"/test_shebang_exec.elf", NULL};
 
     printf("== eterOS POSIX ELF validation start ==\n");
 
@@ -58,6 +59,7 @@ int main(void) {
     fail |= run_one("/test_waitid.elf", a_waitid);
     fail |= run_one("/test_procfs.elf", a_procfs);
     fail |= run_one("/test_pty_jobcontrol.elf", a_ptyjc);
+    fail |= run_one("/test_shebang_exec.elf", a_shebang);
 
     if (fail) {
         printf("== eterOS POSIX ELF validation: FAIL ==\n");
