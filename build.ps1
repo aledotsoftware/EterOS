@@ -666,6 +666,32 @@ function Invoke-UserspaceBuild {
     $ErrorActionPreference = "Stop"
     if ($ldExit -ne 0) { Write-Step "ERR" "Fallo al enlazar ptinterp_demo.elf"; exit 1 }
 
+    # test_auxv.elf
+    $testAuxvSrc = "$userDir\test_auxv.c"
+    $testAuxvObj = "$BUILD_DIR\userspace\test_auxv.o"
+    & $CC -m64 -mcmodel=large -ffreestanding -fno-builtin -fno-stack-protector -nostdlib -Wall -Wextra -Os -I"$userDir\libc\include" -c $testAuxvSrc -o $testAuxvObj
+    if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al compilar test_auxv.c"; exit 1 }
+
+    $testAuxvElf = "$initrdRoot\test_auxv.elf"
+    $ErrorActionPreference = "Continue"
+    & $LD -T "$userDir\linker.ld" -nostdlib -m elf_x86_64 -o $testAuxvElf $testAuxvObj $libcObjs 2>&1
+    $ldExit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($ldExit -ne 0) { Write-Step "ERR" "Fallo al enlazar test_auxv.elf"; exit 1 }
+
+    # test_dlopen.elf
+    $testDlopenSrc = "$userDir\test_dlopen.c"
+    $testDlopenObj = "$BUILD_DIR\userspace\test_dlopen.o"
+    & $CC -m64 -mcmodel=large -ffreestanding -fno-builtin -fno-stack-protector -nostdlib -Wall -Wextra -Os -I"$userDir\libc\include" -c $testDlopenSrc -o $testDlopenObj
+    if ($LASTEXITCODE -ne 0) { Write-Step "ERR" "Fallo al compilar test_dlopen.c"; exit 1 }
+
+    $testDlopenElf = "$initrdRoot\test_dlopen.elf"
+    $ErrorActionPreference = "Continue"
+    & $LD -T "$userDir\linker.ld" -nostdlib -m elf_x86_64 -o $testDlopenElf $testDlopenObj $libcObjs 2>&1
+    $ldExit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+    if ($ldExit -ne 0) { Write-Step "ERR" "Fallo al enlazar test_dlopen.elf"; exit 1 }
+
     # eter_posix_validate.elf
     $eterPosixValidateSrc = "$userDir\eter_posix_validate.c"
     $eterPosixValidateObj = "$BUILD_DIR\userspace\eter_posix_validate.o"
@@ -744,7 +770,7 @@ function Invoke-UserspaceBuild {
     $ErrorActionPreference = "Stop"
     if ($ldExit -ne 0) { Write-Step "ERR" "Fallo al enlazar busybox"; exit 1 }
 
-    Write-Step "OK" "Userspace construido: $testElf, $testSyscallsElf, $testEpollElf, $testSigAltElf, $testSignalPosixElf, $testWaitidElf, $testProcfsElf, $testPtyJobElf, $testShebangExecElf, $testPtInterpRouteElf, $ldEterElf, $ptInterpDemoElf, $eterPosixValidateElf, $shElf, $eterlandElf, $mareaShellElf, $aptGetElf, $busyboxElf"
+    Write-Step "OK" "Userspace construido: $testElf, $testSyscallsElf, $testEpollElf, $testSigAltElf, $testSignalPosixElf, $testWaitidElf, $testProcfsElf, $testPtyJobElf, $testShebangExecElf, $testPtInterpRouteElf, $ldEterElf, $ptInterpDemoElf, $testAuxvElf, $testDlopenElf, $eterPosixValidateElf, $shElf, $eterlandElf, $mareaShellElf, $aptGetElf, $busyboxElf"
 }
 
 function Invoke-InitrdBuild {

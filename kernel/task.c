@@ -33,6 +33,19 @@
 #include "../include/futex.h"
 #include "../include/apic.h"
 
+#define AT_NULL   0
+#define AT_PHDR   3
+#define AT_PAGESZ 6
+#define AT_ENTRY  9
+#define AT_UID    11
+#define AT_EUID   12
+#define AT_GID    13
+#define AT_EGID   14
+#define AT_SECURE 23
+#define AT_BASE   7
+#define AT_PHENT  4
+#define AT_PHNUM  5
+
 extern void fork_return(void);
 
 static inline uint64_t task_irq_save(void) {
@@ -1878,7 +1891,17 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
 
     /* 2. New Address Space */
     task_t* current = task_get_current();
+    elf_auxv_info_t aux_info;
     uint64_t old_cr3 = current->cr3;
+
+    memset(&aux_info, 0, sizeof(aux_info));
+    {
+        int aux_info_rc = elf_get_auxv_info(kpath, 0, &aux_info);
+        if (aux_info_rc < 0) {
+            res = aux_info_rc;
+            goto cleanup_error;
+        }
+    }
 
     uint64_t new_cr3_phys = (uint64_t)pmm_alloc_page();
     if (!new_cr3_phys) {
@@ -2021,9 +2044,58 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
     /* Align Stack (16 bytes) */
     rsp &= ~0xF;
 
-    /* Push Auxv (NULL) */
-    rsp -= 8;
-    *(uint64_t*)rsp = 0;
+    /* Build and Push AUXV (minimal Linux-compatible set). */
+    struct {
+        uint64_t a_type;
+        uint64_t a_val;
+    } auxv[12];
+    int auxc = 0;
+
+    auxv[auxc].a_type = AT_PAGESZ;
+    auxv[auxc++].a_val = PAGE_SIZE;
+
+    auxv[auxc].a_type = AT_ENTRY;
+    auxv[auxc++].a_val = aux_info.entry ? aux_info.entry : entry_point;
+
+    auxv[auxc].a_type = AT_UID;
+    auxv[auxc++].a_val = current->uid;
+
+    auxv[auxc].a_type = AT_EUID;
+    auxv[auxc++].a_val = current->euid;
+
+    auxv[auxc].a_type = AT_GID;
+    auxv[auxc++].a_val = current->gid;
+
+    auxv[auxc].a_type = AT_EGID;
+    auxv[auxc++].a_val = current->egid;
+
+    auxv[auxc].a_type = AT_SECURE;
+    auxv[auxc++].a_val = 0;
+
+    auxv[auxc].a_type = AT_PHDR;
+    auxv[auxc++].a_val = aux_info.phdr;
+
+    auxv[auxc].a_type = AT_PHENT;
+    auxv[auxc++].a_val = aux_info.phent;
+
+    auxv[auxc].a_type = AT_PHNUM;
+    auxv[auxc++].a_val = aux_info.phnum;
+
+    auxv[auxc].a_type = AT_BASE;
+    auxv[auxc++].a_val = aux_info.base;
+
+    auxv[auxc].a_type = AT_NULL;
+    auxv[auxc++].a_val = 0;
+
+    rsp -= (uint64_t)auxc * 16ULL;
+    if (rsp < stack_base) {
+        __asm__ volatile("mov %0, %%cr3" : : "r"(old_cr3) : "memory");
+        current->cr3 = old_cr3;
+        vmm_destroy_pml4(new_cr3_phys);
+        res = -E2BIG;
+        goto cleanup_error;
+    }
+    memcpy((void*)rsp, auxv, (size_t)auxc * 16U);
 
     /* Push Envp Pointers */
     rsp -= (envc + 1) * 8;

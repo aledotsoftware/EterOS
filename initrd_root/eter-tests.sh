@@ -39,6 +39,8 @@ pwd
 /test_pty_jobcontrol.elf
 /test_shebang_exec.elf
 /test_pt_interp_route.elf
+/test_auxv.elf
+/test_dlopen.elf
 /eter_posix_validate.elf
 
 echo eter-tests: OK

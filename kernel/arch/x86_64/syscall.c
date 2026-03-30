@@ -158,6 +158,142 @@ typedef struct {
 #define PIPE_READ_END  1
 #define PIPE_WRITE_END 2
 
+typedef struct {
+    spinlock_t lock;
+    uint64_t interval_ms;
+    uint64_t next_expiry_ms;
+    uint64_t pending_expirations;
+    int clockid;
+} timerfd_ctx_t;
+
+#define TIMERFD_MAGIC 0x54464D44u /* "TFMD" */
+#define TFD_TIMER_ABSTIME 0x1
+#define TFD_CLOEXEC O_CLOEXEC
+#define TFD_NONBLOCK O_NONBLOCK
+
+struct itimerspec_kernel {
+    struct timespec it_interval;
+    struct timespec it_value;
+};
+
+static uint64_t sys_now_ms(void) {
+    return timer_get_ticks();
+}
+
+static int timespec_to_ms(const struct timespec* ts, uint64_t* out_ms) {
+    uint64_t sec_ms;
+    uint64_t nsec_ms;
+
+    if (!ts || !out_ms) return -EINVAL;
+    if (ts->tv_sec < 0 || ts->tv_nsec < 0 || ts->tv_nsec >= 1000000000LL) return -EINVAL;
+
+    sec_ms = (uint64_t)ts->tv_sec * 1000ULL;
+    nsec_ms = (uint64_t)ts->tv_nsec / 1000000ULL;
+    *out_ms = sec_ms + nsec_ms;
+    return 0;
+}
+
+static void ms_to_timespec(uint64_t ms, struct timespec* ts) {
+    if (!ts) return;
+    ts->tv_sec = (int64_t)(ms / 1000ULL);
+    ts->tv_nsec = (int64_t)((ms % 1000ULL) * 1000000ULL);
+}
+
+static void timerfd_refresh(timerfd_ctx_t* tfd, uint64_t now_ms) {
+    uint64_t due;
+
+    if (!tfd || tfd->next_expiry_ms == 0 || now_ms < tfd->next_expiry_ms) return;
+
+    due = 1;
+    if (tfd->interval_ms > 0 && now_ms > tfd->next_expiry_ms) {
+        due += (now_ms - tfd->next_expiry_ms) / tfd->interval_ms;
+    }
+
+    tfd->pending_expirations += due;
+
+    if (tfd->interval_ms > 0) {
+        tfd->next_expiry_ms += due * tfd->interval_ms;
+    } else {
+        tfd->next_expiry_ms = 0;
+    }
+}
+
+static ssize_t timerfd_read_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+    timerfd_ctx_t* tfd;
+    uint64_t ready;
+
+    (void)offset;
+    if (!node || !buffer) return -EFAULT;
+    if (size < sizeof(uint64_t)) return -EINVAL;
+
+    tfd = (timerfd_ctx_t*)node->ptr;
+    if (!tfd) return -EINVAL;
+
+    while (1) {
+        uint64_t now_ms = sys_now_ms();
+        spin_lock(&tfd->lock);
+        timerfd_refresh(tfd, now_ms);
+        if (tfd->pending_expirations > 0) {
+            ready = tfd->pending_expirations;
+            tfd->pending_expirations = 0;
+            spin_unlock(&tfd->lock);
+            memcpy(buffer, &ready, sizeof(uint64_t));
+            return (ssize_t)sizeof(uint64_t);
+        }
+        spin_unlock(&tfd->lock);
+
+        if (node->flags & O_NONBLOCK) return -EAGAIN;
+        task_sleep(1);
+    }
+}
+
+static uint32_t timerfd_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+    (void)node; (void)offset; (void)size; (void)buffer;
+    return (uint32_t)-EINVAL;
+}
+
+static int timerfd_ioctl_fs(fs_node_t* node, int request, void* arg) {
+    timerfd_ctx_t* tfd;
+
+    if (!node || !arg) return -EINVAL;
+    if (request != FIONREAD) return -ENOTTY;
+
+    tfd = (timerfd_ctx_t*)node->ptr;
+    if (!tfd) return -EINVAL;
+
+    spin_lock(&tfd->lock);
+    timerfd_refresh(tfd, sys_now_ms());
+    *(int*)arg = (tfd->pending_expirations > 0) ? (int)sizeof(uint64_t) : 0;
+    spin_unlock(&tfd->lock);
+    return 0;
+}
+
+static void timerfd_close_fs(fs_node_t* node) {
+    timerfd_ctx_t* tfd;
+    if (!node) return;
+    tfd = (timerfd_ctx_t*)node->ptr;
+    if (tfd) {
+        kfree(tfd);
+        node->ptr = NULL;
+    }
+}
+
+static int timerfd_from_fd(int fd, task_t* current, fs_node_t** out_node, timerfd_ctx_t** out_ctx) {
+    fs_node_t* node;
+    timerfd_ctx_t* tfd;
+
+    if (!current) return -ESRCH;
+    if (fd < 0 || fd >= MAX_FD) return -EBADF;
+    node = current->fd_table[fd].node;
+    if (!node) return -EBADF;
+    if (node->impl != TIMERFD_MAGIC || node->read != timerfd_read_fs) return -EINVAL;
+    tfd = (timerfd_ctx_t*)node->ptr;
+    if (!tfd) return -EINVAL;
+    if (out_node) *out_node = node;
+    if (out_ctx) *out_ctx = tfd;
+    return 0;
+}
+
 static int64_t sys_kill(int pid, int sig);
 
 static ssize_t pipe_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
