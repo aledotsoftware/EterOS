@@ -123,6 +123,7 @@
 #define SYS_clock_gettime       228
 #define SYS_epoll_wait          232
 #define SYS_epoll_ctl           233
+#define SYS_waitid              247
 #define SYS_openat              257
 #define SYS_newfstatat          262
 #define SYS_unlinkat            263

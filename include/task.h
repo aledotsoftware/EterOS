@@ -51,6 +51,7 @@ typedef enum {
     TASK_RUNNING,
     TASK_BLOCKED,
     TASK_SLEEPING,
+    TASK_STOPPED,
     TASK_DEAD
 } task_state_t;
 
@@ -128,6 +129,9 @@ typedef struct task {
 
     void           (*entry)(void);          /* Entry point for task_entry_wrapper */
     int            exit_code;               /* Exit status code */
+    int            wait_status;             /* Raw wait status encoding */
+    int            wait_code;               /* CLD_* event code */
+    uint8_t        wait_pending;            /* Parent-visible wait event pending */
 } task_t;
 
 /* ========================================================================= */
@@ -187,6 +191,7 @@ void task_wakeup(task_t* t);
  * Termina la tarea actual.
  */
 void task_exit(int status);
+void task_exit_signal(int sig);
 
 /**
  * Obtiene la tarea actual.
@@ -253,6 +258,7 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
  * @return PID del hijo recolectado, o -1/0.
  */
 int task_waitpid(int pid, int* status, int options);
+int task_waitid(int idtype, int id, int options, int* out_pid, int* out_status, int* out_code);
 
 /**
  * Busca una tarea por su ID único.

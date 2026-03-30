@@ -211,6 +211,11 @@ pid_t waitpid(pid_t pid, int *status, int options) {
     return (pid_t)ret;
 }
 
+int waitid(idtype_t idtype, pid_t id, siginfo_t *infop, int options) {
+    long ret = _syscall5(SYS_waitid, idtype, id, (long)infop, options, 0);
+    return _set_errno(ret);
+}
+
 /* File descriptors and filesystem */
 int pipe(int pipefd[2]) {
     long ret = _syscall1(SYS_pipe, (long)pipefd);

@@ -47,6 +47,7 @@ extern void syscall_entry(void);
 /* External Declarations for Task Functions */
 extern int task_exec(const char* path, char* const argv[], char* const envp[], struct syscall_regs* regs);
 extern int task_waitpid(int pid, int* status, int options);
+extern int task_waitid(int idtype, int id, int options, int* out_pid, int* out_status, int* out_code);
 
 /* Structures used in syscalls */
 struct timespec {
@@ -1305,7 +1306,14 @@ static int64_t sys_kill(int pid, int sig) {
     if (sig > 0) {
         target->signal_pending |= (1u << (sig - 1));
     }
-    if (target->state == TASK_BLOCKED || target->state == TASK_SLEEPING) task_wakeup(target);
+    if (sig == SIGCONT && target->state == TASK_STOPPED) {
+        target->wait_status = 0xFFFF;
+        target->wait_code = CLD_CONTINUED;
+        target->wait_pending = 1;
+        task_t* parent = task_get_by_id(target->parent_id);
+        if (parent) task_wakeup(parent);
+    }
+    if (target->state == TASK_BLOCKED || target->state == TASK_SLEEPING || target->state == TASK_STOPPED) task_wakeup(target);
     return 0;
 }
 
@@ -1871,8 +1879,21 @@ static void handle_signal(struct syscall_regs* regs) {
                 continue;
             }
             if (handler == SIG_DFL) {
+                if (sig == SIGCHLD || sig == SIGCONT || sig == SIGURG || sig == SIGWINCH) {
+                    continue;
+                }
+                if (sig == SIGSTOP || sig == SIGTSTP || sig == SIGTTIN || sig == SIGTTOU) {
+                    current->wait_status = ((sig & 0xFF) << 8) | 0x7F;
+                    current->wait_code = CLD_STOPPED;
+                    current->wait_pending = 1;
+                    current->state = TASK_STOPPED;
+                    task_t* parent = task_get_by_id(current->parent_id);
+                    if (parent) task_wakeup(parent);
+                    schedule();
+                    return;
+                }
                 serial_write_string("[SIGNAL] Terminating process due to signal\n");
-                task_exit(128 + sig);
+                task_exit_signal(sig);
                 return;
             }
 
@@ -2810,6 +2831,38 @@ static int64_t sys_wait4(int pid, int* status, int options, void* rusage) {
     return task_waitpid(pid, status, options);
 }
 
+struct kernel_wait_siginfo {
+    int si_signo;
+    int si_errno;
+    int si_code;
+    int si_pid;
+    int si_uid;
+    int si_status;
+};
+
+static int64_t sys_waitid(int idtype, int id, struct kernel_wait_siginfo* infop, int options, void* rusage) {
+    int pid = 0;
+    int st = 0;
+    int code = 0;
+    int ret;
+
+    if (infop && !vmm_verify_user_access(infop, sizeof(struct kernel_wait_siginfo), 1)) return -EFAULT;
+    if (rusage && !vmm_verify_user_access(rusage, 144, 1)) return -EFAULT;
+
+    ret = task_waitid(idtype, id, options, &pid, &st, &code);
+    if (ret < 0) return ret;
+
+    if (infop) {
+        infop->si_signo = SIGCHLD;
+        infop->si_errno = 0;
+        infop->si_code = (pid == 0) ? 0 : code;
+        infop->si_pid = pid;
+        infop->si_uid = 0;
+        infop->si_status = st;
+    }
+    return 0;
+}
+
 
 static int64_t sys_sched_yield_wrapper(void) {
     task_yield();
@@ -2912,6 +2965,7 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [232] = (syscall_ptr_t)sys_epoll_wait,
     [233] = (syscall_ptr_t)sys_epoll_ctl,
     [234] = (syscall_ptr_t)sys_tgkill,
+    [247] = (syscall_ptr_t)sys_waitid,
     [257] = (syscall_ptr_t)sys_openat,
     [258] = (syscall_ptr_t)sys_mkdirat,
     [262] = (syscall_ptr_t)sys_newfstatat,
@@ -3014,6 +3068,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [232] = (syscall_ptr_t)sys_epoll_wait,
     [233] = (syscall_ptr_t)sys_epoll_ctl,
     [234] = (syscall_ptr_t)sys_tgkill,
+    [247] = (syscall_ptr_t)sys_waitid,
     [257] = (syscall_ptr_t)sys_openat,
     [258] = (syscall_ptr_t)sys_mkdirat,
     [262] = (syscall_ptr_t)sys_newfstatat,
