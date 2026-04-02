@@ -25,6 +25,16 @@ void* kmalloc(size_t size) {
 void kfree(void* ptr) {
     free(ptr);
 }
+int task_get_max(void) { return 0; }
+
+/* Must define task_t before mocking task functions properly */
+#include "../include/task.h"
+
+task_t* task_get_at(int i) { (void)i; return NULL; }
+void task_wakeup(task_t* t) { (void)t; }
+task_t* task_get_current(void) { return NULL; }
+bool keyboard_has_input(void) { return false; }
+void task_yield(void) {}
 
 /* Mock keyboard and input dependencies */
 

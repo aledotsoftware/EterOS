@@ -110,6 +110,12 @@ int task_fork(void* regs) { return 0; }
 int task_exec(const char* path, char* const argv[], char* const envp[], struct syscall_regs* regs) { return 0; }
 int task_clone(uint64_t clone_flags, uint64_t stack, uint32_t* parent_tid, uint32_t* child_tid, uint64_t tls, struct syscall_regs* regs) { return -1; }
 int task_waitpid(int pid, int* status, int options) { return 0; }
+task_t* task_get_at(int index) { (void)index; return NULL; }
+int task_get_count(void) { return 0; }
+void task_exit_signal(int sig) { (void)sig; }
+int task_waitid(int idtype, int id, int options, int* out_pid, int* out_status, int* out_code) {
+    (void)idtype; (void)id; (void)options; (void)out_pid; (void)out_status; (void)out_code; return -1;
+}
 task_t* task_get_by_id(uint32_t id) { return NULL; }
 int task_kill(uint32_t pid) { return 0; }
 void syscall_entry(void) {}

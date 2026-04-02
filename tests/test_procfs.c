@@ -55,6 +55,9 @@ task_t current_task_mock;
 task_t* task_get_current(void) {
     return &current_task_mock;
 }
+task_t* task_get_by_id(uint32_t id) { (void)id; return NULL; }
+int task_get_max(void) { return 0; }
+task_t* task_get_at(int index) { (void)index; return NULL; }
 
 /* Include implementation under test */
 /* This will include include/string.h which renames memcpy to eteros_memcpy */
