@@ -5,8 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <assert.h>
 #include <string.h>
+
+#define assert(condition) do { if (!(condition)) { printf("Assertion failed: %s at %s:%d\n", #condition, __FILE__, __LINE__); exit(1); } } while(0)
 
 /* Mock types */
 #include "../include/types.h"
@@ -35,6 +36,9 @@ void kfree(void* ptr) {
 fs_node_t* tty_create_node(void) {
     return NULL;
 }
+
+void serial_write_string(const char* str) {}
+fs_node_t* fs_root = NULL;
 
 int mock_mkdir(struct fs_node *parent, char *name, uint16_t permission) {
     (void)parent;
@@ -71,6 +75,7 @@ fs_node_t* mock_finddir(fs_node_t* node, char* name) {
 
 /* Include source under test */
 #include "../kernel/fs/vfs.c"
+
 
 void reset_mocks() {
     mock_mkdir_called = 0;

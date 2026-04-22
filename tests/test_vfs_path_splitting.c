@@ -140,3 +140,5 @@ int main() {
     test_vfs_path_splitting();
     return 0;
 }
+void serial_write_string(const char* s) {}
+fs_node_t* fs_root = NULL;
