@@ -186,14 +186,21 @@ El sistema evolucionó a uno multiusuario real con la siguiente funcionalidad:
 - `ORCHESTRATOR_REPORT.md` ha sido revisado y actualizado con el hash de commit más reciente (`5283ec00728e845f6a85e698d92a53f8ce981b15`). El "Orden de Ejecución Recomendado" sigue priorizando la ruta hacia "GNU sobre Eter", "GNU Desktop sobre Eter" y "Android" (`linux-syscall-compliance-bot`, `aether-linux-subsystem-bot` y `network-socket-api-bot`).
 - Fix de glue / integración: Ninguno requerido. El sistema compila y bootea de forma limpia.
 
-## Orchestrator-Meta-Agent (Current Run)
+## Orchestrator-Meta-Agent (2026-03-29)
 **Estado**: Auditado y verificado con éxito.
 - El sistema compila correctamente (`make clean && make all` sin errores).
 - El sistema de arranque (QEMU) funciona y transiciona exitosamente a Ring 3 con `login.elf`.
 - `ORCHESTRATOR_REPORT.md` ha sido revisado y actualizado con el hash de commit más reciente (`d001f206b960d88ed98f80720802e8b22fca6244`). El "Orden de Ejecución Recomendado" sigue priorizando la ruta hacia "GNU sobre Eter", "GNU Desktop sobre Eter" y "Android" (`linux-syscall-compliance-bot`, `aether-linux-subsystem-bot` y `network-socket-api-bot`).
 - Fix de glue / integración: Ninguno requerido. El sistema compila y bootea de forma limpia.
 
-## VFS, Initrd, ProcFS y Carga de Binarios (Current Run)
+## Orchestrator-Meta-Agent (Current Run)
+**Estado**: Auditado y verificado con éxito.
+- El sistema compila correctamente (`make clean && make all` sin errores).
+- El sistema de arranque (QEMU) funciona y transiciona exitosamente a Ring 3 con `login.elf`.
+- `ORCHESTRATOR_REPORT.md` ha sido revisado y actualizado con el hash de commit más reciente (`0be6777fd6d74bfcb0c893129aa7fb8c56393772`). El "Orden de Ejecución Recomendado" sigue priorizando la ruta hacia "GNU sobre Eter", "GNU Desktop sobre Eter" y "Android" (`linux-syscall-compliance-bot`, `aether-linux-subsystem-bot` y `network-socket-api-bot`).
+- Fix de glue / integración: Se aplicaron marcas `__attribute__((unused))` a funciones internas de `timerfd` en `kernel/arch/x86_64/syscall.c` para resolver advertencias tratadas como errores por los flags estrictos. El sistema compila y bootea de forma limpia.
+
+## VFS, Initrd, ProcFS y Carga de Binarios (2026-03-29)
 **Estado**: Auditado y verificado con éxito.
 - Corregida lógica faltante y compilación cruzada en el sistema VFS y ELF loader (`PT_INTERP` en tests/mock).
 - Agregada resolución a test rotos por importación global de `syscall.c` (añadiendo y adaptando mocks de scheduler y variables de proceso como `task_get_at`, `task_exit_signal`, etc).
