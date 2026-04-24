@@ -3165,20 +3165,20 @@ static int64_t sys_ni_syscall(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4
 #pragma GCC diagnostic ignored "-Woverride-init"
 
 
-extern int sys_lwip_socket(int domain, int type, int protocol);
-extern int sys_lwip_bind(int fd, const void *name, int namelen);
-extern int sys_lwip_listen(int fd, int backlog);
-extern int sys_lwip_accept(int fd, void *addr, int *addrlen);
-extern int sys_lwip_connect(int fd, const void *name, int namelen);
-extern int sys_lwip_sendto(int fd, const void *data, size_t size, int flags, const void *to, int tolen);
-extern int sys_lwip_recvfrom(int fd, void *mem, size_t len, int flags, void *from, int *fromlen);
-extern int sys_lwip_sendmsg(int fd, const void *msg, int flags);
-extern int sys_lwip_recvmsg(int fd, void *msg, int flags);
-extern int sys_lwip_shutdown(int fd, int how);
-extern int sys_lwip_getsockname(int fd, void *name, int *namelen);
-extern int sys_lwip_getpeername(int fd, void *name, int *namelen);
-extern int sys_lwip_setsockopt(int fd, int level, int optname, const void *optval, int optlen);
-extern int sys_lwip_getsockopt(int fd, int level, int optname, void *optval, int *optlen);
+extern int sys_ni_syscall(int domain, int type, int protocol);
+extern int sys_ni_syscall(int fd, const void *name, int namelen);
+extern int sys_ni_syscall(int fd, int backlog);
+extern int sys_ni_syscall(int fd, void *addr, int *addrlen);
+extern int sys_ni_syscall(int fd, const void *name, int namelen);
+extern int sys_ni_syscall(int fd, const void *data, size_t size, int flags, const void *to, int tolen);
+extern int sys_ni_syscall(int fd, void *mem, size_t len, int flags, void *from, int *fromlen);
+extern int sys_ni_syscall(int fd, const void *msg, int flags);
+extern int sys_ni_syscall(int fd, void *msg, int flags);
+extern int sys_ni_syscall(int fd, int how);
+extern int sys_ni_syscall(int fd, void *name, int *namelen);
+extern int sys_ni_syscall(int fd, void *name, int *namelen);
+extern int sys_ni_syscall(int fd, int level, int optname, const void *optval, int optlen);
+extern int sys_ni_syscall(int fd, int level, int optname, void *optval, int *optlen);
 
 static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [0 ... MAX_SYSCALL_NUM - 1] = sys_ni_syscall,
@@ -3211,20 +3211,20 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [33] = (syscall_ptr_t)sys_dup2,
     [35] = (syscall_ptr_t)sys_nanosleep,
     [39] = (syscall_ptr_t)sys_getpid,
-    [41] = (syscall_ptr_t)sys_lwip_socket,
-    [42] = (syscall_ptr_t)sys_lwip_connect,
-    [43] = (syscall_ptr_t)sys_lwip_accept,
-    [44] = (syscall_ptr_t)sys_lwip_sendto,
-    [45] = (syscall_ptr_t)sys_lwip_recvfrom,
-    [46] = (syscall_ptr_t)sys_lwip_sendmsg,
-    [47] = (syscall_ptr_t)sys_lwip_recvmsg,
-    [48] = (syscall_ptr_t)sys_lwip_shutdown,
-    [49] = (syscall_ptr_t)sys_lwip_bind,
-    [50] = (syscall_ptr_t)sys_lwip_listen,
-    [51] = (syscall_ptr_t)sys_lwip_getsockname,
-    [52] = (syscall_ptr_t)sys_lwip_getpeername,
-    [54] = (syscall_ptr_t)sys_lwip_setsockopt,
-    [55] = (syscall_ptr_t)sys_lwip_getsockopt,
+    [41] = (syscall_ptr_t)sys_ni_syscall,
+    [42] = (syscall_ptr_t)sys_ni_syscall,
+    [43] = (syscall_ptr_t)sys_ni_syscall,
+    [44] = (syscall_ptr_t)sys_ni_syscall,
+    [45] = (syscall_ptr_t)sys_ni_syscall,
+    [46] = (syscall_ptr_t)sys_ni_syscall,
+    [47] = (syscall_ptr_t)sys_ni_syscall,
+    [48] = (syscall_ptr_t)sys_ni_syscall,
+    [49] = (syscall_ptr_t)sys_ni_syscall,
+    [50] = (syscall_ptr_t)sys_ni_syscall,
+    [51] = (syscall_ptr_t)sys_ni_syscall,
+    [52] = (syscall_ptr_t)sys_ni_syscall,
+    [54] = (syscall_ptr_t)sys_ni_syscall,
+    [55] = (syscall_ptr_t)sys_ni_syscall,
     [61] = (syscall_ptr_t)sys_wait4,
     [62] = (syscall_ptr_t)sys_kill,
     [63] = (syscall_ptr_t)sys_uname,
@@ -3274,7 +3274,7 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [271] = (syscall_ptr_t)sys_ppoll,
     [273] = (syscall_ptr_t)sys_set_robust_list,
     [280] = (syscall_ptr_t)sys_utimensat,
-    [288] = (syscall_ptr_t)sys_lwip_accept,
+    [288] = (syscall_ptr_t)sys_ni_syscall,
     [290] = (syscall_ptr_t)sys_eventfd2,
     [291] = (syscall_ptr_t)sys_epoll_create1,
     [292] = (syscall_ptr_t)sys_dup3,
@@ -3319,20 +3319,20 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [33] = (syscall_ptr_t)sys_dup2,
     [35] = (syscall_ptr_t)sys_nanosleep,
     [39] = (syscall_ptr_t)sys_getpid,
-    [41] = (syscall_ptr_t)sys_lwip_socket,
-    [42] = (syscall_ptr_t)sys_lwip_connect,
-    [43] = (syscall_ptr_t)sys_lwip_accept,
-    [44] = (syscall_ptr_t)sys_lwip_sendto,
-    [45] = (syscall_ptr_t)sys_lwip_recvfrom,
-    [46] = (syscall_ptr_t)sys_lwip_sendmsg,
-    [47] = (syscall_ptr_t)sys_lwip_recvmsg,
-    [48] = (syscall_ptr_t)sys_lwip_shutdown,
-    [49] = (syscall_ptr_t)sys_lwip_bind,
-    [50] = (syscall_ptr_t)sys_lwip_listen,
-    [51] = (syscall_ptr_t)sys_lwip_getsockname,
-    [52] = (syscall_ptr_t)sys_lwip_getpeername,
-    [54] = (syscall_ptr_t)sys_lwip_setsockopt,
-    [55] = (syscall_ptr_t)sys_lwip_getsockopt,
+    [41] = (syscall_ptr_t)sys_ni_syscall,
+    [42] = (syscall_ptr_t)sys_ni_syscall,
+    [43] = (syscall_ptr_t)sys_ni_syscall,
+    [44] = (syscall_ptr_t)sys_ni_syscall,
+    [45] = (syscall_ptr_t)sys_ni_syscall,
+    [46] = (syscall_ptr_t)sys_ni_syscall,
+    [47] = (syscall_ptr_t)sys_ni_syscall,
+    [48] = (syscall_ptr_t)sys_ni_syscall,
+    [49] = (syscall_ptr_t)sys_ni_syscall,
+    [50] = (syscall_ptr_t)sys_ni_syscall,
+    [51] = (syscall_ptr_t)sys_ni_syscall,
+    [52] = (syscall_ptr_t)sys_ni_syscall,
+    [54] = (syscall_ptr_t)sys_ni_syscall,
+    [55] = (syscall_ptr_t)sys_ni_syscall,
     [61] = (syscall_ptr_t)sys_wait4,
     [62] = (syscall_ptr_t)sys_kill,
     [63] = (syscall_ptr_t)sys_uname,
@@ -3381,7 +3381,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [271] = (syscall_ptr_t)sys_ppoll,
     [273] = (syscall_ptr_t)sys_set_robust_list,
     [280] = (syscall_ptr_t)sys_utimensat,
-    [288] = (syscall_ptr_t)sys_lwip_accept,
+    [288] = (syscall_ptr_t)sys_ni_syscall,
     [290] = (syscall_ptr_t)sys_eventfd2,
     [291] = (syscall_ptr_t)sys_epoll_create1,
     [292] = (syscall_ptr_t)sys_dup3,
