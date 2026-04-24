@@ -2,7 +2,7 @@ Building and running tests...
 ---------------------------------------------------
 ---------------------------------------------------
 Running test_string...
-Benchmark memcmp: 1000 iterations of 1MB comparison took 0.378629 seconds
+Benchmark memcmp: 1000 iterations of 1MB comparison took 0.376889 seconds
 Running string tests...
 Small buffer itoa: 123
 INT64_MIN: -9223372036854775808
@@ -418,7 +418,7 @@ Testing Syscall Dispatcher...
 rdmsr(0xc0000080)
 wrmsr(0xc0000080, 0x1)
 wrmsr(0xc0000081, 0x10000800000000)
-wrmsr(0xc0000082, 0x55e39ca75346)
+wrmsr(0xc0000082, 0x560f26142346)
 wrmsr(0xc0000084, 0x200)
 [SERIAL] [SYSCALL] x86_64 mechanism enabled.
 Output:
@@ -582,16 +582,16 @@ PASS
 All tests passed.
 ---------------------------------------------------
 Running bench_draw_window_fastpath...
-Unoptimized (Alpha Blend) took: 5.788414 seconds
-Optimized (Memcpy fastpath) took: 0.878543 seconds
+Unoptimized (Alpha Blend) took: 5.976165 seconds
+Optimized (Memcpy fastpath) took: 0.910748 seconds
 ---------------------------------------------------
 Running bench_gfx_draw_rect...
-Unoptimized took: 0.758710 seconds
-Optimized took: 0.306993 seconds
+Unoptimized took: 0.763982 seconds
+Optimized took: 0.312691 seconds
 ---------------------------------------------------
 Running bench_gfx_rect...
 Starting benchmark for gfx_draw_rect...
-Time for 10000 gfx_draw_rect calls: 0.026380 seconds
+Time for 10000 gfx_draw_rect calls: 0.027433 seconds
 Benchmark passed! Fast-path optimization active.
 ---------------------------------------------------
 Running test_wget_parse_url...
