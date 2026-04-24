@@ -8,7 +8,7 @@ def verify_search_clear():
 
         # Load the file
         file_path = os.path.abspath("web_ui/index.html")
-        page.goto(f"file://{file_path}")
+        page.goto(f"file://{file_path}", timeout=60000)
 
         # Wait for boot splash to disappear
         print("Waiting for boot splash to disappear...")

@@ -70,6 +70,8 @@ def verify_empty_state():
         if clear_action_btn.is_visible():
             print("Clicking action button...")
             clear_action_btn.click()
+            page.wait_for_timeout(300)
+            page.wait_for_timeout(300)
 
             # Verify input is cleared
             input_value = search_input.input_value()

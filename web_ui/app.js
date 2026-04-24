@@ -185,7 +185,16 @@ function clearSearch() {
 
 let launcherCache = null;
 
+
+let _filterTimeout = null;
 function filterApps() {
+    if (_filterTimeout) clearTimeout(_filterTimeout);
+    _filterTimeout = setTimeout(() => {
+        _performFilterApps();
+    }, 150);
+}
+
+function _performFilterApps() {
     const query = document.getElementById('launcher-search').value.toLowerCase();
 
     // Toggle clear button
@@ -219,7 +228,7 @@ function filterApps() {
     if (emptyState && grid) {
         if (hasResults) {
             emptyState.style.display = 'none';
-            grid.style.display = 'grid';
+            grid.style.display = '';
         } else {
             emptyState.style.display = 'block';
             grid.style.display = 'none';
@@ -243,6 +252,41 @@ function toggleControlCenter(e) {
         if (launcherTrigger) launcherTrigger.setAttribute('aria-expanded', 'false');
     }
 }
+
+
+function setupSliders() {
+    const sliders = document.querySelectorAll('.cc-slider');
+    sliders.forEach(slider => {
+        let span = slider.nextElementSibling;
+        if (!span || !span.classList.contains('slider-value')) {
+            span = document.createElement('span');
+            span.className = 'slider-value';
+            span.style.marginLeft = '10px';
+            slider.parentNode.insertBefore(span, slider.nextSibling);
+        }
+
+        const update = () => {
+            const val = slider.value + '%';
+            span.innerText = val;
+            slider.setAttribute('aria-valuetext', val);
+            const icon = slider.previousElementSibling;
+            if (icon && icon.tagName === 'IMG') {
+                icon.style.opacity = 0.3 + (slider.value / 100) * 0.7;
+            }
+        };
+
+        slider.addEventListener('input', () => {
+            if (window._rafId) cancelAnimationFrame(window._rafId);
+            window._rafId = requestAnimationFrame(update);
+        });
+
+        update();
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupSliders();
+});
 
 // App Switcher Logic
 let isSwitcherActive = false;
@@ -391,13 +435,16 @@ function spawnApp(name, type, customContent = null) {
         }
     };
 
+    const safeName = name.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+    const safeType = type.replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+
     win.innerHTML = `
         <div class="window-header">
-            <span class="window-title">${name} ${customContent ? '' : '(' + type.toUpperCase() + ')'}</span>
+            <span class="window-title">${safeName} ${customContent ? '' : '(' + safeType.toUpperCase() + ')'}</span>
             <div class="window-controls">
                 <div class="control focus" title="Modo Focus" role="button" aria-label="Cambiar a modo enfoque" tabindex="0" onclick="toggleFocusMode(this)" onkeydown="if(event.key==='Enter') toggleFocusMode(this)"></div>
-                <div class="control minimize" role="button" aria-label="Minimizar ventana" tabindex="0" onclick="minimizeWindow(this)" onkeydown="if(event.key==='Enter') minimizeWindow(this)"></div>
-                <div class="control maximize" role="button" aria-label="Maximizar ventana" tabindex="0" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
+                <div class="control minimize" title="Minimizar" role="button" aria-label="Minimizar ventana" tabindex="0" onclick="minimizeWindow(this)" onkeydown="if(event.key==='Enter') minimizeWindow(this)"></div>
+                <div class="control maximize" title="Maximizar" role="button" aria-label="Maximizar ventana" tabindex="0" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
                     <div class="snap-menu">
                         <div class="snap-option layout-split" role="button" aria-label="Dividir izquierda 50%" tabindex="0" onclick="snapWindow(this, 'left-50', event)" onkeydown="if(event.key==='Enter') snapWindow(this, 'left-50', event)">
                             <div class="snap-box"></div><div class="snap-box"></div>
@@ -421,7 +468,7 @@ function spawnApp(name, type, customContent = null) {
                         </div>
                     </div>
                 </div>
-                <div class="control close" role="button" aria-label="Cerrar ventana" tabindex="0" onclick="closeWindow(this)" onkeydown="if(event.key==='Enter') closeWindow(this)"></div>
+                <div class="control close" title="Cerrar" role="button" aria-label="Cerrar ventana" tabindex="0" onclick="closeWindow(this)" onkeydown="if(event.key==='Enter') closeWindow(this)"></div>
             </div>
         </div>
         <div class="window-content" style="height: calc(100% - 40px); overflow: hidden;">
@@ -814,6 +861,7 @@ if (typeof module !== 'undefined') {
         toggleLauncher,
         toggleControlCenter,
         filterApps,
+        _performFilterApps,
         spawnApp,
         closeWindow,
         maximizeWindow,

@@ -36,7 +36,8 @@ def test_sliders():
         # Change value
         slider.fill("50")
         # Dispatch input event manually as fill might not trigger it exactly like a user drag
-        slider.dispatch_event("input")
+        slider.evaluate("el => el.dispatchEvent(new Event('input'))")
+        page.wait_for_timeout(200)
 
         # Check updated text
         print(f"Updated text: {value_display.text_content()}")

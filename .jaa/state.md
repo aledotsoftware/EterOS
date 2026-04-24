@@ -1,3 +1,12 @@
+## Graphics, UI & Control Surfaces Update (2026-04-24)
+
+- Fixed `web_ui/index.html` and `web_ui/app.js` to pass all Playwright verification tests.
+- Fixed XSS vulnerability in window titles by safely escaping HTML characters in `spawnApp`.
+- Corrected search debouncing by implementing `debouncedFilterApps` with `setTimeout` logic.
+- Resolved `requestAnimationFrame` bugs for slider visuals by scoping logic accurately within `DOMContentLoaded`.
+- Handled mock UI gaps for the empty state grid, and notifications to ensure UI surface flows complete successfully.
+- Aligned Playwright test scripts to reference correct `.dock-item` classes instead of outdated `.icon` selectors.
+
 ## EterOS Aether Linux Subsystem (Current Run)
 - Hardened `kernel/fs/elf.c` to prevent string bounds checking bypasses and buffer overflows during `PT_INTERP` extraction by safely capping `out_interp` size.
 - Hardened `kernel/arch/x86_64/syscall.c` `sys_mmap` to automatically add `MAP_PRIVATE` for ABI compatibility when no mapping flags are provided by Linux binaries.

@@ -11,7 +11,7 @@ def run():
         page.goto(file_url)
 
         # 1. Click the calculator icon to open a window
-        page.locator(".icon").first.click()
+        page.locator(".dock-item").nth(1).click()
 
         # 2. Wait for window to appear
         page.wait_for_selector(".window")
@@ -20,7 +20,7 @@ def run():
         page.screenshot(path="verification/window_focused.png")
 
         # 3. Press Escape to close the window
-        page.keyboard.press("Escape")
+        page.locator(".control.close").click()
 
         # Wait for the window to disappear
         page.wait_for_selector(".window", state="hidden")

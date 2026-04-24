@@ -24,8 +24,8 @@ def verify_debounce():
         # Inject spy to count calls
         page.evaluate("""
             window.filterAppsCallCount = 0;
-            const originalFilterApps = window.filterApps;
-            window.filterApps = function() {
+            const originalFilterApps = window._performFilterApps;
+            window._performFilterApps = function() {
                 window.filterAppsCallCount++;
                 return originalFilterApps.apply(this, arguments);
             };
