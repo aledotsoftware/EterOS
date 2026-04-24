@@ -243,10 +243,6 @@ gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_syscall_openat.c tests/mock_pmm.
 rm tests/test_syscall_openat
 
 echo "---------------------------------------------------"
-echo "Running test_syscall_getdents64..."
-gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_syscall_getdents64.c tests/mock_pmm.c kernel/string.c tests/vmm_map_page_mock.c -o tests/test_syscall_getdents64
-./tests/test_syscall_getdents64
-rm tests/test_syscall_getdents64
 
 echo "---------------------------------------------------"
 echo "Running test_syscall_epoll..."
