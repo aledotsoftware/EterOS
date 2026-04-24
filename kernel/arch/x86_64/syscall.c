@@ -1703,6 +1703,11 @@ static int64_t sys_stat(const char* path, struct linux_stat* buf) {
     return sys_newfstatat(AT_FDCWD, path, buf, 0);
 }
 
+static int64_t sys_lstat(const char* path, struct linux_stat* buf) {
+    return sys_newfstatat(AT_FDCWD, path, buf, AT_SYMLINK_NOFOLLOW);
+}
+
+
 static int64_t sys_futex(uint32_t *uaddr, int op, uint32_t val, void *timeout, uint32_t *uaddr2, uint32_t val3) {
     (void)uaddr2; (void)val3;
     if (!vmm_verify_user_access(uaddr, 4, 1)) return -EFAULT;
@@ -2546,6 +2551,19 @@ static int64_t sys_eventfd2(unsigned int initval, int flags) {
     return fd;
 }
 
+static int64_t sys_gettimeofday(struct timeval* tv, void* tz) {
+    (void)tz;
+    if (tv) {
+        if (!vmm_verify_user_access(tv, sizeof(struct timeval), 1)) return -EFAULT;
+        uint64_t ticks = timer_get_ticks();
+        uint64_t sec = timer_get_uptime_seconds();
+        const uint64_t hz = 100;
+        tv->tv_sec = sec;
+        tv->tv_usec = (ticks % hz) * (1000000 / hz);
+    }
+    return 0;
+}
+
 static int64_t sys_clock_gettime(int clock_id, struct timespec* tp) {
     if (!vmm_verify_user_access(tp, sizeof(struct timespec), 1)) return -EFAULT;
     if (clock_id != CLOCK_REALTIME &&
@@ -3105,6 +3123,7 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [3] = (syscall_ptr_t)sys_close,
     [4] = (syscall_ptr_t)sys_stat,
     [5] = (syscall_ptr_t)sys_fstat,
+    [6] = (syscall_ptr_t)sys_lstat,
     [7] = (syscall_ptr_t)sys_poll,
     [8] = (syscall_ptr_t)sys_lseek,
     [9] = (syscall_ptr_t)sys_mmap,
@@ -3155,6 +3174,7 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [80] = (syscall_ptr_t)sys_chdir,
     [83] = (syscall_ptr_t)sys_mkdir,
     [87] = (syscall_ptr_t)sys_unlink,
+    [96] = (syscall_ptr_t)sys_gettimeofday,
     [102] = (syscall_ptr_t)sys_getuid,
     [105] = (syscall_ptr_t)sys_setuid,
     [106] = (syscall_ptr_t)sys_setgid,
@@ -3168,6 +3188,7 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [158] = (syscall_ptr_t)sys_arch_prctl,
     [186] = (syscall_ptr_t)sys_gettid,
     [202] = (syscall_ptr_t)sys_futex,
+    [78]  = (syscall_ptr_t)sys_getdents64,
     [217] = (syscall_ptr_t)sys_getdents64,
     [218] = (syscall_ptr_t)sys_set_tid_address,
     [228] = (syscall_ptr_t)sys_clock_gettime,
@@ -3213,6 +3234,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [3] = (syscall_ptr_t)sys_close,
     [4] = (syscall_ptr_t)sys_stat,
     [5] = (syscall_ptr_t)sys_fstat,
+    [6] = (syscall_ptr_t)sys_lstat,
     [8] = (syscall_ptr_t)sys_lseek,
     [9] = (syscall_ptr_t)sys_mmap,
     [10] = (syscall_ptr_t)sys_mprotect,
@@ -3254,6 +3276,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [80] = (syscall_ptr_t)sys_chdir,
     [83] = (syscall_ptr_t)sys_mkdir,
     [87] = (syscall_ptr_t)sys_unlink,
+    [96] = (syscall_ptr_t)sys_gettimeofday,
     [97] = (syscall_ptr_t)sys_getrlimit,
     [102] = (syscall_ptr_t)sys_getuid,
     [105] = (syscall_ptr_t)sys_setuid,
@@ -3271,6 +3294,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [158] = (syscall_ptr_t)sys_arch_prctl,
     [186] = (syscall_ptr_t)sys_gettid,
     [202] = (syscall_ptr_t)sys_futex,
+    [78]  = (syscall_ptr_t)sys_getdents64,
     [217] = (syscall_ptr_t)sys_getdents64,
     [218] = (syscall_ptr_t)sys_set_tid_address,
     [228] = (syscall_ptr_t)sys_clock_gettime,
@@ -3359,6 +3383,7 @@ static syscall_ptr_t syscall_linux32_table[MAX_SYSCALL_NUM] = {
     [224] = (syscall_ptr_t)sys_gettid,
     [240] = (syscall_ptr_t)sys_futex,
     [141] = (syscall_ptr_t)sys_getdents64,
+    [78]  = (syscall_ptr_t)sys_getdents64,
     [258] = (syscall_ptr_t)sys_set_tid_address,
     [265] = (syscall_ptr_t)sys_clock_gettime,
     [266] = (syscall_ptr_t)sys_clock_getres,
