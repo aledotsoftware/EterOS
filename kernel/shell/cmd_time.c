@@ -75,9 +75,16 @@ void cmd_ntp(const char* args) {
     addr.sin_family = AF_INET;
     addr.sin_port = bswap_32(123) >> 16; // Port 123 (Network byte order)
 
-    // Use a hardcoded IP for pool.ntp.org since we don't have DNS yet.
-    // 200.89.75.197 (South America pool example) -> C8 59 4B C5
-    addr.sin_addr = 0xC8594BC5;
+    // Resolve IP dynamically via DNS
+    uint32_t resolved_ip = 0;
+    if (net_gethostbyname("pool.ntp.org", &resolved_ip) != 0) {
+        terminal_write_string("  [NTP] Error de resolucion DNS (pool.ntp.org).\n");
+        net_close(sock);
+        return;
+    }
+
+    // We convert the IP to network byte order format (IP from compat is host order but we need it directly)
+    addr.sin_addr = resolved_ip;
 
     if (net_connect(sock, &addr, sizeof(addr)) != 0) {
         terminal_write_string("  [NTP] Error al conectar.\n");

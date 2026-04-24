@@ -82,7 +82,64 @@ void net_poll(void) {
     }
 }
 
+
+typedef struct {
+    uint32_t resolved_ip;
+    volatile int completed;
+    int status;
+} dns_req_state_t;
+
+static void net_dns_found_cb(const char *name, const ip_addr_t *ipaddr, void *callback_arg) {
+    (void)name;
+    dns_req_state_t *state = (dns_req_state_t*)callback_arg;
+
+    if (ipaddr && ipaddr->addr != 0) {
+        state->resolved_ip = ip4_addr_get_u32(ipaddr);
+        state->status = 1;
+    } else {
+        state->status = -1;
+    }
+    state->completed = 1;
+}
+
+int net_gethostbyname(const char *name, uint32_t *out_ip) {
+    dns_req_state_t *state = (dns_req_state_t*)kmalloc(sizeof(dns_req_state_t));
+    if (!state) return -1;
+    state->resolved_ip = 0;
+    state->completed = 0;
+    state->status = 0;
+
+    hal_interrupts_disable();
+    ip_addr_t dns_res;
+    err_t err = dns_gethostbyname(name, &dns_res, net_dns_found_cb, state);
+
+    if (err == ERR_OK) {
+        net_dns_found_cb(name, &dns_res, state);
+    } else if (err != ERR_INPROGRESS) {
+        hal_interrupts_enable();
+        kfree(state);
+        return -1;
+    }
+    hal_interrupts_enable();
+
+    int timeout_ms = 10000;
+    while (!state->completed && timeout_ms > 0) {
+        task_sleep(1);
+        timeout_ms--;
+    }
+
+    int ret = -1;
+    if (state->status == 1) {
+        if (out_ip) *out_ip = state->resolved_ip;
+        ret = 0;
+    }
+
+    kfree(state);
+    return ret;
+}
+
 /* State for blocking operations */
+
 typedef struct {
     struct tcp_pcb *pcb;
     char* response_buf;
