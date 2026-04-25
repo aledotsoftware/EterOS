@@ -20,6 +20,7 @@ int sys_lwip_getsockopt(int fd, int level, int optname, void *optval, socklen_t 
 int sys_lwip_getpeername(int fd, struct sockaddr *name, socklen_t *namelen);
 int sys_lwip_getsockname(int fd, struct sockaddr *name, socklen_t *namelen);
 int sys_lwip_shutdown(int fd, int how);
+int sys_lwip_close(int fd);
 ssize_t sys_lwip_sendmsg(int fd, const struct msghdr *msg, int flags);
 ssize_t sys_lwip_recvmsg(int fd, struct msghdr *msg, int flags);
 ssize_t sys_lwip_send(int fd, const void *buf, size_t len, int flags);

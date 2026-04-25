@@ -253,6 +253,21 @@ int sys_lwip_shutdown(int fd, int how) {
     return lwip_shutdown(sock, how);
 }
 
+int sys_lwip_close(int fd) {
+    task_t* current = task_get_current();
+    if (fd < 0 || fd >= MAX_FD) return -EBADF;
+    if (!current->fd_table[fd].node) return -EBADF;
+    fs_node_t* node = current->fd_table[fd].node;
+    if (__atomic_sub_fetch(&node->ref_count, 1, __ATOMIC_SEQ_CST) == 0) {
+        if (node->close != 0) {
+            node->close(node);
+        }
+        kfree(node);
+    }
+    current->fd_table[fd].node = NULL;
+    return 0;
+}
+
 ssize_t sys_lwip_sendmsg(int fd, const void *msg, int flags) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;

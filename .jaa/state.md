@@ -35,3 +35,10 @@
 - Implemented Linux native `sys_memfd_create` (syscall 319) in `kernel/arch/x86_64/syscall.c` leveraging anonymous Shared Memory nodes (`shmfs`).
 - Modified `shmfs_close` to safely release anonymous shared memory pages when the open file descriptor count hits zero.
 - Re-verified full kernel compilation (`make clean && make all`) and successfully passed all native host VFS/Syscall C tests.
+
+## EterOS Network Socket API Update (Current Run)
+- Completely refactored `kernel/arch/x86_64/syscall.c` to route standard POSIX socket syscalls (`sys_socket`, `sys_connect`, `sys_sendto`, `sys_recvfrom`, etc.) to the fully implemented lwIP stack via `sys_lwip_*` helpers, effectively replacing the experimental, incomplete legacy `net_*` implementation.
+- Removed redundant `socket_read_fs`, `socket_write_fs`, and `socket_close_fs` wrappers in `syscall.c` because the `sys_lwip_socket` correctly builds the file descriptor and backing VFS node.
+- Added `sys_lwip_close` to `kernel/net/socket.c` and exposed it via `include/net/lwip_socket.h` to safely close VFS nodes representing lwIP sockets with proper reference counting (`__atomic_sub_fetch`).
+- Upgraded the kernel applications (`kernel/apps/wget.c`, `kernel/shell/cmd_time.c`, `kernel/shell/cmd_ota.c`) to utilize `sys_lwip_*` functions rather than relying on legacy methods, making the command line network utilities functional with the real stack.
+- Corrected host tests and mock dependencies (`tests/test_socket_security.c`, `tests/test_readv_security.c`, `tests/test_mmap_fixed.c`, `tests/test_wget_parse_url.c`) to conform with the revised lwIP networking boundaries. All compilation checks and tests pass correctly.
