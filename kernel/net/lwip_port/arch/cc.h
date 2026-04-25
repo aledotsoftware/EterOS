@@ -36,6 +36,7 @@ typedef int32_t     s32_t;
 typedef uintptr_t   mem_ptr_t;
 typedef intptr_t    ptrdiff_t;
 typedef u32_t       sys_prot_t;
+typedef u32_t socklen_t;
 
 /* Critical sections */
 #define sys_arch_protect() (hal_interrupts_disable(), 0)
