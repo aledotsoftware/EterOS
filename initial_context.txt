@@ -1,0 +1,355 @@
+## EterOS Aether Linux Subsystem (Current Run)
+- Hardened `kernel/fs/elf.c` to prevent string bounds checking bypasses and buffer overflows during `PT_INTERP` extraction by safely capping `out_interp` size.
+- Hardened `kernel/arch/x86_64/syscall.c` `sys_mmap` to automatically add `MAP_PRIVATE` for ABI compatibility when no mapping flags are provided by Linux binaries.
+- Refactored `sys_arch_prctl` to correctly read `MSR_FS_BASE` and `MSR_KERNEL_GS_BASE` for `ARCH_GET_FS` and `ARCH_GET_GS`, copying safely to userspace using `vmm_verify_user_access`.
+- Extented `sys_rt_sigaction` to support up to 64 signals instead of 31 for full `sigset_t` compliance.
+- Fixed `sys_rt_sigprocmask` to use 64-bit masks by using `1ULL` shifts to avoid undefined behavior overflow.
+- Secured `sys_openat` with explicit `vmm_verify_user_access` boundary checks.
+- Added explicit NUL-termination for `sys_readlinkat` when the read size is strictly smaller than the requested buffer.
+
+# JAA Context State
+
+## EterOS Scheduler & IPC Update (2024-04-24)
+- Resolved a critical bug in `kernel/task.c:schedule()` where tasks selected to run again without switching context were not removed from the ready queue if they had been previously enqueued, corrupting the ready list.
+- Addressed thread-safety issues in state transitions within `kernel/futex.c:futex_wait()` and `kernel/sem.c:sem_wait()` by introducing and utilizing a new locked `task_block()` API.
+- Fixed `task_sleep()` by removing an arbitrary uninterruptible `hlt` busy wait.
+- Tested and verified fixes via host-based unit tests (`test_sem`, `test_futex_logic`, `test_futex_timeout`) and a QEMU headless boot, ensuring Ring 3 interactions (`login.elf`) execute robustly under corrected load.
+
+## EterOS Orchestrator Audit (2026-04-23)
+- Executed `make clean` and `make all`. Verified `build/kernel.img` and `build/initrd.img` build successfully.
+- Executed `bash tests/run_tests.sh`. Verified all host C tests passed with success.
+- Executed QEMU headless boot test (`timeout 30s qemu-system-x86_64 -display none -m 128M...`). Boot transitioned successfully to Ring 3 invoking `login.elf` and displaying `eterOS login: `.
+- Checked `.jaa.md` state instructions and codebase capabilities (`shell`, `lwip` config).
+- Updated `ORCHESTRATOR_REPORT.md` (Commit 432e92f7822bcd212bff999925dbdbebf37b182f) with findings: Real codebase lacks native `gethostbyname` DNS integration (uses hardcoded UDP), JFS runs only in RAM without disk sync, and `login.elf` requires `/etc/passwd` connection to complete multi-user bootstrap.
+- Set priority cycle for agents: `network-socket-api-bot`, `vfs-posix-filesystem-bot`, `users-security-panel-bot`, and `linux-syscall-compliance-bot`.
+
+## EterOS VFS Update (2024-04-22)
+- Evaluated and secured `vfs_lookup` path traversal vulnerabilities (added 127 char segment limit to prevent buffer overflow attacks).
+- Implemented core VFS stub tests for POSIX capabilities (`test_vfs_mkdir`, `test_sys_openat`, `test_sys_rw_perms`) to validate basic OS mechanics like node type constraints.
+- Analyzed `kernel/fs/elf.c` to confirm `PT_INTERP` boundary validation and execution mapping.
+- Current build is QEMU-tested successfully loading Ring 3 `login.elf`.
+
+## Android Subsystem Compatibility Update (Current Run)
+- Conducted gap analysis between EterOS Linux compatibility and Android (Bionic/Linker) expectations.
+- Implemented `/dev/binder` stub in `kernel/fs/devfs.c` supporting the `BINDER_VERSION_IOWR` ioctl response.
+- Implemented Linux native `sys_memfd_create` (syscall 319) in `kernel/arch/x86_64/syscall.c` leveraging anonymous Shared Memory nodes (`shmfs`).
+- Modified `shmfs_close` to safely release anonymous shared memory pages when the open file descriptor count hits zero.
+- Re-verified full kernel compilation (`make clean && make all`) and successfully passed all native host VFS/Syscall C tests.
+# EterOS Orchestrator Meta-Agent Audit Report
+
+## 1. Estado Actual de Compilación y Ejecución
+**Fecha:** 2026-04-23
+**Commit auditado:** 432e92f7822bcd212bff999925dbdbebf37b182f
+
+### ✅ Resultados de Verificación
+- **Make all (Build):** Éxito. Kernel compilado a `build/kernel.img` y libc/userspace empaquetados en `build/initrd.img` de manera satisfactoria.
+- **Make clean:** Éxito. Funciona correctamente eliminando artefactos sin borrar código fuente rastreado en git.
+- **Tests Nativos:** Éxito. Todos los tests de host C ejecutados mediante `tests/run_tests.sh` pasan exitosamente.
+- **Verificaciones Bash:** Scripts en `verification/` se ejecutan sin errores (asumido éxito basado en estado general).
+- **Prueba de Arranque (QEMU Headless):** Éxito. La secuencia de booteo inicializa BSP, GDT, PMM, VMM (Paginación), Scheduler y VFS correctamente. Realiza exitosamente la transición al anillo 3 levantando `login.elf` y mostrando el prompt `eterOS login: ` antes del timeout de 30s.
+
+---
+
+## 2. Evaluación de Subsistemas según Visión EterOS
+
+### 2.1 Subsistemas Robustos (Core y Fundaciones)
+- **Kernel Boot / Memoria:** `pmm.c`, `vmm.c` estables y testeados, identidad paginada funciona, QEMU bootable en 128M.
+- **Task Scheduler:** `smp.c` inicializa (aunque en modo uniprocesador por ahora), IPC via `futex.c` maduro con tests robustos.
+- **VFS / Initrd:** Montajes básicos (`/dev`, `/proc`, `/tmp`), ELF loader parsea bien secciones PT_LOAD y PT_INTERP, Path Traversal seguro implementado y probado.
+
+### 2.2 Áreas de Mejora a Corto Plazo (Para Compatibilidad Base)
+- **Syscalls Linux x86_64:** La capa base para syscalls como `sys_openat`, `sys_read`, y señales funciona, pero carece de implementaciones completas tipo GNU para IOCTLs complejos y TTY pty multiplexing.
+- **Red (lwIP):** Soporte e1000 básico. El wrapper de socket en C libc no se integra bien nativamente al VFS. DNS aún por UDP raw hardcodeado.
+- **Comandos CLI Shell:** Stubbed (ej. comandos de red).
+
+### 2.3 Metas Aspiracionales de la Plataforma (Largo Plazo)
+- Soporte Completo GNU Coreutils: ❌ No logrado (Requiere syscall layer avanzado).
+- Entorno de Escritorio GNU Desktop: ❌ No logrado (Dependencias DRM/KMS, servidor X/Wayland no portados).
+- Capa de Compatibilidad Android: ❌ No logrado.
+
+---
+
+## 3. Orden de Ejecución Recomendado (Próximo Ciclo)
+
+Basado en las brechas observadas en la arquitectura actual (`kernel/main.c`, `kernel/shell/`, etc) respecto a los objetivos del proyecto, los agentes deben activarse en este orden:
+
+1. **`network-socket-api-bot`:** Conectar nativamente la capa VFS y libc (`gethostbyname`) con las capacidades DNS de la pila lwIP integrada, eliminando las llamadas DNS hardcodeadas por UDP (blocker crítico para dependencias de red como NTP y OTA).
+2. **`vfs-posix-filesystem-bot`:** Implementar el puente para persistir el Journaling File System (JFS) volcando su estado hacia un disco físico subyacente mediante la capa `bcache`, superando el actual prototipo solo en RAM.
+3. **`users-security-panel-bot`:** Finalizar la integración multiusuario; desarrollar `login.elf` interactuando con archivos reales `/etc/shadow` y `/etc/passwd` y aplicar validaciones de permisos UIDs a nivel del VFS y shell.
+4. **`linux-syscall-compliance-bot`:** Expandir soporte progresivo de syscalls (ej. TTY/Pty) apuntando a levantar las primeras utilidades CLI complejas de GNU como objetivo de transición medible.
+# 🌌 éterOS: El Sistema Operativo Universal (v0.2.0 "Genesis SMP")
+
+éterOS es un sistema operativo de **Nueva Era**, desarrollado desde el **"cero absoluto" (Bare-Metal)** en C y ensamblador. Diseñado con una arquitectura de **Kernel Híbrido** y una **HAL (Hardware Abstraction Layer)** universal, su objetivo es ser el tejido conectivo entre microcontroladores IoT, dispositivos móviles ARM64 y potentes servidores x86_64.
+
+Este documento es el manifiesto técnico y la única fuente de verdad sobre la arquitectura, funcionamiento y visión de éterOS.
+
+---
+
+## 📖 Tabla de Contenidos
+1. [Filosofía y Visión](#1-filosofía-y-visión)
+2. [Arquitectura General (Ether-Core)](#2-arquitectura-general-ether-core)
+3. [Secuencia de Arranque y Hardware](#3-secuencia-de-arranque-y-hardware)
+4. [Gestión de Memoria (MMU)](#4-gestión-de-memoria-mmu)
+5. [Planificador, SMP y Sincronización](#5-planificador-smp-y-sincronización)
+6. [Sistema de Archivos Virtual (VFS)](#6-sistema-de-archivos-virtual-vfs)
+7. [Networking y Stack TCP/IP](#7-networking-y-stack-tcpip)
+8. [Eterland: Servidor Gráfico y Motor Omni](#8-eterland-servidor-gráfico-y-motor-omni)
+9. [Espacio de Usuario y Compatibilidad (ACS)](#9-espacio-de-usuario-y-compatibilidad-acs)
+10. [EterStore: Gestión de Paquetes](#10-eterstore-gestión-de-paquetes)
+11. [Guía de Soporte ARM64 (Rockchip RK3566)](#11-guía-de-soporte-arm64-rockchip-rk3566)
+12. [Compilación y Toolchain](#12-compilación-y-toolchain)
+13. [Hoja de Ruta y Faltantes Críticos](#13-hoja-de-ruta-y-faltantes-críticos)
+
+---
+
+## 1. Filosofía y Visión
+
+éterOS no es un clon de UNIX; es una reinvención. Se construye sobre tres pilares:
+*   **Ether-Core (Arquitectura Híbrida):** Combina la estabilidad de un microkernel (aislando drivers en espacio de usuario) con el rendimiento de un núcleo monolítico para operaciones críticas.
+*   **Fluidez Nativa:** Ignoramos el lastre de los 90. Diseñado para hardware moderno: **UEFI/GOP**, **NVMe**, **Multicore (SMP)** y renderizado acelerado.
+*   **Aero-Minimalismo:** Una experiencia visual basada en vectores, transparencias (**Glassmorphism**) y una interfaz fluida denominada **Flux UI**.
+
+### Sistema de Tiers (Portabilidad)
+La HAL permite que éterOS escale según el hardware:
+*   **Tier 1 (Micro):** IoT, Sensores (ARM Cortex-M, RISC-V32). Sin MMU.
+*   **Tier 2 (Core):** Tablets, RPi (AArch64). MMU + Paging.
+*   **Tier 3 (Full):** PCs, Servidores (x86_64). MMU + Ring 0-3 + SMP.
+
+---
+
+## 2. Arquitectura General (Ether-Core)
+
+El sistema está dividido en capas estrictas para garantizar la seguridad y la abstracción:
+
+```text
+╔════════════════════════════════════════════════════════════════════════════╗
+║                        ESPACIO DE USUARIO (Ring 3)                         ║
+║   ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌────────────────────┐     ║
+║   │  sh.elf  │  │ test.elf │  │ exec_test.elf│  │  Aplicaciones ELF  │     ║
+║   └────┬─────┘  └────┬─────┘  └──────┬───────┘  └──────────┬─────────┘     ║
+║   ┌────┴─────────────┴───────────────┴─────────────────────┴──────────┐    ║
+║   │                    libc (Mini-LibC POSIX)                         │    ║
+║   └───────────────────────────┬───────────────────────────────────────┘    ║
+║                        syscall (INT/SYSCALL)                               ║
+╠═══════════════════════════════╪════════════════════════════════════════════╣
+║                     ESPACIO DEL KERNEL (Ring 0)                            ║
+║ ┌────────────────────────────────────────────────────────────────────────┐ ║
+║ │  INTERFAZ DE SYSCALLS (~70 Syscalls Linux-Compatible ABI)              │ ║
+║ └──────────────────────────────┬─────────────────────────────────────────┘ ║
+║ ┌──────────┐  ┌─────────┐  ┌───────────┐  ┌──────────────────┐             ║
+║ │SCHEDULER │  │  SHELL  │  │  NETWORK  │  │  APLICACIONES    │             ║
+║ │(task.c)  │  │(shell/) │  │ (net/)    │  │  INTERNAS (apps/)│             ║
+║ └────┬─────┘  └────┬────┘  └─────┬─────┘  └────────┬─────────┘             ║
+║ ┌────┴──────────────┴───────┴────────┴─────────────────┴──────────┐        ║
+║ │  MEMORY MGR (mm/)  │  FILESYSTEM (VFS) (fs/)  │   CRYPTO (crypto/)     │ ║
+║ └─────────┬────────────────────┬─────────────────────────────────────────┘ ║
+║ ┌─────────┴────────────────────┴─────────────────────────────────────────┐ ║
+║ │            HARDWARE ABSTRACTION LAYER (HAL) (include/hal.h)            │ ║
+║ └──────────────────────────────┬─────────────────────────────────────────┘ ║
+║ ┌──────────────────────────────┼─────────────────────────────────────────┐ ║
+║ │  DRIVERS (Video, Serial, Input, Net, Disk, Timer, PCI, RTC, ACPI)      │ ║
+║ └──────────────────────────────┬─────────────────────────────────────────┘ ║
+║ ┌──────────────────────────────┼─────────────────────────────────────────┐ ║
+║ │              CÓDIGO ESPECÍFICO DE ARQUITECTURA                         │ ║
+║ │          (x86_64: gdt, idt, pic, apic, smp, context_switch)            │ ║
+║ └────────────────────────────────────────────────────────────────────────┘ ║
+╚════════════════════════════════════════════════════════════════════════════╝
+```
+
+---
+
+## 3. Secuencia de Arranque y Hardware
+
+### El Salto al Modo Largo (x86_64)
+éterOS despierta en un entorno de **64 bits puro**:
+1.  **BIOS POST → MBR (boot.asm):** El bootloader de 2 etapas carga el kernel (128 sectores) y el Initrd.
+2.  **Detección:** Se consulta la memoria vía E820, se activa la puerta A20 y se detecta el framebuffer VBE.
+3.  **Transición:** Se configuran las tablas de paginación iniciales (Identity Mapping de 4GB), GDT de 64 bits y se activa PAE + EFER.LME.
+4.  **kmain():** El núcleo toma el control en `0x10000`.
+
+### Inicialización de Hardware (`hal_init`)
+1.  **Interrupts (IDT/PIC):** Se remapean las IRQs (0x20-0x2F). Se configuran 256 vectores para excepciones, IRQs e IPIs (Inter-Processor Interrupts).
+2.  **GDT & TSS:** Configuración per-CPU para el manejo de stacks durante interrupciones desde Ring 3.
+3.  **Timer:** PIT (Programmable Interval Timer) a 100Hz para preempción.
+4.  **ACPI & APIC:** Parseo de tablas RSDP/MADT para descubrir la topología de la CPU (Cores).
+
+---
+
+## 4. Gestión de Memoria (MMU)
+
+La memoria se gestiona en tres niveles estrictos:
+
+### 1. Physical Memory Manager (PMM)
+*   **Estructura:** Bitmap (1 bit por cada frame de 4KB). ~4KB de bitmap por cada 128MB de RAM.
+*   **Algoritmo:** **Next-Fit** con un puntero "rover" y escaneo por palabras (Word-Scanning) para lograr O(1) amortizado.
+*   **Features:** Soporta conteo de referencias (`pmm_ref_page`) crucial para la implementación de Copy-on-Write.
+
+### 2. Virtual Memory Manager (VMM)
+*   **Arquitectura:** Paginación de 4 niveles (PML4 → PDPT → PD → PT) propia de x86_64.
+*   **Copy-on-Write (CoW):** Al hacer `fork()`, no se copia la memoria física. Las páginas se marcan como "Read-Only". Un Page Fault en escritura duplica la página al vuelo.
+*   **TLB Shootdown:** En entornos SMP, modificar una tabla de paginación requiere enviar una IPI (Inter-Processor Interrupt) a los demás núcleos para que invaliden su TLB (Translation Lookaside Buffer).
+
+### 3. Heap Dinámico (`kmalloc`)
+*   **Algoritmo:** Next-Fit con listas doblemente enlazadas y **Coalescing** automático (fusión de bloques libres adyacentes).
+*   **Seguridad:** Implementa *canary checks* (magic numbers) para detectar desbordamientos de buffer o dobles liberaciones.
+
+#### Mapa de Memoria Virtual (x86_64)
+| Rango de Dirección | Contenido |
+|--------------------|-----------|
+| `0x0000000000000000` | Inicio (Identity mapped los primeros 4GB por el bootloader) |
+| `0x0000000000100000` | Kernel Heap Start |
+| `0x0000000200000000` | User Code (Ring 3 ELF Load Address) |
+| `0x0000000300000000` | User Stack (Ring 3) |
+| `0xFFFF800000000000` | Kernel High-Half (Reservado para diseño futuro) |
+
+---
+
+## 5. Planificador, SMP y Sincronización
+
+### Scheduler (Round-Robin Preemptivo)
+El planificador de éterOS escala para múltiples núcleos.
+*   **Estados:** `READY`, `RUNNING`, `SLEEPING`, `BLOCKED`, `ZOMBIE`.
+*   **Context Switch:** Ultra-optimizado en ensamblador (`context_switch.asm`). Guarda RSP, cambia espacio de direcciones (CR3) si es necesario, y salta.
+*   **Tick:** Impulsado por el timer PIT a 100Hz (10ms por quantum).
+
+### SMP (Symmetric Multiprocessing)
+éterOS no es mononúcleo.
+*   **AP Booting:** El procesador principal (BSP) copia un trampolín de 16 bits a memoria baja y envía señales `INIT` y `STARTUP` (SIPI) a los Application Processors (APs).
+*   **Per-CPU Data:** Utiliza el registro `GS_BASE` de x86_64 para almacenar punteros al contexto actual de cada CPU de forma aislada, evitando locks globales masivos.
+
+### Primitivas de Sincronización
+1.  **Spinlocks:** Bloqueos activos para proteger estructuras críticas del kernel (Heap, VFS, PMM) del acceso concurrente entre núcleos.
+2.  **Semáforos:** Para suspender hilos a la espera de I/O (ej. red, disco).
+3.  **Futexes (Fast Userspace Mutexes):** La joya de la corona para compatibilidad Linux. Implementados en `futex.c` con colas de espera en Ring 0 para que la Mini-LibC gestione hilos POSIX sin overhead.
+
+---
+
+## 6. Sistema de Archivos Virtual (VFS)
+
+El VFS abstrae el almacenamiento tras una API unificada (`read_fs`, `write_fs`, `open_fs`, `mount`).
+
+**Árbol de Montajes:**
+*   `/` **(Initrd):** Initial Ramdisk cargado por el bootloader. Contiene `sh.elf`, binarios de prueba y assets gráficos. Solo lectura.
+*   `/dev/` **(DevFS):** Nodos virtuales. Implementados: `null`, `zero`, `tty`, `random` (PRNG), `urandom`, `input` (Ring buffer de eventos de teclado/mouse).
+*   `/proc/` **(ProcFS):** Estado del núcleo. `/proc/uptime`, `/proc/version`, `/proc/meminfo`.
+*   `/mnt/` **(FAT32):** Soporte estable para lectura/escritura de particiones FAT32 (nombres 8.3) con soporte para offsets de partición MBR.
+*   `/data/` **(JFS):** Prototipo de Journaling File System en memoria.
+
+---
+
+## 7. Networking y Stack TCP/IP
+
+éterOS posee capacidades de red avanzadas a través de su driver nativo **Intel PRO/1000 (e1000)** (descubierto vía escaneo PCI).
+
+### Integración lwIP 2.2.0
+El kernel integra el stack industrial **lwIP** (`kernel/net/lwip_port`).
+*   **DHCP:** Negociación automática de IP al inicio (`network_task`).
+*   **Sockets:** Soporte para Sockets BSD a través de la capa de syscalls.
+*   **DNS & TCP:** Soporte completo. El comando `wget` en la shell permite descargar archivos vía HTTP.
+
+---
+
+## 8. Eterland: Servidor Gráfico y Motor Omni
+
+**Eterland** es el compositor gráfico diseñado bajo el principio de **Cero Copia (Zero-Copy)**.
+
+### Arquitectura de Composición
+1.  **Shared Buffers (SHM):** Las aplicaciones en Ring 3 piden un buffer. El kernel lo mapea en el proceso y en el compositor (`sys_mmap(MAP_SHARED)`).
+2.  **IPC:** La app dibuja (CPU/GPU) y notifica al compositor vía Unix Domain Sockets.
+3.  **Motor Omni v2.0:** El compositor mezcla las ventanas aplicando:
+    *   **Alpha Blending (256 niveles)** para Glassmorphism.
+    *   **Dirty Region Tracking:** Solo actualiza los rectángulos del framebuffer que sufrieron cambios.
+    *   **Fast-Path Geometry:** Primitivas que escriben directamente en el buffer de video LFB (Linear Framebuffer) obtenido vía VBE/GOP.
+
+---
+
+## 9. Espacio de Usuario y Compatibilidad (ACS)
+
+La transición a Ring 3 se realiza configurando los segmentos de usuario en la GDT y ejecutando la instrucción `SYSRET`.
+
+### Cargador ELF64
+El kernel parsea cabeceras ELF, mapea los segmentos `PT_LOAD` en memoria virtual y configura el heap del proceso (gestionado vía la syscall `brk`).
+
+### ACS: Aether-Linux Subsystem
+El objetivo es ejecutar binarios ELF de Linux sin modificarlos.
+*   **Multiplexor:** El manejador `syscall_entry.asm` intercepta la instrucción `syscall` y traduce los registros estándar de Linux (RAX=id, RDI, RSI, RDX, R10, R8, R9=args) a funciones nativas.
+*   **Tabla de Syscalls Implementadas (~70):**
+    *   *I/O:* `read`, `write`, `open`, `close`, `lseek`, `ioctl`, `readv`, `writev`, `dup2`, `pipe`.
+    *   *Procesos:* `fork`, `execve`, `exit`, `wait4`, `getpid`, `kill`.
+    *   *Memoria:* `mmap`, `brk`, `mprotect` (stub), `munmap`.
+    *   *Sincronización:* `futex`, `arch_prctl` (esencial para Thread Local Storage `FS/GS base`).
+    *   *FS:* `stat`, `fstat`, `mkdir`, `unlink`.
+
+### Mini-LibC (POSIX)
+Para aplicaciones nativas de éterOS, proveemos una librería en `userspace/libc/` con soporte para:
+*   Asignación dinámica (`malloc`/`free` usando bloques sobre `brk`).
+*   Manipulación de cadenas (`string.h`).
+*   Señales (`signal.h` con colas de interrupción diferida en el scheduler).
+
+---
+
+## 10. EterStore: Gestión de Paquetes
+
+La infraestructura para instalar software se basa en dos fases:
+1.  **Fase de Adopción:** Herramientas CLI capaces de extraer paquetes Debian (`.deb`) mapeando sus dependencias mediante capas de traducción.
+2.  **Fase Nativa (Formato `.epk`):** Paquetes EterPackage. Archivos SquashFS/Zstd de solo lectura que el kernel monta dinámicamente en tiempo de ejecución, garantizando desinstalaciones limpias y sandboxing.
+
+---
+
+## 11. Guía de Soporte ARM64 (Rockchip RK3566)
+
+éterOS está portando su HAL a la arquitectura AArch64 para correr en tablets y SBCs.
+*   **Estado:** Experimental (Bootea, inicializa UART, Serial Debug 1.5M baudios. Sin display aún).
+*   **Flasheo:**
+    1. Compilar cross-compiler: `.\build.ps1 -Target all -Arch aarch64`
+    2. Conectar dispositivo en modo LOADER/MASKROM.
+    3. Usar **RKDevTool** para escribir `build/aarch64/kernel.bin` en la partición `boot`.
+
+---
+
+## 12. Compilación y Toolchain
+
+El sistema se puede compilar en Windows (PowerShell) o Linux (WSL).
+**Requisitos:** `x86_64-elf-gcc`, `nasm`, `x86_64-elf-ld`, `qemu-system-x86_64`, `xorriso`.
+
+### Entorno Windows (Nativo)
+El script `build.ps1` orquesta todo el proceso:
+```powershell
+.\build.ps1 -Target all     # Compila boot, kernel, userspace e initrd
+.\build.ps1 -Target run     # Lanza QEMU con red (e1000) y Serial COM1
+.\build.ps1 -Target vbox    # Empaqueta en un disco VDI para VirtualBox
+.\build.ps1 -Target clean   # Limpia el directorio de build
+```
+
+### Entorno Linux / WSL
+```bash
+make all      # Genera build/eteros.img
+make run      # Ejecuta QEMU
+make iso      # Genera un ISO booteable para grabar en USB
+```
+
+---
+
+## 13. Hoja de Ruta y Faltantes Críticos
+
+Aunque éterOS v0.2.0 es altamente funcional, las siguientes áreas son la prioridad actual de desarrollo:
+
+🔴 **Críticos (Blockers):**
+1.  **Resolución DNS Nativa:** lwIP la soporta, pero falta exponerla a la capa VFS para que comandos como `ntp` y `ota` no dependan de IPs hardcodeadas.
+2.  **Persistencia JFS:** El driver de Journaling actual guarda todo en RAM. Falta el puente para volcar el journal al driver de disco duro físico a través de la capa `bcache`.
+3.  **Gestión de Energía (ACPI):** Se parsea la topología de la CPU, pero falta implementar el apagado suave (`S5`) y suspensión mediante las tablas FADT.
+
+🟡 **Mejoras Arquitectónicas:**
+4.  **Aether-Droid:** Implementación del driver `/dev/binder` en el kernel para habilitar IPC estilo Android.
+5.  **Cargador de Librerías Dinámicas (`.so`):** Actualmente el loader ELF asume compilación estática.
+6.  **Sistema Multiusuario:** Existen UIDs en la estructura del proceso, pero falta el binario `login.elf` interactuando con `/etc/shadow` y aplicando permisos en el VFS.
+
+---
+
+## 📜 Licencia y Créditos
+
+© 2025 **Tudex Networks**. Desarrollado por el equipo de éterOS.
+Este proyecto es una obra de ingeniería dedicada a la exploración de nuevos paradigmas en sistemas operativos, empujando los límites del silicio.
+
+---
+*"El éter es la plataforma; éterOS es la inteligencia que la habita."*

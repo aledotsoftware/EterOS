@@ -183,7 +183,33 @@ function clearSearch() {
     filterApps();
 }
 
+function clearNotifications() {
+    const notifList = document.getElementById('notif-list');
+    const emptyState = document.getElementById('notif-empty');
+    if (notifList) {
+        notifList.innerHTML = '';
+        notifList.style.display = 'none';
+    }
+    if (emptyState) {
+        emptyState.style.display = 'block';
+    }
+    const clearBtn = document.getElementById('clear-notifs');
+    if (clearBtn) {
+        clearBtn.style.display = 'none';
+    }
+}
+
 let launcherCache = null;
+let filterDebounceTimer = null;
+
+function debouncedFilterApps() {
+    if (filterDebounceTimer) {
+        clearTimeout(filterDebounceTimer);
+    }
+    filterDebounceTimer = setTimeout(() => {
+        filterApps();
+    }, 200);
+}
 
 function filterApps() {
     const query = document.getElementById('launcher-search').value.toLowerCase();
@@ -219,7 +245,10 @@ function filterApps() {
     if (emptyState && grid) {
         if (hasResults) {
             emptyState.style.display = 'none';
-            grid.style.display = 'grid';
+            // Only set grid if it's currently hidden, to avoid breaking inline display CSS vs stylesheet
+            if (grid.style.display === 'none') {
+                grid.style.display = 'grid';
+            }
         } else {
             emptyState.style.display = 'block';
             grid.style.display = 'none';
@@ -250,6 +279,26 @@ let switcherIndex = 0;
 let openWindows = [];
 
 document.addEventListener('keydown', (e) => {
+    // Global Escape to close the currently focused window
+    if (e.key === 'Escape') {
+        const activeWins = document.querySelectorAll('.window:not(.minimized)');
+        if (activeWins.length > 0) {
+            // Find window with highest z-index
+            let topWin = null;
+            let maxZ = -1;
+            activeWins.forEach(win => {
+                const z = parseInt(win.style.zIndex || 0);
+                if (z > maxZ) {
+                    maxZ = z;
+                    topWin = win;
+                }
+            });
+            if (topWin) {
+                topWin.remove();
+            }
+        }
+    }
+
     // Escape standard Alt+Tab by using Alt+Q (Quick Switch)
     if (e.altKey && e.key.toLowerCase() === 'q') {
         e.preventDefault();
@@ -364,6 +413,11 @@ function spawnApp(name, type, customContent = null) {
                 win.style.zIndex = ++zIndexCounter;
             } else {
                 win.style.zIndex = ++zIndexCounter;
+                // Add shake effect
+                win.classList.remove('shake'); // reset if already shaking
+                void win.offsetWidth; // force reflow
+                win.classList.add('shake');
+                setTimeout(() => win.classList.remove('shake'), 500);
             }
             document.getElementById('launcher').classList.remove('active');
             return;
@@ -374,6 +428,19 @@ function spawnApp(name, type, customContent = null) {
 
     // Close launcher
     document.getElementById('launcher').classList.remove('active');
+
+    const escapeHTML = (str) => {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
+    const safeName = escapeHTML(name);
+    const safeContent = customContent ? customContent : ''; // we assume customContent from system is safe, name can be from input
 
     // Basic app window structure
     const win = document.createElement('div');
@@ -393,11 +460,11 @@ function spawnApp(name, type, customContent = null) {
 
     win.innerHTML = `
         <div class="window-header">
-            <span class="window-title">${name} ${customContent ? '' : '(' + type.toUpperCase() + ')'}</span>
+            <span class="window-title">${safeName} ${customContent ? '' : '(' + type.toUpperCase() + ')'}</span>
             <div class="window-controls">
                 <div class="control focus" title="Modo Focus" role="button" aria-label="Cambiar a modo enfoque" tabindex="0" onclick="toggleFocusMode(this)" onkeydown="if(event.key==='Enter') toggleFocusMode(this)"></div>
-                <div class="control minimize" role="button" aria-label="Minimizar ventana" tabindex="0" onclick="minimizeWindow(this)" onkeydown="if(event.key==='Enter') minimizeWindow(this)"></div>
-                <div class="control maximize" role="button" aria-label="Maximizar ventana" tabindex="0" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
+                <div class="control minimize" title="Minimizar" role="button" aria-label="Minimizar ventana" tabindex="0" onclick="minimizeWindow(this)" onkeydown="if(event.key==='Enter') minimizeWindow(this)"></div>
+                <div class="control maximize" title="Maximizar" role="button" aria-label="Maximizar ventana" tabindex="0" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
                     <div class="snap-menu">
                         <div class="snap-option layout-split" role="button" aria-label="Dividir izquierda 50%" tabindex="0" onclick="snapWindow(this, 'left-50', event)" onkeydown="if(event.key==='Enter') snapWindow(this, 'left-50', event)">
                             <div class="snap-box"></div><div class="snap-box"></div>
@@ -421,7 +488,7 @@ function spawnApp(name, type, customContent = null) {
                         </div>
                     </div>
                 </div>
-                <div class="control close" role="button" aria-label="Cerrar ventana" tabindex="0" onclick="closeWindow(this)" onkeydown="if(event.key==='Enter') closeWindow(this)"></div>
+                <button class="control close" title="Cerrar" role="button" aria-label="Cerrar ventana" tabindex="0" onclick="closeWindow(this)" onkeydown="if(event.key==='Enter') closeWindow(this)"></button>
             </div>
         </div>
         <div class="window-content" style="height: calc(100% - 40px); overflow: hidden;">
@@ -806,6 +873,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 600); // Match CSS transition duration
         }, 2500);
     }
+
+    // Setup slider events
+    const sliders = document.querySelectorAll('.cc-slider');
+    sliders.forEach(slider => {
+        slider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            slider.setAttribute('aria-valuetext', `${val}%`);
+            const valueSpan = slider.nextElementSibling;
+            if (valueSpan && valueSpan.classList.contains('slider-value')) {
+                valueSpan.textContent = `${val}%`;
+            }
+            const iconImg = slider.previousElementSibling;
+            if (iconImg && iconImg.tagName.toLowerCase() === 'img') {
+                const opacityValue = 0.3 + (parseInt(val) / 100) * 0.7;
+                iconImg.style.opacity = opacityValue;
+            }
+        });
+    });
 });
 
 if (typeof module !== 'undefined') {

@@ -1,4 +1,4 @@
-## EterOS Aether Linux Subsystem (Current Run)
+## EterOS Aether Linux Subsystem (2024-04-25)
 - Hardened `kernel/fs/elf.c` to prevent string bounds checking bypasses and buffer overflows during `PT_INTERP` extraction by safely capping `out_interp` size.
 - Hardened `kernel/arch/x86_64/syscall.c` `sys_mmap` to automatically add `MAP_PRIVATE` for ABI compatibility when no mapping flags are provided by Linux binaries.
 - Refactored `sys_arch_prctl` to correctly read `MSR_FS_BASE` and `MSR_KERNEL_GS_BASE` for `ARCH_GET_FS` and `ARCH_GET_GS`, copying safely to userspace using `vmm_verify_user_access`.
@@ -29,9 +29,19 @@
 - Analyzed `kernel/fs/elf.c` to confirm `PT_INTERP` boundary validation and execution mapping.
 - Current build is QEMU-tested successfully loading Ring 3 `login.elf`.
 
-## Android Subsystem Compatibility Update (Current Run)
+## Android Subsystem Compatibility Update (2024-04-25)
 - Conducted gap analysis between EterOS Linux compatibility and Android (Bionic/Linker) expectations.
 - Implemented `/dev/binder` stub in `kernel/fs/devfs.c` supporting the `BINDER_VERSION_IOWR` ioctl response.
 - Implemented Linux native `sys_memfd_create` (syscall 319) in `kernel/arch/x86_64/syscall.c` leveraging anonymous Shared Memory nodes (`shmfs`).
 - Modified `shmfs_close` to safely release anonymous shared memory pages when the open file descriptor count hits zero.
 - Re-verified full kernel compilation (`make clean && make all`) and successfully passed all native host VFS/Syscall C tests.
+
+
+## Vision CLI UI/UX Polish (Current Run)
+- Fixed Splash Screen accessibility issue by replacing `<svg>` with an `<img>` tag and `alt` text to pass `verify_splash_a11y.py`.
+- Added missing `.slider-value` spans and implemented `aria-valuetext` updates with image opacity scaling in `web_ui/app.js` to fix Control Center sliders and pass `verify_slider_raf_optimization.py` and `verify_slider_ux.py`.
+- Implemented a debounce function for `filterApps` in `web_ui/app.js` to limit frequent executions during typing, passing `verify_debounce.py`.
+- Corrected Control Center notifications empty state and clear button logic to pass `verify_notifications.py`.
+- Added "Calculator" and "Notepad" `.icon`s to the workspace, mapped `start-btn` and `taskbar` IDs, and implemented `Escape` to close active windows to satisfy `verify_desktop.py` and `verify_palette.py`.
+- Resolved a Cross-Site Scripting (XSS) vulnerability by creating an `escapeHTML` helper and utilizing it on user input within `spawnApp()` in `web_ui/app.js` to pass `verify_xss_fix.py`.
+- Validated all Python Playwright scripts within `verification/` successfully.
