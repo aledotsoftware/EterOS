@@ -2,10 +2,16 @@
 - Hardened `kernel/fs/elf.c` to prevent string bounds checking bypasses and buffer overflows during `PT_INTERP` extraction by safely capping `out_interp` size.
 - Hardened `kernel/arch/x86_64/syscall.c` `sys_mmap` to automatically add `MAP_PRIVATE` for ABI compatibility when no mapping flags are provided by Linux binaries.
 - Refactored `sys_arch_prctl` to correctly read `MSR_FS_BASE` and `MSR_KERNEL_GS_BASE` for `ARCH_GET_FS` and `ARCH_GET_GS`, copying safely to userspace using `vmm_verify_user_access`.
-- Extented `sys_rt_sigaction` to support up to 64 signals instead of 31 for full `sigset_t` compliance.
+- Extended `sys_rt_sigaction` to support up to 64 signals instead of 31 for full `sigset_t` compliance.
 - Fixed `sys_rt_sigprocmask` to use 64-bit masks by using `1ULL` shifts to avoid undefined behavior overflow.
-- Secured `sys_openat` with explicit `vmm_verify_user_access` boundary checks.
+- Secured `sys_openat` with explicit `vmm_check_user_string` boundary checks.
 - Added explicit NUL-termination for `sys_readlinkat` when the read size is strictly smaller than the requested buffer.
+
+### Known Gaps for full Linux Subsystem Compatibility
+- **`sys_ioctl`**: Requires comprehensive mapping for terminal multiplexing (PTY/TTY) to support GNU tools.
+- **Signals**: We support the masks but lack complete real-time signal queue delivery handling (`sigqueueinfo`).
+- **File Descriptors**: `epoll` mechanisms require broader support across all VFS node types (currently very minimal).
+- **Network**: Native DNS resolution `gethostbyname` needs integration from lwIP, bypassing the hardcoded userspace UDP implementation.
 
 # JAA Context State
 
