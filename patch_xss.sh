@@ -1,0 +1,1 @@
+sed -i 's/<span class="window-title">${name} ${customContent ? '\'''\'' : '\''('\'' + type.toUpperCase() + '\'')'\''}<\/span>/<span class="window-title">${name.replace(\/<\/?img[^\/>]*>\/gi, "").replace(\/<\/?script[^\/>]*>\/gi, "").replace(\/</g, "\&lt;").replace(\/>/g, "\&gt;")} ${customContent ? '\'''\'' : '\''('\'' + type.toUpperCase() + '\'')'\''}<\/span>/g' web_ui/app.js

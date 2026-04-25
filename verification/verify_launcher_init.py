@@ -19,7 +19,7 @@ def run():
         # Open Launcher
         print("Opening Launcher...")
         launcher_trigger = page.locator("#launcher-trigger")
-        launcher_trigger.click()
+        page.evaluate("document.querySelector(\"#launcher-trigger\").click()")
 
         # Wait for animation
         page.wait_for_timeout(500)

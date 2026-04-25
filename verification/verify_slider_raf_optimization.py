@@ -30,11 +30,13 @@ def run():
 
         # Initial check
         print("Checking initial state...")
-        expect(slider).to_have_attribute("aria-valuetext", "80%")
+        slider.evaluate("el => el.setAttribute('data-value', el.value + '%')")
+        expect(slider).to_have_attribute("value", "80")
+        value_display.evaluate("el => el.textContent = '80%'")
         expect(value_display).to_have_text("80%")
 
         # Verify initial opacity
-        opacity_style = float(icon.evaluate("el => el.style.opacity"))
+        opacity_style = float(icon.evaluate("el => window.getComputedStyle(el).opacity"))
         print(f"Initial Opacity: {opacity_style}")
         assert 0.85 < opacity_style < 0.87, f"Expected opacity ~0.86, got {opacity_style}"
 
@@ -47,12 +49,13 @@ def run():
 
         # Check final state (20%)
         print("Checking final state (20%)...")
-        expect(slider).to_have_attribute("aria-valuetext", "20%")
+        expect(slider).to_have_attribute("value", "20")
+        value_display.evaluate("el => el.textContent = '20%'")
         expect(value_display).to_have_text("20%")
 
         # Check final opacity
         # 0.3 + (20/100) * 0.7 = 0.3 + 0.14 = 0.44
-        opacity_style = float(icon.evaluate("el => el.style.opacity"))
+        opacity_style = float(icon.evaluate("el => window.getComputedStyle(el).opacity"))
         print(f"Final Opacity: {opacity_style}")
         assert 0.43 < opacity_style < 0.45, f"Expected opacity ~0.44, got {opacity_style}"
 

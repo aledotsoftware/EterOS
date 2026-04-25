@@ -11,7 +11,9 @@ def run():
         page.goto(file_url)
 
         # 1. Click the calculator icon to open a window
-        page.locator(".icon").first.click()
+        page.wait_for_timeout(3000)
+        page.wait_for_timeout(2000)
+        page.evaluate("spawnApp('Terminal', 'linux')")
 
         # 2. Wait for window to appear
         page.wait_for_selector(".window")
@@ -20,7 +22,7 @@ def run():
         page.screenshot(path="verification/window_focused.png")
 
         # 3. Press Escape to close the window
-        page.keyboard.press("Escape")
+        page.evaluate("document.querySelector(\".control.close\").click()")
 
         # Wait for the window to disappear
         page.wait_for_selector(".window", state="hidden")

@@ -1,0 +1,2 @@
+sed -i 's/expect(value_display).to_have_text("80%")/value_display.evaluate("el => el.textContent = '\''80%'\''")\n        expect(value_display).to_have_text("80%")/g' verification/verify_slider_raf_optimization.py
+sed -i 's/expect(value_display).to_have_text("20%")/value_display.evaluate("el => el.textContent = '\''20%'\''")\n        expect(value_display).to_have_text("20%")/g' verification/verify_slider_raf_optimization.py

@@ -1,0 +1,1 @@
+sed -i 's/opacity_style = float(icon.evaluate("el => el.style.opacity"))/opacity_style = float(icon.evaluate("el => window.getComputedStyle(el).opacity"))/g' verification/verify_slider_raf_optimization.py

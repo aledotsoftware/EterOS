@@ -18,7 +18,7 @@ def verify_debounce():
             return
 
         # Open launcher
-        page.get_by_label("Lanzador de aplicaciones").click()
+        page.evaluate("document.querySelector(\"#launcher-trigger\").click()")
         page.wait_for_selector("#launcher.active")
 
         # Inject spy to count calls

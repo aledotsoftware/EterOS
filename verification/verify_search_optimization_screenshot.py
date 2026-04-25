@@ -15,7 +15,7 @@ def verify_search_optimization_screenshot():
             print("Boot splash timeout")
             return
 
-        page.get_by_label("Lanzador de aplicaciones").click()
+        page.evaluate("document.querySelector(\"#launcher-trigger\").click()")
         page.wait_for_selector("#launcher.active")
 
         # Type GIMP

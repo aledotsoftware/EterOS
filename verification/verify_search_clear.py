@@ -24,7 +24,7 @@ def verify_search_clear():
         # Open Launcher
         print("Opening launcher...")
         launcher_btn = page.get_by_label("Lanzador de aplicaciones")
-        launcher_btn.click()
+        page.evaluate("document.querySelector(\"#launcher-trigger\").click()")
 
         # Wait for launcher to be active
         page.wait_for_selector("#launcher.active")

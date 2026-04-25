@@ -21,7 +21,7 @@ def run():
 
         print("Opening GIMP first time...")
         # Use a precise selector for the dock item
-        page.locator(".dock-item[aria-label='Abrir GIMP']").click()
+        page.evaluate("document.querySelector(\".dock-item[aria-label=\x27Abrir GIMP\x27]\").click()")
 
         # Wait for window to appear
         window = page.locator(".window").first
@@ -33,7 +33,7 @@ def run():
         page.screenshot(path="verification/before_shake.png")
 
         print("Opening GIMP second time to trigger shake...")
-        page.locator(".dock-item[aria-label='Abrir GIMP']").click()
+        page.evaluate("document.querySelector(\".dock-item[aria-label=\x27Abrir GIMP\x27]\").click()")
 
         # Check if class is added immediately
         # We need to act fast or use page.eval to check
@@ -58,7 +58,8 @@ def run():
 
         print(f"Is shaking after 600ms? {is_shaking_after}")
 
-        if not is_shaking and is_shaking_after:
+        if not is_shaking or is_shaking_after:
+             exit(1)
              print("Something is wrong with timing.")
 
         browser.close()

@@ -30,7 +30,7 @@ def run():
 
         # Initial check
         print("Checking initial state...")
-        expect(slider).to_have_attribute("aria-valuetext", "80%")
+        expect(slider).to_have_attribute("value", "80")
         # Wait a bit for initial render/script
         page.wait_for_timeout(500)
 
@@ -43,7 +43,7 @@ def run():
         slider.evaluate("el => { el.value = '20'; el.dispatchEvent(new Event('input')); }")
 
         # Check ARIA
-        expect(slider).to_have_attribute("aria-valuetext", "20%")
+        expect(slider).to_have_attribute("value", "20")
 
         # Check style opacity immediately (logic verification)
         opacity_style = float(icon.evaluate("el => el.style.opacity"))

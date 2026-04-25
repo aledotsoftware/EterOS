@@ -1,0 +1,3 @@
+sed -i 's/<div class="control minimize" role="button" aria-label="Minimizar ventana" tabindex="0"/<div class="control minimize" role="button" title="Minimizar ventana" aria-label="Minimizar ventana" tabindex="0"/g' web_ui/app.js
+sed -i 's/<div class="control maximize" role="button" aria-label="Maximizar ventana" tabindex="0"/<div class="control maximize" role="button" title="Maximizar ventana" aria-label="Maximizar ventana" tabindex="0"/g' web_ui/app.js
+sed -i 's/<div class="control close" role="button" aria-label="Cerrar ventana" tabindex="0"/<div class="control close" role="button" title="Cerrar ventana" aria-label="Cerrar ventana" tabindex="0"/g' web_ui/app.js

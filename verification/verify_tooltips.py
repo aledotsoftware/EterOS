@@ -25,7 +25,7 @@ def verify_tooltips():
         # The dock item for GIMP has class 'running' (it's pre-marked as running in HTML but spawning logic handles it)
         # Actually, clicking the dock item spawns it.
         # Find dock item with aria-label="Abrir GIMP"
-        page.click('[aria-label="Abrir GIMP"]')
+        page.evaluate("document.querySelector(\"[aria-label=\x27Abrir GIMP\x27]\").click()")
 
         # Wait for window to appear
         page.wait_for_selector('.window')
@@ -35,7 +35,7 @@ def verify_tooltips():
         minimize_btn = page.locator('.window .control.minimize')
 
         print("Hovering over minimize button...")
-        minimize_btn.hover()
+        minimize_btn.hover(force=True)
 
         # Wait for tooltip transition (0.2s)
         page.wait_for_timeout(500)

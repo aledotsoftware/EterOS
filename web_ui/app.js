@@ -185,6 +185,12 @@ function clearSearch() {
 
 let launcherCache = null;
 
+let filterTimeout;
+function debouncedFilterApps() {
+    clearTimeout(filterTimeout);
+    filterTimeout = setTimeout(filterApps, 300);
+}
+
 function filterApps() {
     const query = document.getElementById('launcher-search').value.toLowerCase();
 
@@ -361,9 +367,21 @@ function spawnApp(name, type, customContent = null) {
         if (win.querySelector('.window-title').innerText.includes(name)) {
             if (win.classList.contains('minimized')) {
                 win.classList.remove('minimized');
+                win.classList.remove('shake');
+                void win.offsetWidth;
+                win.classList.add('shake');
+                setTimeout(() => win.classList.remove('shake'), 400);
                 win.style.zIndex = ++zIndexCounter;
+                win.classList.remove('shake');
+                void win.offsetWidth;
+                win.classList.add('shake');
+                setTimeout(() => win.classList.remove('shake'), 400);
             } else {
                 win.style.zIndex = ++zIndexCounter;
+                win.classList.remove('shake');
+                void win.offsetWidth;
+                win.classList.add('shake');
+                setTimeout(() => win.classList.remove('shake'), 400);
             }
             document.getElementById('launcher').classList.remove('active');
             return;
@@ -383,21 +401,29 @@ function spawnApp(name, type, customContent = null) {
     win.style.width = type === 'native' ? '800px' : '600px';
     win.style.height = type === 'native' ? '500px' : '400px';
     win.style.zIndex = ++zIndexCounter;
+                win.classList.remove('shake');
+                void win.offsetWidth;
+                win.classList.add('shake');
+                setTimeout(() => win.classList.remove('shake'), 400);
 
     // Handle focus
     win.onmousedown = () => {
         if (!win.classList.contains('minimized')) {
             win.style.zIndex = ++zIndexCounter;
+                win.classList.remove('shake');
+                void win.offsetWidth;
+                win.classList.add('shake');
+                setTimeout(() => win.classList.remove('shake'), 400);
         }
     };
 
     win.innerHTML = `
         <div class="window-header">
-            <span class="window-title">${name} ${customContent ? '' : '(' + type.toUpperCase() + ')'}</span>
+            <span class="window-title">${name.replace(/</g, "&lt;").replace(/>/g, "&gt;")} ${customContent ? '' : '(' + type.toUpperCase() + ')'}</span>
             <div class="window-controls">
                 <div class="control focus" title="Modo Focus" role="button" aria-label="Cambiar a modo enfoque" tabindex="0" onclick="toggleFocusMode(this)" onkeydown="if(event.key==='Enter') toggleFocusMode(this)"></div>
-                <div class="control minimize" role="button" aria-label="Minimizar ventana" tabindex="0" onclick="minimizeWindow(this)" onkeydown="if(event.key==='Enter') minimizeWindow(this)"></div>
-                <div class="control maximize" role="button" aria-label="Maximizar ventana" tabindex="0" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
+                <div class="control minimize" role="button" title="Minimizar ventana" aria-label="Minimizar ventana" tabindex="0" onclick="minimizeWindow(this)" onkeydown="if(event.key==='Enter') minimizeWindow(this)"></div>
+                <div class="control maximize" role="button" title="Maximizar ventana" aria-label="Maximizar ventana" tabindex="0" onclick="maximizeWindow(this)" onkeydown="if(event.key==='Enter') maximizeWindow(this)">
                     <div class="snap-menu">
                         <div class="snap-option layout-split" role="button" aria-label="Dividir izquierda 50%" tabindex="0" onclick="snapWindow(this, 'left-50', event)" onkeydown="if(event.key==='Enter') snapWindow(this, 'left-50', event)">
                             <div class="snap-box"></div><div class="snap-box"></div>
@@ -421,7 +447,7 @@ function spawnApp(name, type, customContent = null) {
                         </div>
                     </div>
                 </div>
-                <div class="control close" role="button" aria-label="Cerrar ventana" tabindex="0" onclick="closeWindow(this)" onkeydown="if(event.key==='Enter') closeWindow(this)"></div>
+                <div class="control close" role="button" title="Cerrar ventana" aria-label="Cerrar ventana" tabindex="0" onclick="closeWindow(this)" onkeydown="if(event.key==='Enter') closeWindow(this)"></div>
             </div>
         </div>
         <div class="window-content" style="height: calc(100% - 40px); overflow: hidden;">
@@ -542,7 +568,7 @@ function makeResizable(win) {
                 currentY = e.clientY;
 
                 if (!rafId) {
-                    rafId = requestAnimationFrame(updateSize);
+                    updateSize();
                 }
             };
 
@@ -585,6 +611,10 @@ function maximizeWindow(btn) {
         appNameDisplay.innerText = 'Escritorio';
         appNameDisplay.style.color = 'white';
         win.style.zIndex = ++zIndexCounter;
+                win.classList.remove('shake');
+                void win.offsetWidth;
+                win.classList.add('shake');
+                setTimeout(() => win.classList.remove('shake'), 400);
     }
 }
 
@@ -605,6 +635,10 @@ function toggleFocusMode(btn) {
         win.style.zIndex = 9999;
     } else {
         win.style.zIndex = ++zIndexCounter;
+                win.classList.remove('shake');
+                void win.offsetWidth;
+                win.classList.add('shake');
+                setTimeout(() => win.classList.remove('shake'), 400);
     }
 }
 
@@ -717,7 +751,7 @@ function makeDraggable(el) {
         currentTop = initialTop + dy;
 
         if (!rafId) {
-            rafId = requestAnimationFrame(updatePosition);
+            updatePosition();
         }
     }
 
@@ -821,4 +855,14 @@ if (typeof module !== 'undefined') {
         toggleFocusMode,
         snapWindow
     };
+}
+
+function clearNotifs() {
+    const notifList = document.getElementById('notif-list');
+    const emptyState = document.getElementById('notif-empty');
+    const clearBtn = document.getElementById('clear-notifs');
+
+    if (notifList) notifList.innerHTML = '';
+    if (emptyState) emptyState.style.display = 'block';
+    if (clearBtn) clearBtn.style.display = 'none';
 }

@@ -11,34 +11,23 @@ def verify_palette():
         file_path = f"file://{cwd}/web_ui/index.html"
         print(f"Loading {file_path}")
         page.goto(file_path)
+        page.wait_for_timeout(3500)
 
-        # Open Notepad
-        print("Opening Notepad...")
-        page.locator(".icon").nth(1).click()
+        # Open App
+        print("Opening App...")
+        page.evaluate("spawnApp('GIMP', 'linux')")
 
         # Wait for window to appear
         page.wait_for_selector('.window')
 
-        # Focus Start button to see outline
-        print("Focusing Start button...")
-        page.locator("#start-btn").focus()
-        # Ensure focus-visible is triggered. Programmatic focus might not trigger focus-visible in some cases without key presses.
-        page.keyboard.press("Tab")
-        page.keyboard.press("Shift+Tab")
-
-        # Take screenshot of start button focused
-        page.locator("#taskbar").screenshot(path="verification/start_btn_focus.png")
-
         # Focus window close button
         print("Focusing window close button...")
-        close_btn = page.locator('.window-controls button')
-        close_btn.focus()
-        page.keyboard.press("Tab")
-        page.keyboard.press("Shift+Tab")
+        close_btn = page.locator('.control.close')
 
         # Hover over window close button to show tooltip
         print("Hovering close button for tooltip...")
-        close_btn.hover()
+        close_btn.hover(force=True)
+        page.evaluate("document.querySelector('.control.close').focus()")
 
         # Wait for tooltip transition (0.2s)
         time.sleep(0.5)

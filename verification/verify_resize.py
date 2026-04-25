@@ -43,7 +43,8 @@ def run():
         page.mouse.move(center_x, center_y)
         page.mouse.down()
         # Drag 100px to the right
-        page.mouse.move(center_x + 100, center_y, steps=10) # steps make it smoother events
+        page.mouse.move(center_x + 100, center_y, steps=10)
+        page.wait_for_timeout(100)
         page.mouse.up()
 
         # Wait a bit for any animation (though resize should be instant/per frame)

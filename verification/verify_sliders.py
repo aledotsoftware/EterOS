@@ -30,8 +30,8 @@ def test_sliders():
         page.wait_for_timeout(500)
 
         # Check initial text
-        print(f"Initial text: {value_display.text_content()}")
-        assert value_display.text_content() == "80%"
+        print(f"Initial text: {value_display.evaluate("el => el.textContent")}")
+        assert value_display.evaluate("el => el.textContent") == "80%"
 
         # Change value
         slider.fill("50")
@@ -39,8 +39,8 @@ def test_sliders():
         slider.dispatch_event("input")
 
         # Check updated text
-        print(f"Updated text: {value_display.text_content()}")
-        assert value_display.text_content() == "50%"
+        print(f"Updated text: {value_display.evaluate("el => el.textContent")}")
+        assert value_display.evaluate("el => el.textContent") == "50%"
 
         # Take screenshot
         os.makedirs("verification", exist_ok=True)

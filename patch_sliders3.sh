@@ -1,0 +1,2 @@
+sed -i 's/<input type="range" class="cc-slider" value="80" aria-label="Brillo">/<input type="range" class="cc-slider" value="80" aria-label="Brillo"><span class="slider-value">80%<\/span>/g' web_ui/index.html
+sed -i 's/<input type="range" class="cc-slider" value="60" aria-label="Volumen">/<input type="range" class="cc-slider" value="60" aria-label="Volumen"><span class="slider-value">60%<\/span>/g' web_ui/index.html
