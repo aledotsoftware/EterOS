@@ -11,7 +11,7 @@
 #include <vmm.h>
 #include <mm.h>
 #include <fs/vfs.h>
-#include "lwip/sockets.h"
+#include <lwip/sockets.h>
 
 #ifndef __cplusplus
 struct msghdr;
