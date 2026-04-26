@@ -11,7 +11,8 @@
 #include <vmm.h>
 #include <mm.h>
 #include <fs/vfs.h>
-#include "lwip/sockets.h"
+#include <lwip/sockets.h>
+#include <lwip/sockets.h>
 
 static ssize_t lwip_socket_read_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
     (void)offset;
@@ -80,10 +81,10 @@ static inline int get_lwip_sock(int fd) {
     return (int)node->inode;
 }
 
-int sys_lwip_bind(int fd, const void *name, socklen_t namelen) {
+int sys_lwip_bind(int fd, const struct sockaddr *name, socklen_t namelen) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;
-    return lwip_bind(sock, name, namelen);
+    return lwip_bind(sock, (const void*)name, namelen);
 }
 
 int sys_lwip_listen(int fd, int backlog) {
@@ -92,11 +93,11 @@ int sys_lwip_listen(int fd, int backlog) {
     return lwip_listen(sock, backlog);
 }
 
-int sys_lwip_accept(int fd, void *addr, socklen_t *addrlen) {
+int sys_lwip_accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;
 
-    int new_sock = lwip_accept(sock, (struct sockaddr*)addr, (socklen_t*)addrlen);
+    int new_sock = lwip_accept(sock, (struct sockaddr*)addr, addrlen);
     if (new_sock < 0) return new_sock;
 
     task_t* current = task_get_current();
@@ -133,22 +134,22 @@ int sys_lwip_accept(int fd, void *addr, socklen_t *addrlen) {
     return new_fd;
 }
 
-int sys_lwip_connect(int fd, const void *name, socklen_t namelen) {
+int sys_lwip_connect(int fd, const struct sockaddr *name, socklen_t namelen) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;
-    return lwip_connect(sock, name, namelen);
+    return lwip_connect(sock, (const struct sockaddr*)name, namelen);
 }
 
-ssize_t sys_lwip_sendto(int fd, const void *data, size_t size, int flags, const void *to, socklen_t tolen) {
+ssize_t sys_lwip_sendto(int fd, const void *data, size_t size, int flags, const struct sockaddr *to, socklen_t tolen) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;
-    return lwip_sendto(sock, data, size, flags, to, tolen);
+    return lwip_sendto(sock, data, size, flags, (const struct sockaddr*)to, tolen);
 }
 
-ssize_t sys_lwip_recvfrom(int fd, void *mem, size_t len, int flags, void *from, socklen_t *fromlen) {
+ssize_t sys_lwip_recvfrom(int fd, void *mem, size_t len, int flags, struct sockaddr *from, socklen_t *fromlen) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;
-    return lwip_recvfrom(sock, mem, len, flags, (struct sockaddr*)from, (socklen_t*)fromlen);
+    return lwip_recvfrom(sock, mem, len, flags, (struct sockaddr*)from, fromlen);
 }
 
 int sys_lwip_poll(struct pollfd *fds, uint32_t nfds, int timeout) {
@@ -163,7 +164,7 @@ int sys_lwip_poll(struct pollfd *fds, uint32_t nfds, int timeout) {
         mapped_fds[i].revents = 0;
     }
 
-    int res = lwip_poll(mapped_fds, nfds, timeout);
+    int res = lwip_poll((struct pollfd*)mapped_fds, nfds, timeout);
 
     for (uint32_t i = 0; i < nfds; i++) {
         fds[i].revents = mapped_fds[i].revents;
@@ -235,16 +236,16 @@ int sys_lwip_getsockopt(int fd, int level, int optname, void *optval, socklen_t 
     return lwip_getsockopt(sock, level, optname, optval, (socklen_t*)optlen);
 }
 
-int sys_lwip_getpeername(int fd, void *name, socklen_t *namelen) {
+int sys_lwip_getpeername(int fd, struct sockaddr *name, socklen_t *namelen) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;
-    return lwip_getpeername(sock, (struct sockaddr*)name, (socklen_t*)namelen);
+    return lwip_getpeername(sock, (struct sockaddr*)name, namelen);
 }
 
-int sys_lwip_getsockname(int fd, void *name, socklen_t *namelen) {
+int sys_lwip_getsockname(int fd, struct sockaddr *name, socklen_t *namelen) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;
-    return lwip_getsockname(sock, (struct sockaddr*)name, (socklen_t*)namelen);
+    return lwip_getsockname(sock, (struct sockaddr*)name, namelen);
 }
 
 int sys_lwip_shutdown(int fd, int how) {
@@ -253,16 +254,16 @@ int sys_lwip_shutdown(int fd, int how) {
     return lwip_shutdown(sock, how);
 }
 
-ssize_t sys_lwip_sendmsg(int fd, const void *msg, int flags) {
+ssize_t sys_lwip_sendmsg(int fd, const struct msghdr *msg, int flags) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;
-    return lwip_sendmsg(sock, msg, flags);
+    return lwip_sendmsg(sock, (const struct msghdr*)msg, flags);
 }
 
-ssize_t sys_lwip_recvmsg(int fd, void *msg, int flags) {
+ssize_t sys_lwip_recvmsg(int fd, struct msghdr *msg, int flags) {
     int sock = get_lwip_sock(fd);
     if (sock < 0) return -EBADF;
-    return lwip_recvmsg(sock, msg, flags);
+    return lwip_recvmsg(sock, (struct msghdr*)msg, flags);
 }
 
 ssize_t sys_lwip_send(int fd, const void *buf, size_t len, int flags) {

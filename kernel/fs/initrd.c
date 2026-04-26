@@ -13,14 +13,6 @@ typedef struct {
     uint32_t count;
 } __attribute__((packed)) initrd_header_t;
 
-typedef struct initrd_vfile {
-    char name[128];
-    uint32_t inode;
-    uint8_t *data;
-    uint32_t size;
-    struct initrd_vfile *next;
-} initrd_vfile_t;
-
 typedef struct initrd_dir {
     char name[128];
     uint32_t inode;
@@ -33,9 +25,6 @@ static uint32_t initrd_image_size = 0;
 static uint32_t file_count = 0;
 static initrd_file_header_t* file_headers = NULL;
 static fs_node_t *initrd_root = NULL;             /* The root directory node */
-
-static initrd_vfile_t *virtual_files = NULL;
-static uint32_t virtual_files_count = 0;
 
 static initrd_dir_t *virtual_dirs = NULL;
 static uint32_t virtual_dirs_count = 0;
@@ -123,15 +112,6 @@ static fs_node_t* initrd_make_dir_node(const char* name, const char* full_path) 
     return fnode;
 }
 
-static initrd_vfile_t *find_virtual_file(const char *path) {
-    initrd_vfile_t* current = virtual_files;
-    while (current) {
-        if (strcmp(current->name, path) == 0) return current;
-        current = current->next;
-    }
-    return NULL;
-}
-
 ssize_t initrd_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     initrd_file_header_t header = file_headers[node->inode];
     if (offset > header.size)
@@ -157,107 +137,6 @@ ssize_t initrd_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *bu
     return size;
 }
 
-uint32_t initrd_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
-    if (!node || !buffer) return 0;
-
-    initrd_vfile_t *vf = NULL;
-    if (node->inode >= 0xE0000000 && node->inode < 0xF0000000) {
-        for (vf = virtual_files; vf; vf = vf->next) { if (vf->inode == node->inode) break; }
-    }
-
-    if (!vf) return 0;
-
-    if (offset + size > vf->size) {
-        uint8_t *new_data = kmalloc(offset + size);
-        if (!new_data) return 0;
-        if (vf->data) {
-            memcpy(new_data, vf->data, vf->size);
-            kfree(vf->data);
-        }
-        vf->data = new_data;
-        vf->size = offset + size;
-        node->length = vf->size;
-    }
-    memcpy(vf->data + offset, buffer, size);
-    return size;
-}
-
-int initrd_unlink(fs_node_t *parent, char *name) {
-    char target[256];
-    const char* prefix = initrd_dir_prefix(parent);
-    if (prefix && prefix[0] != '\0') {
-        strlcpy(target, prefix, sizeof(target));
-        strlcat(target, "/", sizeof(target));
-        strlcat(target, name, sizeof(target));
-    } else {
-        strlcpy(target, name, sizeof(target));
-    }
-
-    initrd_vfile_t *prev = NULL;
-    initrd_vfile_t *curr = virtual_files;
-    while (curr) {
-        if (strcmp(curr->name, target) == 0) {
-            if (prev) prev->next = curr->next;
-            else virtual_files = curr->next;
-            if (curr->data) kfree(curr->data);
-            kfree(curr);
-            return 0;
-        }
-        prev = curr;
-        curr = curr->next;
-    }
-    return -1;
-}
-
-int initrd_rename(fs_node_t *parent, char *oldname, fs_node_t *new_parent, char *newname) {
-    char old_target[256], new_target[256];
-    const char* old_prefix = initrd_dir_prefix(parent);
-    if (old_prefix && old_prefix[0] != '\0') {
-        strlcpy(old_target, old_prefix, sizeof(old_target));
-        strlcat(old_target, "/", sizeof(old_target));
-        strlcat(old_target, oldname, sizeof(old_target));
-    } else strlcpy(old_target, oldname, sizeof(old_target));
-
-    const char* new_prefix = initrd_dir_prefix(new_parent);
-    if (new_prefix && new_prefix[0] != '\0') {
-        strlcpy(new_target, new_prefix, sizeof(new_target));
-        strlcat(new_target, "/", sizeof(new_target));
-        strlcat(new_target, newname, sizeof(new_target));
-    } else strlcpy(new_target, newname, sizeof(new_target));
-
-    initrd_vfile_t *vf = find_virtual_file(old_target);
-    if (!vf) return -1;
-    strlcpy(vf->name, new_target, sizeof(vf->name));
-    return 0;
-}
-
-int initrd_create(fs_node_t *parent, char *name, uint16_t permission) {
-    (void)permission;
-    char target[256];
-    const char* prefix = initrd_dir_prefix(parent);
-
-    if (prefix && prefix[0] != '\0') {
-        strlcpy(target, prefix, sizeof(target));
-        strlcat(target, "/", sizeof(target));
-        strlcat(target, name, sizeof(target));
-    } else {
-        strlcpy(target, name, sizeof(target));
-    }
-
-    if (find_virtual_file(target) != NULL) return -1;
-
-    initrd_vfile_t *new_vf = (initrd_vfile_t*)kmalloc(sizeof(initrd_vfile_t));
-    if (!new_vf) return -2;
-    strlcpy(new_vf->name, target, sizeof(new_vf->name));
-    new_vf->inode = 0xE0000000 + virtual_files_count++;
-    new_vf->data = NULL;
-    new_vf->size = 0;
-    new_vf->next = virtual_files;
-    virtual_files = new_vf;
-
-    return 0;
-}
-
 int initrd_readdir(fs_node_t *node, uint32_t index, struct dirent *entry) {
     const char* prefix = initrd_dir_prefix(node);
     char child[128];
@@ -265,18 +144,6 @@ int initrd_readdir(fs_node_t *node, uint32_t index, struct dirent *entry) {
     if (!prefix) return -1;
 
     /* Virtual dirs first */
-    for (initrd_vfile_t *vf = virtual_files; vf; vf = vf->next) {
-        char child[128];
-        if (initrd_extract_child(vf->name, prefix, child, sizeof(child))) {
-            if (seen == index) {
-                strlcpy(entry->name, child, sizeof(entry->name));
-                entry->inode = vf->inode;
-                return 0;
-            }
-            seen++;
-        }
-    }
-
     for (initrd_dir_t* cur = virtual_dirs; cur; cur = cur->next) {
         if (!initrd_extract_child(cur->name, prefix, child, sizeof(child))) continue;
         int duplicate = 0;
@@ -405,25 +272,6 @@ fs_node_t *initrd_finddir(fs_node_t *node, char *name) {
         strlcat(target, name, sizeof(target));
     }
 
-    initrd_vfile_t *vf = find_virtual_file(target);
-    if (vf) {
-        fs_node_t *fnode = (fs_node_t*)kmalloc(sizeof(fs_node_t));
-        if (!fnode) return 0;
-        memset(fnode, 0, sizeof(fs_node_t));
-        fnode->ref_count = 1;
-        size_t nlen = strlen(name);
-        if (nlen >= sizeof(fnode->name)) nlen = sizeof(fnode->name) - 1;
-        memcpy(fnode->name, name, nlen);
-        fnode->name[nlen] = '\0';
-        fnode->inode = vf->inode;
-        fnode->mask = 0644;
-        fnode->flags = FS_FILE;
-        fnode->read = &initrd_read;
-        fnode->write = &initrd_write;
-        fnode->length = vf->size;
-        return fnode;
-    }
-
     /* Check for virtual directories */
     initrd_dir_t* vdir = find_virtual_dir(target);
     if (vdir) {
@@ -456,7 +304,7 @@ fs_node_t *initrd_finddir(fs_node_t *node, char *name) {
              fnode->mask = 0755; /* Files typically rwxr-xr-x (executable for elf) */
              fnode->flags = FS_FILE;
              fnode->read = &initrd_read;
-             fnode->write = &initrd_write;
+             fnode->write = 0;
              fnode->open = 0;
              fnode->close = 0;
              fnode->readdir = 0;
@@ -566,9 +414,6 @@ fs_node_t *initialise_initrd(uint64_t start_addr, uint32_t size) {
     initrd_root->readdir = &initrd_readdir;
     initrd_root->finddir = &initrd_finddir;
     initrd_root->mkdir = &initrd_mkdir;
-    initrd_root->create = &initrd_create;
-    initrd_root->rename = &initrd_rename;
-    initrd_root->unlink = &initrd_unlink;
     initrd_root->ptr = 0;
     initrd_root->impl = 0;
 
