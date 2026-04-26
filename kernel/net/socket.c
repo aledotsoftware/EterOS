@@ -11,7 +11,8 @@
 #include <vmm.h>
 #include <mm.h>
 #include <fs/vfs.h>
-#include <lwip/sockets.h>
+#include "lwip/sockets.h"
+#include "lwip/api.h"
 
 static ssize_t lwip_socket_read_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
     (void)offset;
