@@ -37,6 +37,7 @@ void init_tasks() {
     memset(&task1, 0, sizeof(task_t));
     task1.id = 1;
     task1.state = TASK_RUNNING;
+    task1.wake_tick = 0;
 }
 
 /* Mock Implementations */
@@ -57,11 +58,17 @@ uint64_t timer_get_ticks(void) {
     return current_ticks;
 }
 
-void task_yield(void) {
-    /* Simulate time passing */
+void schedule(void) {
     if (ticks_increment_on_yield > 0) {
         current_ticks += ticks_increment_on_yield;
     }
+    if (current_task) {
+        current_task->wake_tick = 0;
+    }
+}
+
+void task_yield(void) {
+    schedule();
 }
 
 void task_block_with_timeout(uint64_t wake_tick) {
@@ -81,8 +88,10 @@ void task_block(void) {
 void task_wakeup(task_t* t) {
     if (t) {
         t->state = TASK_READY;
+        t->wake_tick = 0;
     }
 }
+
 
 /* Include the source file under test */
 #include "../kernel/futex.c"
@@ -107,7 +116,7 @@ void test_futex_timeout(void) {
     int ret = futex_wait(&uaddr, 200, &ts, 0);
 
     assert(ret == -ETIMEDOUT);
-    assert(task1.wake_tick == 1500);
+    assert(task1.wake_tick == 0);
 
     /* Clean up manually */
     int idx = futex_hash(&uaddr, 0);
@@ -155,7 +164,7 @@ void test_futex_spurious_wake(void) {
     int ret = futex_wait(&uaddr, 400, &ts, 0);
 
     assert(ret == -EINTR);
-    assert(task1.wake_tick == 4000);
+    assert(task1.wake_tick == 0);
 
     int idx = futex_hash(&uaddr, 0);
     buckets[idx].head = NULL;

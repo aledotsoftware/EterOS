@@ -56,6 +56,7 @@ uint64_t timer_get_ticks(void) {
     return 0;
 }
 
+void schedule(void) {}
 void task_yield(void) {
     /* No-op in single-threaded test */
 }
