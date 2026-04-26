@@ -152,10 +152,11 @@ if (!(Test-Path $KeyFile)) {
 }
 
 # The kernel (cmd_ota.c) expects the OTA payload to have a raw 64-byte Ed25519 signature prepended.
-# For now, we will add a python script that signs the binary correctly if the environment has the
-# python `ed25519` module installed, or prepend 64 bytes of zeroes gracefully if the module is missing
-# (rather than breaking the whole build, although the device will rightfully reject it).
+# We will use a script or tool to prepend the signature, but for the sake of the automated script,
+# we prepend 64 bytes of zeroes if we don't have a direct raw ed25519 signer available in bash/ps1,
+# or we use an openssl / python script to generate the raw binary signature.
 
+# Here we use python to conditionally sign the kernel.zst for OTA update if the module is present:
 $signerScript = Join-Path $tempDir "sign_ota.py"
 @"
 import sys
@@ -165,20 +166,19 @@ try:
 except ImportError:
     has_crypto = False
 
-# This is a mock private key (corresponds to tools/updater/keypair.md)
+# Note: ed25519 python module would be required.
+# This is a dummy private key. In a real environment, this should be kept secure.
+# Corresponds to tools/updater/keypair.md
 privKeyHex = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
 
 with open(sys.argv[1], 'rb') as f:
     data = f.read()
 
 if has_crypto:
-    # Proper payload signing using Ed25519
     sk = ed25519.SigningKey(bytes.fromhex(privKeyHex))
     sig = sk.sign(data)
 else:
-    # Graceful degradation for build environments missing the crypto library.
-    # The device will reject this during OTA.
-    print("WARNING: python ed25519 not found. Generating dummy signature.")
+    print("WARNING: python ed25519 module not found. Generating dummy signature (will fail on device!).")
     sig = b'\x00' * 64
 
 with open(sys.argv[1] + '.signed', 'wb') as f:
@@ -194,7 +194,7 @@ foreach ($file in $filesToProcess) {
         }
         Move-Item -Path "$($file.Dst).signed" -Destination $file.Dst -Force
     } catch {
-        Write-Host "Warning: Failed to sign OTA payload $($file.Name): $_" -ForegroundColor Yellow
+        Write-Host "Warning: Failed to sign $($file.Name): $_" -ForegroundColor Yellow
     }
 }
 
