@@ -51,3 +51,4 @@
 #endif /* __LWIP_OPTS_H__ */
 
 #define LWIP_PROVIDE_ERRNO 1
+#define LWIP_SOCKET_EXTERNAL_HEADERS 0
