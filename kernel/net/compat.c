@@ -61,6 +61,11 @@ void net_init(void) {
     serial_write_string("[NET] Init done.\n");
 }
 
+void dhcp_discover(void) {
+    serial_write_string("[NET] Requesting DHCP...\n");
+    dhcp_start(&main_netif);
+}
+
 void net_poll(void) {
     /* Poll the driver */
     ethernetif_poll(&main_netif);

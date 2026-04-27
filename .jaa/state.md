@@ -35,3 +35,10 @@
 - Implemented Linux native `sys_memfd_create` (syscall 319) in `kernel/arch/x86_64/syscall.c` leveraging anonymous Shared Memory nodes (`shmfs`).
 - Modified `shmfs_close` to safely release anonymous shared memory pages when the open file descriptor count hits zero.
 - Re-verified full kernel compilation (`make clean && make all`) and successfully passed all native host VFS/Syscall C tests.
+
+## Network Subsystem lwIP Integration (Current Run)
+- Deprecated custom `dhcp_discover()` from `kernel/net/core/dhcp.c` and routed DHCP configuration to lwIP's `dhcp_start(&main_netif)` inside `kernel/net/compat.c`.
+- Implemented `sys_lwip_close(int fd)` in `kernel/net/socket.c` to safely close lwIP sockets from kernel apps while managing VFS reference counts and preventing memory leaks.
+- Migrated all kernel applications (`wget`, `cmd_time` for NTP, `cmd_ota`) to use `sys_lwip_*` socket APIs instead of the incomplete legacy `net_*` stack.
+- Rewrote the Linux ABI network syscall handlers (`sys_socket`, `sys_connect`, `sys_sendto`, `sys_recvfrom`, `sys_bind`, `sys_listen`, `sys_accept`, etc.) in `kernel/arch/x86_64/syscall.c` to explicitly rely on the lwIP network stack via `sys_lwip_*` functions, while retaining all pointer verification checks (`vmm_verify_user_access`).
+- Verified implementation with clean full-system compiles (`make clean && make all`) and successfully passed all updated host C tests.
