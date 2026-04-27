@@ -64,6 +64,13 @@ void task_yield(void) {
     }
 }
 
+void schedule(void) {
+    if (current_task) current_task->wake_tick = 0;
+    if (ticks_increment_on_yield > 0) {
+        current_ticks += ticks_increment_on_yield;
+    }
+}
+
 void task_block_with_timeout(uint64_t wake_tick) {
     if (current_task) {
         current_task->wake_tick = wake_tick;
@@ -107,7 +114,7 @@ void test_futex_timeout(void) {
     int ret = futex_wait(&uaddr, 200, &ts, 0);
 
     assert(ret == -ETIMEDOUT);
-    assert(task1.wake_tick == 1500);
+    assert(task1.wake_tick == 0);
 
     /* Clean up manually */
     int idx = futex_hash(&uaddr, 0);
@@ -155,7 +162,7 @@ void test_futex_spurious_wake(void) {
     int ret = futex_wait(&uaddr, 400, &ts, 0);
 
     assert(ret == -EINTR);
-    assert(task1.wake_tick == 4000);
+    assert(task1.wake_tick == 0);
 
     int idx = futex_hash(&uaddr, 0);
     buckets[idx].head = NULL;

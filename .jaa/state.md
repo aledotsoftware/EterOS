@@ -35,3 +35,9 @@
 - Implemented Linux native `sys_memfd_create` (syscall 319) in `kernel/arch/x86_64/syscall.c` leveraging anonymous Shared Memory nodes (`shmfs`).
 - Modified `shmfs_close` to safely release anonymous shared memory pages when the open file descriptor count hits zero.
 - Re-verified full kernel compilation (`make clean && make all`) and successfully passed all native host VFS/Syscall C tests.
+
+## EterOS Scheduler & IPC Basic Fixes (Current Run)
+- Addressed scheduler bugs in `kernel/task.c` (`task_sleep`) and `kernel/futex.c` (`futex_wait`) by replacing `task_yield()` with `schedule()` to properly block tasks without immediately returning them to the ready queue.
+- Added native support for handling `CLONE_CHILD_SETTID` in `kernel/task.c:task_clone` to correctly set the child TID directly in the user-provided pointer after access validation, enhancing POSIX compatibility.
+- Updated `test_futex_logic.c` and `test_futex_timeout.c` tests to mock `schedule()` correctly, passing the modified IPC logic.
+- Conducted full `make all` build and executed `tests/run_tests.sh` and QEMU boot test to verify stability.

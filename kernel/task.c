@@ -827,7 +827,7 @@ void task_sleep(uint64_t ms) {
     spin_unlock(&sched_lock);
 
     /* Ceder CPU */
-    task_yield();
+    schedule();
 }
 
 void task_wake_expired(uint64_t current_tick) {
@@ -1363,7 +1363,9 @@ int task_clone(uint64_t clone_flags, uint64_t stack_top, uint32_t* parent_tid, u
     }
     if (clone_flags & CLONE_CHILD_SETTID) {
         if (child_tid) {
-             /* Handled by user space, but can be done here. */
+             if (vmm_verify_user_access(child_tid, sizeof(uint32_t), 1)) {
+                 *child_tid = tasks[slot].id;
+             }
         }
     }
 

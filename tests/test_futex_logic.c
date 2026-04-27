@@ -60,6 +60,10 @@ void task_yield(void) {
     /* No-op in single-threaded test */
 }
 
+void schedule(void) {
+    /* No-op in single-threaded test */
+}
+
 void task_block_with_timeout(uint64_t wake_tick) {
     (void)wake_tick;
     if (current_task) {
