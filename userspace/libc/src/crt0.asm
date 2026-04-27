@@ -92,12 +92,12 @@ _start:
 
 .done_auxv:
     ; 5. Call global constructors
-    ; Here we would call _init() if it exists, or call function pointers in .init_array
+    ; Here we would ; call _init() if it exists, or call function pointers in .init_array
     ; For now, we declare them externally if needed, or just let linker provide them.
     ; Standard libc runs the init array. We'll leave it as a placeholder call for now
     ; since the requirement just mentioned "call constructors".
-    extern _init
-    ; call _init ; Need to ensure _init is provided by CRT files. Usually provided by crti.o
+    ; ; extern _init
+    ; ; call _init ; Need to ensure _init is provided by CRT files. Usually provided by crti.o
     ; If we don't have crti/n, we can skip or provide a weak symbol.
     ; To avoid linker errors, we'll assume the environment doesn't strictly need _init
     ; unless we compile with it, but we can do a weak reference.
