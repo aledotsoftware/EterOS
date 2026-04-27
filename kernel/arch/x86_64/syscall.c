@@ -500,6 +500,8 @@ static int64_t sys_mmap(void* addr, size_t len, int prot, int flags, int fd, int
 
     /* If neither MAP_PRIVATE (0x02) nor MAP_SHARED (0x01) are set */
     if (!(flags & 0x03)) {
+        flags |= MAP_PRIVATE;
+
         if (current && current->os_abi == ELFOSABI_LINUX && fd != -1) {
             /* Allow file-backed mmap without MAP_ANONYMOUS in Linux ABI */
             flags |= MAP_PRIVATE;
@@ -820,6 +822,7 @@ static int check_node_permission(fs_node_t* node, uint32_t req_mask) {
 }
 
 static int64_t sys_openat(int dirfd, const char* path, int flags, int mode) {
+    if (!vmm_check_user_string(path, 4096)) return -EFAULT;
     if (!vmm_verify_user_access(path, 1, 0)) return -EFAULT;
     char* kpath = (char*)kmalloc(256);
     if (!kpath) return -ENOMEM;
@@ -1016,6 +1019,20 @@ static int64_t sys_unlinkat(int dirfd, const char* path, int flags) {
     return res2;
 }
 
+static int64_t sys_rmdir(const char* path) {
+    if (!vmm_verify_user_access(path, 1, 0)) return -EFAULT;
+    char kpath[256];
+    if (vmm_strncpy_from_user(kpath, path, sizeof(kpath)) < 0) return -EFAULT;
+    fs_node_t* node = vfs_lookup(fs_root, kpath);
+    if (!node) return -ENOENT;
+    if ((node->flags & 0x7) != FS_DIRECTORY) {
+        kfree(node);
+        return -ENOTDIR;
+    }
+    kfree(node);
+    return sys_unlinkat(AT_FDCWD, path, 0x200);
+}
+
 static int64_t sys_unlink(const char* path) {
     return sys_unlinkat(AT_FDCWD, path, 0);
 }
@@ -1067,6 +1084,7 @@ static int64_t sys_fchmod(int fd, int mode) {
 
 static int64_t sys_readlinkat(int dirfd, const char* path, char* buf, size_t bufsiz) {
     if (!vmm_verify_user_access(buf, bufsiz, 1)) return -EFAULT;
+    if (!vmm_check_user_string(path, 4096)) return -EFAULT;
 
     char* kpath = (char*)kmalloc(256);
     if (!kpath) return -ENOMEM;
@@ -1564,6 +1582,7 @@ static int64_t sys_arch_prctl(int code, uint64_t addr) {
         *(uint64_t*)addr = current->fs_base;
         return 0;
     } else if (code == ARCH_GET_GS) {
+        current->gs_base = rdmsr(MSR_KERNEL_GS_BASE);
         if (!vmm_verify_user_access((void*)addr, sizeof(uint64_t), 1)) return -EFAULT;
         *(uint64_t*)addr = current->gs_base;
         return 0;
@@ -3225,6 +3244,7 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [79] = (syscall_ptr_t)sys_getcwd,
     [80] = (syscall_ptr_t)sys_chdir,
     [83] = (syscall_ptr_t)sys_mkdir,
+    [84] = (syscall_ptr_t)sys_rmdir,
     [87] = (syscall_ptr_t)sys_unlink,
     [96] = (syscall_ptr_t)sys_gettimeofday,
     [102] = (syscall_ptr_t)sys_getuid,
@@ -3328,6 +3348,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [79] = (syscall_ptr_t)sys_getcwd,
     [80] = (syscall_ptr_t)sys_chdir,
     [83] = (syscall_ptr_t)sys_mkdir,
+    [84] = (syscall_ptr_t)sys_rmdir,
     [87] = (syscall_ptr_t)sys_unlink,
     [96] = (syscall_ptr_t)sys_gettimeofday,
     [97] = (syscall_ptr_t)sys_getrlimit,
@@ -3425,6 +3446,7 @@ static syscall_ptr_t syscall_linux32_table[MAX_SYSCALL_NUM] = {
     [183] = (syscall_ptr_t)sys_getcwd,
     [12] = (syscall_ptr_t)sys_chdir,
     [39] = (syscall_ptr_t)sys_mkdir,
+    [40] = (syscall_ptr_t)sys_rmdir,
     [10] = (syscall_ptr_t)sys_unlink,
     [199] = (syscall_ptr_t)sys_getuid,
     [213] = (syscall_ptr_t)sys_setuid,

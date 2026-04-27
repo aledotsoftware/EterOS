@@ -48,7 +48,7 @@ int elf_get_interp(const char* path, char* out_interp, uint32_t out_interp_size)
 
         if (phdr.p_type != PT_INTERP) continue;
 
-        if (phdr.p_filesz < 2 || phdr.p_filesz > out_interp_size) {
+        if (phdr.p_filesz < 2 || phdr.p_filesz >= out_interp_size) {
             kfree(node);
             return -E2BIG;
         }
