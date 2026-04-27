@@ -1007,9 +1007,11 @@ static int64_t sys_unlinkat(int dirfd, const char* path, int flags) {
     fs_node_t* parent = vfs_lookup(fs_root, parent_path);
     if (!parent) { kfree(filename); kfree(parent_path); kfree(kpath); return -ENOENT; }
     /* SECURITY FIX: Require Write & Execute permission on parent dir for unlink */
-    if (!check_node_permission(parent, 2 | 1)) { kfree(parent); kfree(filename); kfree(parent_path); kfree(kpath); return -EACCES; }
+    if (!check_node_permission(parent, 2 | 1)) {
+        close_fs(parent); kfree(filename); kfree(parent_path); kfree(kpath); return -EACCES;
+    }
     int res2 = unlink_fs(parent, filename);
-    kfree(parent);
+    close_fs(parent);
     kfree(filename);
     kfree(parent_path);
     kfree(kpath);
@@ -1018,6 +1020,45 @@ static int64_t sys_unlinkat(int dirfd, const char* path, int flags) {
 
 static int64_t sys_unlink(const char* path) {
     return sys_unlinkat(AT_FDCWD, path, 0);
+}
+
+static int64_t sys_rmdir(const char* path) {
+    char* kpath = (char*)kmalloc(256);
+    if (!kpath) return -ENOMEM;
+    int res = resolve_path(AT_FDCWD, path, kpath, 256);
+    if (res < 0) { kfree(kpath); return res; }
+
+    char* parent_path = (char*)kmalloc(128);
+    if (!parent_path) { kfree(kpath); return -ENOMEM; }
+    char* filename = (char*)kmalloc(128);
+    if (!filename) { kfree(parent_path); kfree(kpath); return -ENOMEM; }
+    if (split_path(kpath, parent_path, filename) != 0) { kfree(filename); kfree(parent_path); kfree(kpath); return -ENAMETOOLONG; }
+    fs_node_t* parent = vfs_lookup(fs_root, parent_path);
+    if (!parent) { kfree(filename); kfree(parent_path); kfree(kpath); return -ENOENT; }
+
+    fs_node_t* node = vfs_lookup(parent, filename);
+    if (!node) {
+        close_fs(parent);
+        kfree(filename); kfree(parent_path); kfree(kpath); return -ENOENT;
+    }
+    if ((node->flags & 0x7) != FS_DIRECTORY) {
+        close_fs(node);
+        close_fs(parent);
+        kfree(filename); kfree(parent_path); kfree(kpath); return -ENOTDIR;
+    }
+    close_fs(node);
+
+    /* SECURITY FIX: Require Write & Execute permission on parent dir for rmdir */
+    if (!check_node_permission(parent, 2 | 1)) {
+        close_fs(parent);
+        kfree(filename); kfree(parent_path); kfree(kpath); return -EACCES;
+    }
+    int res2 = unlink_fs(parent, filename);
+    close_fs(parent);
+    kfree(filename);
+    kfree(parent_path);
+    kfree(kpath);
+    return res2;
 }
 
 static int64_t sys_chmod(const char* path, int mode) {
@@ -3225,6 +3266,7 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [79] = (syscall_ptr_t)sys_getcwd,
     [80] = (syscall_ptr_t)sys_chdir,
     [83] = (syscall_ptr_t)sys_mkdir,
+    [84] = (syscall_ptr_t)sys_rmdir,
     [87] = (syscall_ptr_t)sys_unlink,
     [96] = (syscall_ptr_t)sys_gettimeofday,
     [102] = (syscall_ptr_t)sys_getuid,
@@ -3294,11 +3336,15 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [12] = (syscall_ptr_t)sys_brk,
     [13] = (syscall_ptr_t)sys_rt_sigaction,
     [14] = (syscall_ptr_t)sys_rt_sigprocmask,
+    [7] = (syscall_ptr_t)sys_poll,
     [16] = (syscall_ptr_t)sys_ioctl,
+    [17] = (syscall_ptr_t)sys_pread64,
+    [18] = (syscall_ptr_t)sys_pwrite64,
     [19] = (syscall_ptr_t)sys_readv,
     [20] = (syscall_ptr_t)sys_writev,
     [21] = (syscall_ptr_t)sys_access,
     [22] = (syscall_ptr_t)sys_pipe,
+    [23] = (syscall_ptr_t)sys_select,
     [25] = (syscall_ptr_t)sys_mremap,
     [28] = (syscall_ptr_t)sys_madvise,
     [32] = (syscall_ptr_t)sys_dup,
@@ -3328,9 +3374,11 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [79] = (syscall_ptr_t)sys_getcwd,
     [80] = (syscall_ptr_t)sys_chdir,
     [83] = (syscall_ptr_t)sys_mkdir,
+    [84] = (syscall_ptr_t)sys_rmdir,
     [87] = (syscall_ptr_t)sys_unlink,
     [96] = (syscall_ptr_t)sys_gettimeofday,
     [97] = (syscall_ptr_t)sys_getrlimit,
+    [99] = (syscall_ptr_t)sys_sysinfo,
     [102] = (syscall_ptr_t)sys_getuid,
     [105] = (syscall_ptr_t)sys_setuid,
     [106] = (syscall_ptr_t)sys_setgid,
@@ -3425,6 +3473,7 @@ static syscall_ptr_t syscall_linux32_table[MAX_SYSCALL_NUM] = {
     [183] = (syscall_ptr_t)sys_getcwd,
     [12] = (syscall_ptr_t)sys_chdir,
     [39] = (syscall_ptr_t)sys_mkdir,
+    [40] = (syscall_ptr_t)sys_rmdir,
     [10] = (syscall_ptr_t)sys_unlink,
     [199] = (syscall_ptr_t)sys_getuid,
     [213] = (syscall_ptr_t)sys_setuid,
