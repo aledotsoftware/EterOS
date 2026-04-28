@@ -51,3 +51,9 @@
 - Updated `sys_unlinkat` to properly handle the `AT_REMOVEDIR` (0x200) flag semantics, rejecting directory unlinks without it (`-EISDIR`) and file unlinks with it (`-ENOTDIR`).
 - Ensured all dynamically created VFS nodes in `procfs.c` (e.g. `/proc/version`, `/proc/self`) are populated with appropriate permissions (`mask` = 0444, 0555, 0777), preventing spurious permission-denied errors by the kernel's `check_node_permission()`.
 - Extended the explicit `mask` validation to `devfs`, `shmfs`, `jfs`, `fat32`, and `initrd` filesystems to guarantee broad compatibility with userspace utilities managing directory access controls (like `login.c` and `passwd.c`).
+
+## Linux Syscall Compliance Update (Current Run)
+- Implemented missing POSIX syscalls required for standard Linux libc compatibility.
+- Mapped `sys_select` (23), `sys_poll` (7), and `sys_sysinfo` (99) to `syscall_linux_table`.
+- Mapped `sys_fchmodat` (268) and `sys_fchmod` (91) in both Linux and Native tables.
+- Verified `sys_readlink` and `sys_readlinkat` were correctly mapped to indices 89 and 267.
