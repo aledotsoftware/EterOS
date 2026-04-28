@@ -22,59 +22,9 @@
 extern int errno;
 extern char **environ;
 
-/* Syscall primitives (self-contained to avoid cross-TU dependencies). */
-static inline long _syscall0(long n) {
-    long ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline long _syscall1(long n, long a1) {
-    long ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline long _syscall2(long n, long a1, long a2) {
-    long ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline long _syscall3(long n, long a1, long a2, long a3) {
-    long ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2), "d"(a3) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline long _syscall4(long n, long a1, long a2, long a3, long a4) {
-    long ret;
-    register long r10 __asm__("r10") = a4;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2), "d"(a3), "r"(r10) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline long _syscall5(long n, long a1, long a2, long a3, long a4, long a5) {
-    long ret;
-    register long r10 __asm__("r10") = a4;
-    register long r8 __asm__("r8") = a5;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2), "d"(a3), "r"(r10), "r"(r8) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline long _syscall6(long n, long a1, long a2, long a3, long a4, long a5, long a6) {
-    long ret;
-    register long r10 __asm__("r10") = a4;
-    register long r8  __asm__("r8")  = a5;
-    register long r9  __asm__("r9")  = a6;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2), "d"(a3),
-                      "r"(r10), "r"(r8), "r"(r9) : "rcx", "r11", "memory");
-    return ret;
-}
-
 static int _set_errno(long ret) {
     if (ret < 0) {
-        errno = (int)(-ret);
+
         return -1;
     }
     return 0;
@@ -118,14 +68,14 @@ static int _join_path(char *dst, size_t dst_sz, const char *dir, const char *fil
 
 /* Process */
 int fork(void) {
-    long ret = _syscall0(SYS_fork);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_fork);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[]) {
-    long ret = _syscall3(SYS_execve, (long)pathname, (long)argv, (long)envp);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_execve, (long)pathname, (long)argv, (long)envp);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
@@ -206,42 +156,42 @@ int execvp(const char *file, char *const argv[]) {
 }
 
 pid_t waitpid(pid_t pid, int *status, int options) {
-    long ret = _syscall4(SYS_wait4, pid, (long)status, options, 0);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_wait4, pid, (long)status, options, 0);
+    if (ret < 0) { return -1; }
     return (pid_t)ret;
 }
 
 int waitid(idtype_t idtype, pid_t id, siginfo_t *infop, int options) {
-    long ret = _syscall5(SYS_waitid, idtype, id, (long)infop, options, 0);
+    long ret = syscall(SYS_waitid, idtype, id, (long)infop, options, 0);
     return _set_errno(ret);
 }
 
 /* File descriptors and filesystem */
 int pipe(int pipefd[2]) {
-    long ret = _syscall1(SYS_pipe, (long)pipefd);
+    long ret = syscall(SYS_pipe, (long)pipefd);
     return _set_errno(ret);
 }
 
 int pipe2(int pipefd[2], int flags) {
-    long ret = _syscall2(SYS_pipe2, (long)pipefd, flags);
+    long ret = syscall(SYS_pipe2, (long)pipefd, flags);
     return _set_errno(ret);
 }
 
 int dup(int oldfd) {
-    long ret = _syscall1(SYS_dup, oldfd);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_dup, oldfd);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
 int dup2(int oldfd, int newfd) {
-    long ret = _syscall2(SYS_dup2, oldfd, newfd);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_dup2, oldfd, newfd);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
 int dup3(int oldfd, int newfd, int flags) {
-    long ret = _syscall3(SYS_dup3, oldfd, newfd, flags);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_dup3, oldfd, newfd, flags);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
@@ -254,8 +204,8 @@ int openat(int dirfd, const char *pathname, int flags, ...) {
         va_end(ap);
     }
 
-    long ret = _syscall4(SYS_openat, dirfd, (long)pathname, flags, mode);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_openat, dirfd, (long)pathname, flags, mode);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
@@ -266,89 +216,89 @@ int fcntl(int fd, int cmd, ...) {
     arg = va_arg(ap, long);
     va_end(ap);
 
-    long ret = _syscall3(SYS_fcntl, fd, cmd, arg);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_fcntl, fd, cmd, arg);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
 int access(const char *pathname, int mode) {
-    long ret = _syscall2(SYS_access, (long)pathname, mode);
+    long ret = syscall(SYS_access, (long)pathname, mode);
     return _set_errno(ret);
 }
 
 int chmod(const char *pathname, mode_t mode) {
-    long ret = _syscall2(SYS_chmod, (long)pathname, mode);
+    long ret = syscall(SYS_chmod, (long)pathname, mode);
     return _set_errno(ret);
 }
 
 int faccessat(int dirfd, const char *pathname, int mode, int flags) {
-    long ret = _syscall4(SYS_faccessat, dirfd, (long)pathname, mode, flags);
+    long ret = syscall(SYS_faccessat, dirfd, (long)pathname, mode, flags);
     return _set_errno(ret);
 }
 
 ssize_t readlink(const char *pathname, char *buf, size_t bufsiz) {
-    long ret = _syscall3(SYS_readlink, (long)pathname, (long)buf, (long)bufsiz);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_readlink, (long)pathname, (long)buf, (long)bufsiz);
+    if (ret < 0) { return -1; }
     return (ssize_t)ret;
 }
 
 ssize_t readlinkat(int dirfd, const char *pathname, char *buf, size_t bufsiz) {
-    long ret = _syscall4(SYS_readlinkat, dirfd, (long)pathname, (long)buf, (long)bufsiz);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_readlinkat, dirfd, (long)pathname, (long)buf, (long)bufsiz);
+    if (ret < 0) { return -1; }
     return (ssize_t)ret;
 }
 
 int lstat(const char *pathname, struct stat *buf) {
-    long ret = _syscall4(SYS_newfstatat, AT_FDCWD, (long)pathname, (long)buf, AT_SYMLINK_NOFOLLOW);
+    long ret = syscall(SYS_newfstatat, AT_FDCWD, (long)pathname, (long)buf, AT_SYMLINK_NOFOLLOW);
     return _set_errno(ret);
 }
 
 int fstatat(int dirfd, const char *pathname, struct stat *buf, int flags) {
-    long ret = _syscall4(SYS_newfstatat, dirfd, (long)pathname, (long)buf, flags);
+    long ret = syscall(SYS_newfstatat, dirfd, (long)pathname, (long)buf, flags);
     return _set_errno(ret);
 }
 
 char *getcwd(char *buf, size_t size) {
-    long ret = _syscall2(SYS_getcwd, (long)buf, (long)size);
-    if (ret < 0) { errno = (int)(-ret); return (void*)0; }
+    long ret = syscall(SYS_getcwd, (long)buf, (long)size);
+    if (ret < 0) { return (void*)0; }
     return buf;
 }
 
 /* IDs and process groups */
 int getppid(void) {
-    return (int)_syscall0(SYS_getppid);
+    return (int)syscall(SYS_getppid);
 }
 
 uid_t getuid(void) {
-    return (uid_t)_syscall0(SYS_getuid);
+    return (uid_t)syscall(SYS_getuid);
 }
 
 gid_t getgid(void) {
-    return (gid_t)_syscall0(SYS_getgid);
+    return (gid_t)syscall(SYS_getgid);
 }
 
 uid_t geteuid(void) {
-    return (uid_t)_syscall0(SYS_geteuid);
+    return (uid_t)syscall(SYS_geteuid);
 }
 
 gid_t getegid(void) {
-    return (gid_t)_syscall0(SYS_getegid);
+    return (gid_t)syscall(SYS_getegid);
 }
 
 pid_t setsid(void) {
-    long ret = _syscall0(SYS_setsid);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_setsid);
+    if (ret < 0) { return -1; }
     return (pid_t)ret;
 }
 
 int setpgid(pid_t pid, pid_t pgid) {
-    long ret = _syscall2(SYS_setpgid, pid, pgid);
+    long ret = syscall(SYS_setpgid, pid, pgid);
     return _set_errno(ret);
 }
 
 pid_t getpgrp(void) {
-    long ret = _syscall0(SYS_getpgrp);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_getpgrp);
+    if (ret < 0) { return -1; }
     return (pid_t)ret;
 }
 
@@ -365,7 +315,7 @@ int tcsetpgrp(int fd, pid_t pgrp) {
 
 /* Scheduling */
 int sched_yield(void) {
-    long ret = _syscall0(SYS_sched_yield);
+    long ret = syscall(SYS_sched_yield);
     return _set_errno(ret);
 }
 
@@ -380,49 +330,49 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
         tsp = &ts;
     }
 
-    ret = _syscall5(SYS_select, nfds, (long)readfds, (long)writefds, (long)exceptfds, (long)tsp);
+    ret = syscall(SYS_select, nfds, (long)readfds, (long)writefds, (long)exceptfds, (long)tsp);
     if (ret < 0) {
-        errno = (int)(-ret);
+
         return -1;
     }
     return (int)ret;
 }
 
 int epoll_create1(int flags) {
-    long ret = _syscall1(SYS_epoll_create1, flags);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_epoll_create1, flags);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
 int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
-    long ret = _syscall4(SYS_epoll_ctl, epfd, op, fd, (long)event);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_epoll_ctl, epfd, op, fd, (long)event);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
 int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout) {
-    long ret = _syscall4(SYS_epoll_wait, epfd, (long)events, maxevents, timeout);
-    if (ret < 0) { errno = (int)(-ret); return -1; }
+    long ret = syscall(SYS_epoll_wait, epfd, (long)events, maxevents, timeout);
+    if (ret < 0) { return -1; }
     return (int)ret;
 }
 
 /* Memory */
 void *mmap(void *addr, size_t length, int prot, int flags, int fd, int64_t offset) {
-    long ret = _syscall6(SYS_mmap, (long)addr, (long)length, prot, flags, fd, offset);
+    long ret = syscall(SYS_mmap, (long)addr, (long)length, prot, flags, fd, offset);
     if (ret < 0) {
-        errno = (int)(-ret);
+
         return (void*)-1;
     }
     return (void*)ret;
 }
 
 int munmap(void *addr, size_t length) {
-    long ret = _syscall2(SYS_munmap, (long)addr, (long)length);
+    long ret = syscall(SYS_munmap, (long)addr, (long)length);
     return _set_errno(ret);
 }
 
 int mprotect(void *addr, size_t len, int prot) {
-    long ret = _syscall3(SYS_mprotect, (long)addr, (long)len, prot);
+    long ret = syscall(SYS_mprotect, (long)addr, (long)len, prot);
     return _set_errno(ret);
 }
 
@@ -436,9 +386,9 @@ void *mremap(void *old_addr, size_t old_size, size_t new_size, int flags, ...) {
     }
 
     {
-        long ret = _syscall5(SYS_mremap, (long)old_addr, (long)old_size, (long)new_size, flags, (long)new_addr);
+        long ret = syscall(SYS_mremap, (long)old_addr, (long)old_size, (long)new_size, flags, (long)new_addr);
         if (ret < 0) {
-            errno = (int)(-ret);
+
             return (void*)-1;
         }
         return (void*)ret;
@@ -446,15 +396,15 @@ void *mremap(void *old_addr, size_t old_size, size_t new_size, int flags, ...) {
 }
 
 void *brk(void *addr) {
-    long ret = _syscall1(SYS_brk, (long)addr);
+    long ret = syscall(SYS_brk, (long)addr);
     return (void*)ret;
 }
 
 void *sbrk(int64_t increment) {
-    long current = _syscall1(SYS_brk, 0);
+    long current = syscall(SYS_brk, 0);
     if (increment == 0) return (void*)current;
     long requested = current + increment;
-    long new_brk = _syscall1(SYS_brk, requested);
+    long new_brk = syscall(SYS_brk, requested);
     if (new_brk != requested) {
         errno = ENOMEM;
         return (void*)-1;
@@ -466,7 +416,7 @@ void *sbrk(int64_t increment) {
 unsigned int sleep(unsigned int seconds) {
     struct { int64_t sec; int64_t nsec; } req = {seconds, 0};
     struct { int64_t sec; int64_t nsec; } rem = {0, 0};
-    long ret = _syscall2(SYS_nanosleep, (long)&req, (long)&rem);
+    long ret = syscall(SYS_nanosleep, (long)&req, (long)&rem);
     if (ret < 0) return (unsigned int)rem.sec;
     return 0;
 }
@@ -475,19 +425,19 @@ int usleep(unsigned int usec) {
     struct { int64_t sec; int64_t nsec; } req;
     req.sec = usec / 1000000;
     req.nsec = (usec % 1000000) * 1000;
-    long ret = _syscall2(SYS_nanosleep, (long)&req, 0);
+    long ret = syscall(SYS_nanosleep, (long)&req, 0);
     return _set_errno(ret);
 }
 
 /* Terminal */
 int tcgetattr(int fd, struct termios *termios_p) {
-    long ret = _syscall3(SYS_ioctl, fd, TCGETS, (long)termios_p);
+    long ret = syscall(SYS_ioctl, fd, TCGETS, (long)termios_p);
     return _set_errno(ret);
 }
 
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
     (void)optional_actions; /* Only TCSANOW is supported by kernel TTY currently. */
-    long ret = _syscall3(SYS_ioctl, fd, TCSETS, (long)termios_p);
+    long ret = syscall(SYS_ioctl, fd, TCSETS, (long)termios_p);
     return _set_errno(ret);
 }
 
@@ -506,14 +456,14 @@ int isatty(int fd) {
 
 /* Misc */
 int uname(void *buf) {
-    long ret = _syscall1(SYS_uname, (long)buf);
+    long ret = syscall(SYS_uname, (long)buf);
     return _set_errno(ret);
 }
 
 mode_t umask(mode_t mask) {
-    long ret = _syscall1(SYS_umask, mask);
+    long ret = syscall(SYS_umask, mask);
     if (ret < 0) {
-        errno = (int)(-ret);
+
         return (mode_t)-1;
     }
     return (mode_t)ret;
@@ -547,7 +497,7 @@ int shm_open(const char *name, int oflag, mode_t mode) {
 }
 
 int ftruncate(int fd, int64_t length) {
-    long ret = _syscall2(SYS_ftruncate, fd, length);
+    long ret = syscall(SYS_ftruncate, fd, length);
     return _set_errno(ret);
 }
 

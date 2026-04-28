@@ -44,18 +44,7 @@ FILE *stdin = &__stdin;
 FILE *stdout = &__stdout;
 FILE *stderr = &__stderr;
 
-/* Syscall primitives */
-static inline long _syscall1(long n, long a1) {
-    long ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1) : "rcx", "r11", "memory");
-    return ret;
-}
-
-static inline long _syscall2(long n, long a1, long a2) {
-    long ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2) : "rcx", "r11", "memory");
-    return ret;
-}
+extern long syscall(long nr, ...);
 
 /* Internal formatting function pointer type */
 typedef void (*putc_func)(int c, void *arg);
@@ -675,7 +664,7 @@ int remove(const char *pathname) {
 }
 
 int rename(const char *oldpath, const char *newpath) {
-    long ret = _syscall2(SYS_rename, (long)oldpath, (long)newpath);
-    if (ret < 0) { errno = (int)-ret; return -1; }
+    long ret = syscall(SYS_rename, (long)oldpath, (long)newpath);
+    if (ret < 0) return -1;
     return 0;
 }

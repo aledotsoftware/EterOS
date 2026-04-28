@@ -52,12 +52,47 @@ char *getenv(const char *name) {
 }
 
 int setenv(const char *name, const char *value, int overwrite) {
-    (void)name;
-    (void)value;
-    (void)overwrite;
-    // Simple mock, as proper setenv requires reallocating environ array.
-    // Full implementation requires mallocing and managing memory which is out of scope for stub.
-    return -1;
+    if (!name || !value) return -1;
+    size_t name_len = strlen(name);
+    if (name_len == 0 || strchr(name, '=')) return -1;
+
+    char *env_val = getenv(name);
+    if (env_val && !overwrite) return 0;
+
+    size_t val_len = strlen(value);
+    char *new_str = malloc(name_len + val_len + 2);
+    if (!new_str) return -1;
+
+    strcpy(new_str, name);
+    new_str[name_len] = '=';
+    strcpy(new_str + name_len + 1, value);
+
+    if (env_val) {
+        for (int i = 0; environ[i] != NULL; i++) {
+            if (strncmp(environ[i], name, name_len) == 0 && environ[i][name_len] == '=') {
+                environ[i] = new_str;
+                return 0;
+            }
+        }
+    }
+
+    int count = 0;
+    while (environ && environ[count]) count++;
+
+    char **new_env = malloc((count + 2) * sizeof(char *));
+    if (!new_env) {
+        free(new_str);
+        return -1;
+    }
+
+    for (int i = 0; i < count; i++) {
+        new_env[i] = environ[i];
+    }
+    new_env[count] = new_str;
+    new_env[count + 1] = NULL;
+    environ = new_env;
+
+    return 0;
 }
 
 void abort(void) {

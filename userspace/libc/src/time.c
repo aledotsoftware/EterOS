@@ -34,11 +34,7 @@ static inline long _time_syscall1(long n, long a1) {
     return ret;
 }
 
-static inline long _time_syscall2(long n, long a1, long a2) {
-    long ret;
-    __asm__ volatile ("syscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2) : "rcx", "r11", "memory");
-    return ret;
-}
+extern long syscall(long nr, ...);
 
 time_t time(time_t *tloc) {
     struct timespec ts;
@@ -48,28 +44,28 @@ time_t time(time_t *tloc) {
 }
 
 int clock_gettime(int clock_id, struct timespec *tp) {
-    long ret = _time_syscall2(SYS_clock_gettime, clock_id, (long)tp);
+    long ret = syscall(SYS_clock_gettime, clock_id, (long)tp);
     if (ret < 0) {
         // Fallback to gettimeofday if clock_gettime fails
-        if (ret == -ENOSYS && clock_id == CLOCK_REALTIME) {
+        if (errno == ENOSYS && clock_id == CLOCK_REALTIME) {
              struct {
                 long tv_sec;
                 long tv_usec;
              } tv;
-             long ret2 = _time_syscall2(96, (long)&tv, 0); // gettimeofday
-             if (ret2 < 0) { errno = (int)-ret2; return -1; }
+             long ret2 = syscall(96, (long)&tv, 0); // gettimeofday
+             if (ret2 < 0) return -1;
              tp->tv_sec = tv.tv_sec;
              tp->tv_nsec = tv.tv_usec * 1000;
              return 0;
         }
-        errno = (int)-ret; return -1;
+         return -1;
     }
     return 0;
 }
 
 int nanosleep(const struct timespec *req, struct timespec *rem) {
-    long ret = _time_syscall2(SYS_nanosleep, (long)req, (long)rem);
-    if (ret < 0) { errno = (int)-ret; return -1; }
+    long ret = syscall(SYS_nanosleep, (long)req, (long)rem);
+    if (ret < 0) return -1;
     return 0;
 }
 
@@ -160,8 +156,8 @@ struct tm *localtime(const time_t *timep) {
 }
 
 int gettimeofday(struct timeval *tv, struct timezone *tz) {
-    long ret = _time_syscall2(96, (long)tv, (long)tz); // SYS_gettimeofday
-    if (ret < 0) { errno = (int)-ret; return -1; }
+    long ret = syscall(96, (long)tv, (long)tz); // SYS_gettimeofday
+    if (ret < 0) return -1;
     return 0;
 }
 

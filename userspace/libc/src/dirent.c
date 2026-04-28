@@ -15,7 +15,7 @@ DIR *opendir(const char *name) {
 
     int fd = syscall(SYS_open, name, O_RDONLY, 0);
     if (fd < 0) {
-        errno = -fd;
+
         return NULL;
     }
 
@@ -41,10 +41,7 @@ struct dirent *readdir(DIR *dirp) {
 
     if (dirp->buf_pos >= dirp->buf_end) {
         long ret = syscall(SYS_getdents64, dirp->fd, dirp->buf, sizeof(dirp->buf));
-        if (ret <= 0) {
-            if (ret < 0) errno = -ret;
-            return NULL; // EOF or error
-        }
+        if (ret <= 0) return NULL; // EOF or error
         dirp->buf_end = ret;
         dirp->buf_pos = 0;
     }
@@ -74,7 +71,7 @@ int closedir(DIR *dirp) {
     free(dirp);
 
     if (ret < 0) {
-        errno = -ret;
+
         return -1;
     }
     return 0;

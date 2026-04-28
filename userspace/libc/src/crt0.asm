@@ -110,6 +110,9 @@ _start:
     ; r8, r9, r10 were used for auxv.
     ; Let's restore rdi, rsi, rdx if needed, but we didn't touch them!
 
+    ; Align the stack to 16 bytes before calling main (SysV ABI)
+    and rsp, ~15
+
     ; Call main(argc, argv, envp)
     call main
 
