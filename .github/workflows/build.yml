@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          submodules: recursive
 
       - name: "Instalar toolchain"
         run: |
@@ -104,6 +105,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          submodules: recursive
 
       - name: "Instalar toolchain para Release"
         run: |
