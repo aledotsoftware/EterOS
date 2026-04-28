@@ -35,3 +35,5 @@
 - Implemented Linux native `sys_memfd_create` (syscall 319) in `kernel/arch/x86_64/syscall.c` leveraging anonymous Shared Memory nodes (`shmfs`).
 - Modified `shmfs_close` to safely release anonymous shared memory pages when the open file descriptor count hits zero.
 - Re-verified full kernel compilation (`make clean && make all`) and successfully passed all native host VFS/Syscall C tests.
+- Extended the `futex` subsystem to support `FUTEX_WAIT_BITSET` and `FUTEX_WAKE_BITSET`, which are essential for Bionic libc thread operations.
+- Implemented `CLONE_CHILD_SETTID` logic during thread creation in `task_clone` to natively write the new task ID to the user-provided `child_tid` pointer.

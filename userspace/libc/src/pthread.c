@@ -128,12 +128,12 @@ int pthread_detach(pthread_t thread) {
 #define FUTEX_WAKE 1
 #define FUTEX_PRIVATE_FLAG 128
 
-static inline int futex_wait(int *uaddr, int val) {
+static inline int futex_wait(uint32_t *uaddr, uint32_t val, const void *timeout, int op, uint32_t bitset) {
     return syscall(SYS_futex, uaddr, FUTEX_WAIT | FUTEX_PRIVATE_FLAG, val, NULL, NULL, 0);
 }
 
-static inline int futex_wake(int *uaddr, int val) {
-    return syscall(SYS_futex, uaddr, FUTEX_WAKE | FUTEX_PRIVATE_FLAG, val, NULL, NULL, 0);
+static inline int futex_wake(uint32_t *uaddr, int count, int op, uint32_t bitset) {
+    return syscall(SYS_futex, uaddr, FUTEX_WAKE | FUTEX_PRIVATE_FLAG, count, NULL, NULL, 0);
 }
 
 // Atomic compare-and-swap
@@ -195,7 +195,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex) {
     }
 
     while (c != 0) {
-        futex_wait(&mutex->locked, 2);
+        futex_wait((uint32_t*)&mutex->locked, 2, NULL, 0, 0xffffffff);
         c = atomic_xchg(&mutex->locked, 2);
     }
     return 0;
@@ -204,7 +204,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex) {
 int pthread_mutex_unlock(pthread_mutex_t *mutex) {
     int c = atomic_xchg(&mutex->locked, 0);
     if (c == 2) {
-        futex_wake(&mutex->locked, 1);
+        futex_wake((uint32_t*)&mutex->locked, 1, 0, 0xffffffff);
     }
     return 0;
 }
@@ -223,19 +223,19 @@ int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr) {
 int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
     int seq = cond->futex;
     pthread_mutex_unlock(mutex);
-    futex_wait(&cond->futex, seq);
+    futex_wait((uint32_t*)&cond->futex, seq, NULL, 0, 0xffffffff);
     pthread_mutex_lock(mutex);
     return 0;
 }
 
 int pthread_cond_signal(pthread_cond_t *cond) {
     atomic_add(&cond->futex, 1);
-    futex_wake(&cond->futex, 1);
+    futex_wake((uint32_t*)&cond->futex, 1, 0, 0xffffffff);
     return 0;
 }
 
 int pthread_cond_broadcast(pthread_cond_t *cond) {
     atomic_add(&cond->futex, 1);
-    futex_wake(&cond->futex, 0x7fffffff);
+    futex_wake((uint32_t*)&cond->futex, 0x7fffffff, 0, 0xffffffff);
     return 0;
 }
