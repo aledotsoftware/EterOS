@@ -1120,6 +1120,29 @@ static int64_t sys_fchmod(int fd, int mode) {
     return 0;
 }
 
+static int64_t sys_fchmodat(int dirfd, const char* path, int mode) {
+    char* kpath = (char*)kmalloc(256);
+    if (!kpath) return -ENOMEM;
+
+    int res = resolve_path(dirfd, path, kpath, 256);
+    if (res < 0) {
+        kfree(kpath);
+        return res;
+    }
+
+    fs_node_t* node = vfs_lookup(fs_root, kpath);
+    kfree(kpath);
+    if (!node) return -ENOENT;
+
+    task_t* current = task_get_current();
+    if (current && current->uid != 0 && current->uid != node->uid) {
+        return -EPERM;
+    }
+
+    node->mask = (uint32_t)(mode & 07777);
+    return 0;
+}
+
 static int64_t sys_readlinkat(int dirfd, const char* path, char* buf, size_t bufsiz) {
     if (!vmm_verify_user_access(buf, bufsiz, 1)) return -EFAULT;
 
@@ -3312,6 +3335,7 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [264] = (syscall_ptr_t)sys_renameat,
     [266] = (syscall_ptr_t)sys_symlinkat,
     [263] = (syscall_ptr_t)sys_unlinkat,
+    [268] = (syscall_ptr_t)sys_fchmodat,
     [269] = (syscall_ptr_t)sys_faccessat,
     [270] = (syscall_ptr_t)sys_pselect6,
     [271] = (syscall_ptr_t)sys_ppoll,
@@ -3343,6 +3367,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [4] = (syscall_ptr_t)sys_stat,
     [5] = (syscall_ptr_t)sys_fstat,
     [6] = (syscall_ptr_t)sys_lstat,
+    [7] = (syscall_ptr_t)sys_poll,
     [8] = (syscall_ptr_t)sys_lseek,
     [9] = (syscall_ptr_t)sys_mmap,
     [10] = (syscall_ptr_t)sys_mprotect,
@@ -3355,6 +3380,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [20] = (syscall_ptr_t)sys_writev,
     [21] = (syscall_ptr_t)sys_access,
     [22] = (syscall_ptr_t)sys_pipe,
+    [23] = (syscall_ptr_t)sys_select,
     [25] = (syscall_ptr_t)sys_mremap,
     [28] = (syscall_ptr_t)sys_madvise,
     [32] = (syscall_ptr_t)sys_dup,
@@ -3388,6 +3414,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [87] = (syscall_ptr_t)sys_unlink,
     [96] = (syscall_ptr_t)sys_gettimeofday,
     [97] = (syscall_ptr_t)sys_getrlimit,
+    [99] = (syscall_ptr_t)sys_sysinfo,
     [102] = (syscall_ptr_t)sys_getuid,
     [105] = (syscall_ptr_t)sys_setuid,
     [106] = (syscall_ptr_t)sys_setgid,
@@ -3420,6 +3447,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [263] = (syscall_ptr_t)sys_unlinkat,
     [264] = (syscall_ptr_t)sys_renameat,
     [266] = (syscall_ptr_t)sys_symlinkat,
+    [268] = (syscall_ptr_t)sys_fchmodat,
     [269] = (syscall_ptr_t)sys_faccessat,
     [270] = (syscall_ptr_t)sys_pselect6,
     [271] = (syscall_ptr_t)sys_ppoll,
