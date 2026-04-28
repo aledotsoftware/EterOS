@@ -11,11 +11,7 @@
 #include <vmm.h>
 #include <mm.h>
 #include <fs/vfs.h>
-#ifndef __ETEROS_HOST_TEST__
 #include <lwip/sockets.h>
-#else
-#include "lwip/sockets.h"
-#endif
 
 static ssize_t lwip_socket_read_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
     (void)offset;
@@ -275,23 +271,4 @@ ssize_t sys_lwip_send(int fd, const void *buf, size_t len, int flags) {
 
 ssize_t sys_lwip_recv(int fd, void *buf, size_t len, int flags) {
     return sys_lwip_recvfrom(fd, buf, len, flags, NULL, NULL);
-}
-
-int sys_lwip_close(int fd) {
-    task_t* current = task_get_current();
-    if (fd < 0 || fd >= MAX_FD) return -EBADF;
-    if (!current->fd_table[fd].node) return -EBADF;
-    fs_node_t* node = current->fd_table[fd].node;
-    if ((node->flags & 0x7) != FS_SOCKET) return -ENOTSOCK;
-
-    if (__atomic_sub_fetch(&node->ref_count, 1, __ATOMIC_SEQ_CST) == 0) {
-        if (node->close) node->close(node);
-        kfree(node);
-    }
-
-    current->fd_table[fd].node = NULL;
-    current->fd_table[fd].offset = 0;
-    current->fd_table[fd].flags = 0;
-
-    return 0;
 }

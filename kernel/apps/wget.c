@@ -4,7 +4,6 @@
 #include <hal.h>
 #include <task.h>
 #include <net/socket.h>
-#include <net/lwip_socket.h>
 #include <net/defs.h>
 
 /**
@@ -63,21 +62,21 @@ void wget_run(const char* url_in) {
         }
     }
     
-    int sock = sys_lwip_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    socket_t sock = net_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
         terminal_write_string("[WGET] Failed to create socket.\n");
         return;
     }
     
-    struct sockaddr_in addr;
+    struct sockaddr_in_old addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr = ip;
     
     terminal_write_string("[WGET] Connecting...\n");
-    if (sys_lwip_connect(sock, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+    if (net_connect(sock, &addr, sizeof(addr)) != 0) {
         terminal_write_string("[WGET] Connection failed.\n");
-        sys_lwip_close(sock);
+        net_close(sock);
         return;
     }
     
@@ -91,12 +90,12 @@ void wget_run(const char* url_in) {
     if (strlcat(request, host, req_size) >= req_size) goto trunc;
     if (strlcat(request, "\r\nUser-Agent: eterOS/0.1\r\nConnection: close\r\n\r\n", req_size) >= req_size) goto trunc;
     
-    sys_lwip_send(sock, request, strlen(request), 0);
+    net_send(sock, request, strlen(request), 0);
     goto receive;
 
 trunc:
     terminal_write_string("[WGET] Error: Request buffer overflow or URL too long.\n");
-    sys_lwip_close(sock);
+    net_close(sock);
     return;
 
 receive:
@@ -105,7 +104,7 @@ receive:
     
     char buffer[1024];
     int len;
-    while ((len = sys_lwip_recv(sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
+    while ((len = net_recv(sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
         buffer[len] = '\0';
         for (int i = 0; i < len; i++) {
             terminal_putchar(buffer[i]);
@@ -114,5 +113,5 @@ receive:
     }
     
     terminal_write_string("\n[WGET] Done.\n");
-    sys_lwip_close(sock);
+    net_close(sock);
 }
