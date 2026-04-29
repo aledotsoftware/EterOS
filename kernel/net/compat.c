@@ -264,3 +264,8 @@ int raw_tcp_get(const char* host, const char* path, char* response_buf, size_t m
     kfree(state);
     return (result_status == 1) ? (int)result_len : result_status;
 }
+
+void net_dhcp_renew(void) {
+    if (!netif_is_up(&main_netif)) return;
+    dhcp_renew(&main_netif);
+}

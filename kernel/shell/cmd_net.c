@@ -36,7 +36,7 @@ void cmd_net(const char* args) {
 void cmd_dhcp(const char* args) {
     (void)args;
     terminal_write_string("Requesting DHCP...\n");
-    dhcp_discover();
+    net_dhcp_renew();
     terminal_write_string("DHCP Discovery sent.\n");
 }
 

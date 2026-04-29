@@ -58,3 +58,6 @@ int dhcp_parse_offer(const uint8_t* buffer, size_t len, uint32_t xid, const stru
 int dhcp_parse_options(const struct dhcp_packet* packet, size_t len, uint32_t* mask, uint32_t* gw, uint32_t* dns);
 
 #endif /* ETEROS_NET_DHCP_H */
+
+/* Expose net_dhcp_renew from compat.c */
+void net_dhcp_renew(void);
