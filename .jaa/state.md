@@ -65,3 +65,4 @@
 - Added `FUTEX_WAIT_BITSET` and `FUTEX_WAKE_BITSET` support in `include/futex.h`, `kernel/futex.c` and updated `sys_futex` to extract bitset masks from the `val3` system call argument.
 - Correctly implemented `CLONE_CHILD_SETTID` semantics in `kernel/task.c` securely writing the new task ID to the user-provided `child_tid` pointer.
 - Re-verified full kernel compilation (`make clean && make all`) and successfully passed all native host VFS/Syscall C tests.
+- [EterOS] Conectado driver e1000 y Syscalls de red (socket, connect, bind, accept, listen, etc.) hacia stack lwIP, habilitando DHCP nativo. Corregida la validación de punteros para prevenir fallos TOCTOU en getsockopt.
