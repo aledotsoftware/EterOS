@@ -111,6 +111,7 @@ _start:
     ; Let's restore rdi, rsi, rdx if needed, but we didn't touch them!
 
     ; Call main(argc, argv, envp)
+    and rsp, ~15     ; Align stack to 16 bytes (SysV ABI)
     call main
 
     ; 6. Run atexit handlers and exit

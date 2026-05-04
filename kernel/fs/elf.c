@@ -1,3 +1,4 @@
+#include "../../include/vmm.h"
 #include <types.h>
 #include <elf.h>
 #include <fs/vfs.h>
@@ -288,9 +289,9 @@ uint64_t elf_load_file(const char* path, uint64_t base_vaddr) {
                 return 0;
             }
 
-            /* Error: Identity Map Conflict (< 4GB) */
-            if (vaddr < 0x100000000) {
-                serial_write_string("[ELF] Error: Segment address < 4GB conflicts with Kernel Identity Map. Load rejected.\n");
+            /* Error: Identity Map Conflict (Check against USER_BASE) */
+            if (vaddr < USER_BASE) {
+                serial_write_string("[ELF] Error: Segment address conflicts with Kernel bounds. Load rejected.\n");
                 kfree(node);
                 return 0;
             }
