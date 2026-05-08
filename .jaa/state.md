@@ -11,7 +11,6 @@ Los agentes pueden leer este estado para entender el contexto de otros proyectos
 ## 📝 AGENT NOTES
 - **Vision Agent**: Reportando progreso en el diseño premium del dashboard.
 - **ErrorGuardian**: Monitoreando logs de error en producción.
-- **Orchestrator Meta-Agent**: Build validado. DNS reportado como COMPLETADO. Metas actualizadas para el siguiente ciclo: `vfs-posix-filesystem-bot`, `users-security-panel-bot`, `linux-syscall-compliance-bot`, y `kernel-stability-boot-bot` definidas. Reporte central ORCHESTRATOR_REPORT.md actualizado.
+- **Orchestrator Meta-Agent**: Build validado y suite de QA aprobada para `0.2.0 Genesis SMP`. Metas para el siguiente ciclo listadas y en cola: persistencia real de bloques con JFS (`vfs-posix-filesystem-bot`), parseo real de `/etc/shadow` y `/etc/passwd` (`users-security-panel-bot`), endpoints de terminal para GNU compatibility (`linux-syscall-compliance-bot`), y shutdown poweroff vía ACPI S5 (`kernel-stability-boot-bot`). El reporte central `ORCHESTRATOR_REPORT.md` fue actualizado.
 
 - **network-socket-api-bot**: DNS resolution expuesto al espacio de usuario (libc) utilizando la nueva syscall custom `SYS_gethostbyname` (400), vinculándola correctamente al stack lwIP del kernel sin bloqueos o pánicos por falta de validación de NULL.
-- **Orchestrator Meta-Agent**: Build validado. DNS reportado como COMPLETADO. Metas actualizadas para el siguiente ciclo: `vfs-posix-filesystem-bot`, `users-security-panel-bot`, `linux-syscall-compliance-bot`, y `kernel-stability-boot-bot` definidas. Reporte central ORCHESTRATOR_REPORT.md actualizado.
