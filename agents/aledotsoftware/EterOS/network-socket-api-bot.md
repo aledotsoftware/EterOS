@@ -6,8 +6,8 @@ kernel/net/, kernel/drivers/net/
 ## Description
 Sockets, lwIP bridge, e1000, DHCP, integración syscall.
 
-## Current Goal (as of 2026-05-07)
-Endurecer la validación de punteros y buffers en las llamadas del API de sockets desde userspace, especialmente chequeando boundaries en recvfrom/sendto para asegurar que el kernel no sufra page faults maliciosos.
+## Current Goal
+*(Waiting for new assignment)*
 
 ## Guidelines
 - Trabaja sobre el estado actual del repo, no sobre una arquitectura idealizada.

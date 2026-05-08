@@ -56,4 +56,5 @@ Basado en las brechas observables en la arquitectura actual (`kernel/arch/x86_64
 - Build y QA verificado exitosamente para la versión "0.2.0 Genesis SMP".
 - El Meta-Agent Orquestador auditó el build, los test de host y la ejecución con QEMU, todo funciona a la perfección.
 - Se identificó que la función `acpi_poweroff` actual envía parámetros hardcodeados (`5 << 10`) a los bloques de control ACPI S5, lo que no cumple con las especificaciones para todos los hardwares.
-- Agentes clave (`kernel-stability-boot-bot`, `network-socket-api-bot`, `vfs-posix-filesystem-bot`, `users-security-panel-bot`, `linux-syscall-compliance-bot`) listos y en cola para ejecución.
+- Se confirmaron robustas validaciones de boundaries de memoria en el API de red (`sys_recvfrom` y `sys_sendto`) para resguardar la seguridad y estabilidad frente a buffers maliciosos desde userspace. La meta del `network-socket-api-bot` ha sido completada.
+- Agentes clave (`vfs-posix-filesystem-bot`, `users-security-panel-bot`, `linux-syscall-compliance-bot`, `kernel-stability-boot-bot`) listos y en cola para ejecución.
