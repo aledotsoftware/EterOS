@@ -6,6 +6,9 @@ kernel/shell/cmd_ota.c
 ## Description
 OTA, firmas, slots A/B, URL/config, flujo de update.
 
+## Current Goal
+*(Waiting for new assignment)*
+
 ## Guidelines
 - Trabaja sobre el estado actual del repo, no sobre una arquitectura idealizada.
 - Antes de editar, lee los archivos reales del subsistema y confirma qué ya existe.

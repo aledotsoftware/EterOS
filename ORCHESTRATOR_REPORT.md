@@ -8,7 +8,7 @@
 ### ✅ Resultados de Verificación
 - **Make all (Build):** Éxito. Kernel compilado a `build/kernel.img` y libc/userspace empaquetados en `build/initrd.img` de manera satisfactoria. La compilación incluye optimizaciones SMP y el soporte avanzado de lwIP.
 - **Make clean:** Éxito. Funciona correctamente eliminando artefactos (como `.o` y `build/`) sin borrar código fuente rastreado en git.
-- **Tests Nativos:** Éxito. Todos los tests de host C ejecutados mediante `tests/run_tests.sh` pasan exitosamente (incluyendo tests de red, IPC/futexes, sys_memfd_create, clonación, coverage de syscalls Linux y VFS).
+- **Tests Nativos:** Éxito. Todos los tests de host C ejecutados mediante `tests/run_tests.sh` pasan exitosamente.
 - **Prueba de Arranque y QEMU Headless:** Éxito (`tests/run_integration.sh` OK). La secuencia de booteo inicializa BSP, GDT, PMM, VMM (Paginación), Scheduler y VFS correctamente con 64MB, 128MB y 512MB de RAM. Realiza exitosamente la transición al anillo 3 levantando el entorno en initrd sin kernel panics.
 
 ---
@@ -54,6 +54,7 @@ Basado en las brechas observables en la arquitectura actual (`kernel/arch/x86_64
 
 ## 5. Changelog / Ultimos Avances
 - Build y QA verificado exitosamente para la versión "0.2.0 Genesis SMP".
+- El Orchestrator Meta-Agent ha validado el estado del sistema, confirmando que las pruebas de compilación e integración se ejecutan correctamente, y ha alineado las instrucciones de los agentes para el próximo ciclo, manteniendo el orden de ejecución y actualizando los agentes sin metas actuales a "Waiting for new assignment".
 - El Meta-Agent Orquestador auditó el build, los test de host y la ejecución con QEMU, todo funciona a la perfección.
 - Se identificó que la función `acpi_poweroff` actual envía parámetros hardcodeados (`5 << 10`) a los bloques de control ACPI S5, lo que no cumple con las especificaciones para todos los hardwares.
 - Se confirmaron robustas validaciones de boundaries de memoria en el API de red (`sys_recvfrom` y `sys_sendto`) para resguardar la seguridad y estabilidad frente a buffers maliciosos desde userspace. La meta del `network-socket-api-bot` ha sido completada.

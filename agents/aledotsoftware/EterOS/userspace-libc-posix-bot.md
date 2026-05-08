@@ -6,6 +6,9 @@ userspace/libc/
 ## Description
 Libc, crt0, wrappers, pthread/signal/stdio/dirent.
 
+## Current Goal
+*(Waiting for new assignment)*
+
 ## Guidelines
 - Trabaja sobre el estado actual del repo, no sobre una arquitectura idealizada.
 - Antes de editar, lee los archivos reales del subsistema y confirma qué ya existe.
