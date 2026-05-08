@@ -6,6 +6,9 @@ kernel/arch/x86_64/syscall.c
 ## Description
 ABI Linux práctico para userland GNU y metas inmediatas de compatibilidad.
 
+## Current Goal
+*(Waiting for new assignment)*
+
 ## Guidelines
 - Trabaja sobre el estado actual del repo, no sobre una arquitectura idealizada.
 - Antes de editar, lee los archivos reales del subsistema y confirma qué ya existe.

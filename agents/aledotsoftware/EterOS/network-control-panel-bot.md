@@ -6,6 +6,9 @@ kernel/shell/cmd_net.c, kernel/shell/cmd_panel.c
 ## Description
 Comandos/panel de red y superficies de configuración.
 
+## Current Goal
+*(Waiting for new assignment)*
+
 ## Guidelines
 - Trabaja sobre el estado actual del repo, no sobre una arquitectura idealizada.
 - Antes de editar, lee los archivos reales del subsistema y confirma qué ya existe.
