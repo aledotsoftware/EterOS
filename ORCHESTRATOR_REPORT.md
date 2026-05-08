@@ -38,10 +38,10 @@
 
 Basado en las brechas observables en la arquitectura actual (`kernel/arch/x86_64/syscall.c`, VFS, lwIP config) respecto a los objetivos del proyecto, los agentes deben activarse en este orden:
 
-1. **`vfs-posix-filesystem-bot`:** Conectar el backend de `jfs.c` (Journaling File System) con `kernel/fs/bcache.c` para proveer persistencia real de bloques al disco, reemplazando su actual funcionamiento volátil exclusivo en memoria RAM. Se debe usar explícitamente `partition_get_active_root()` de `kernel/drivers/disk/partition.c` para interactuar con la partición física subyacente y enlazarlo con el `bcache`.
-2. **`users-security-panel-bot`:** Completar el puente de autenticación de usuario; ajustar `login.elf` para parsear `/etc/shadow` y `/etc/passwd` de un sistema en vivo usando archivos seguros creados por `useradd`, asegurando control de acceso real y montajes dinámicos si fuera necesario al bootear `/etc`.
-3. **`linux-syscall-compliance-bot`:** Implementar TTY y subconjuntos PTY. Añadir en `kernel/arch/x86_64/syscall.c` los endpoints que posibiliten el pipeline para terminales robustos (por ej. `sys_ioctl` extenso para TTY), meta crucial para portar utilidades complejas de GNU a userspace.
-4. **`kernel-stability-boot-bot`:** Implementar gestión de energía (ACPI S5 shutdown), parsear FADT y proveer apagado suave para el sistema.
+1. **`kernel-stability-boot-bot`:** **[CRÍTICO]** Implementar gestión de energía (ACPI S5 shutdown) en `kernel/arch/x86_64/acpi.c`. Es mandatorio parsear la tabla `DSDT` (apuntada desde `FADT`) para localizar el bloque AML `\_S5_` y extraer los valores reales de `SLP_TYPa` y `SLP_TYPb`, para luego utilizar esos valores en la secuencia de `acpi_poweroff()` en lugar de utilizar un hardcode de 5 (el comando shell `cmd_poweroff` y `cmd_halt` deben unificarse en el ecosistema actual en `kernel/shell/cmd_system.c`).
+2. **`vfs-posix-filesystem-bot`:** **[CRÍTICO]** Conectar el backend de `jfs.c` (Journaling File System) con `kernel/fs/bcache.c` para proveer persistencia real de bloques al disco, reemplazando su actual funcionamiento volátil exclusivo en memoria RAM. Se debe usar explícitamente `partition_get_active_root()` declarado en `include/drivers/disk.h` para interactuar con la partición física subyacente y enlazarlo con el `bcache`.
+3. **`users-security-panel-bot`:** Completar el puente de autenticación de usuario; ajustar `userspace/login.c` para abrir, leer y parsear lógicamente `/etc/shadow` de un sistema en vivo, asegurando un control de acceso real contra hashes SHA256 en lugar de mocks temporales o estáticos.
+4. **`linux-syscall-compliance-bot`:** Implementar TTY y subconjuntos PTY. Añadir en `kernel/arch/x86_64/syscall.c` los endpoints que posibiliten el pipeline para terminales robustos (por ej. un `sys_ioctl` extenso para TTY que resuelva `TCGETS`/`TCSETS` con estructuras termios válidas validadas vía `vmm_verify_user_access`), meta crucial para portar bash de GNU a userspace.
 
 ---
 
@@ -54,4 +54,6 @@ Basado en las brechas observables en la arquitectura actual (`kernel/arch/x86_64
 
 ## 5. Changelog / Ultimos Avances
 - Build y QA verificado exitosamente para la versión "0.2.0 Genesis SMP".
-- Agentes clave (`network-socket-api-bot`, `vfs-posix-filesystem-bot`, `users-security-panel-bot`, `linux-syscall-compliance-bot`) alineados con metas medibles e inmediatas.
+- Resolución DNS reportada como funcional y validada en userspace.
+- Re-ordenamiento para la próxima iteración asegurado; `kernel-stability-boot-bot` fue ascendido al paso primario.
+- Agentes clave (`kernel-stability-boot-bot`, `vfs-posix-filesystem-bot`, `users-security-panel-bot`, `linux-syscall-compliance-bot`) alineados con metas medibles e inmediatas con rutas exactas al código base.

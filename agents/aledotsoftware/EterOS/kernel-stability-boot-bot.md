@@ -6,8 +6,8 @@ kernel/boot, kernel/mm, kernel/arch
 ## Description
 Boot, memoria, trampas, init y estabilidad temprana.
 
-## Current Goal (as of 2026-05-07)
-Implementar gestión de energía (ACPI S5 shutdown), parsear FADT y proveer apagado suave para el sistema.
+## Current Goal (as of 2026-05-08)
+Implementar gestión de energía (ACPI S5 shutdown) en `kernel/arch/x86_64/acpi.c`. Debes parsear el `DSDT` (apuntado desde `FADT`) localizando el bloque AML `\_S5_` para extraer los verdaderos valores de `SLP_TYPa` y `SLP_TYPb`, para posteriormente usarlos en el apagado vía S5, quitando valores hardcodeados en `acpi_poweroff()`. Asegúrate también de que exista e invocarlo vía una unificada `cmd_poweroff` y `cmd_halt` en `kernel/shell/cmd_system.c`.
 
 ## Guidelines
 - Trabaja sobre el estado actual del repo, no sobre una arquitectura idealizada.
