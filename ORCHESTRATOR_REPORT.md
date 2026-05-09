@@ -50,6 +50,7 @@ Basado en las brechas observables en la arquitectura actual y los nuevos hallazg
 - La libc ahora utiliza exitosamente `SYS_gethostbyname` para resolución DNS asíncrona delegada al kernel.
 - La inexistencia de validaciones en disco para el `jfs` arriesga la confiabilidad de cualquier metadato salvado actualmente por el sistema durante la runtime de QEMU.
 - Es mandatorio seguir validando que los comandos de pre-commit corran con `bash tests/run_tests.sh` (con set -e activado), manteniendo la rigurosidad frente al scope creep.
+- **Riesgo en CI:** Se ha detectado el uso de `|| true` en algunas líneas de `tests/run_tests.sh`, lo que enmascara fallos reales y genera falsos positivos. Esto debe ser corregido por `testing-ci-validation-bot`.
 
 ---
 
@@ -57,3 +58,4 @@ Basado en las brechas observables en la arquitectura actual y los nuevos hallazg
 - El Orchestrator Meta-Agent auditó el sistema, verificando compilación y tests nativos.
 - Se ha detectado la regresión/persistencia de warnings de compilación en `devfs.c` (signedness en la API Binder), `syscall.c` (sockets VFS, sys_umask) y de redefinición de macros en pruebas.
 - Se han actualizado las asignaciones de tareas de los agentes respectivos para resolver estos warnings antes de avanzar con los grandes milestones (persistencia JFS, autenticación, soporte de tty y apagado acpi s5).
+- Se asignó a `testing-ci-validation-bot` la eliminación de `|| true` en `tests/run_tests.sh` para evitar falsos positivos en el CI.
