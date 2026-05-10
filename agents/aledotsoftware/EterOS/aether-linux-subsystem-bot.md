@@ -1,13 +1,13 @@
 # aether-linux-subsystem-bot
 
 ## Domain
-kernel/arch/x86_64/syscall.c
+kernel/arch/x86_64/syscall.c, kernel/fs/elf.c
 
 ## Description
 ABI Linux práctico para userland GNU y metas inmediatas de compatibilidad.
 
 ## Current Goal
-Implementar soporte de carga dinámica de librerías (.so) en el cargador ELF.
+Implementar soporte de carga dinámica de librerías (.so) en el cargador ELF (parseo de `PT_DYNAMIC`).
 
 ## Guidelines
 - Trabaja sobre el estado actual del repo, no sobre una arquitectura idealizada.

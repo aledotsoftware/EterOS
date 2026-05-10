@@ -1,7 +1,7 @@
 # kernel-stability-boot-bot
 
 ## Domain
-kernel/boot, kernel/mm, kernel/arch
+kernel/mm/, kernel/arch/x86_64/boot.asm, kernel/main.c
 
 ## Description
 Boot, memoria, trampas, init y estabilidad temprana.
