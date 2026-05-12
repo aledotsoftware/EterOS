@@ -1,7 +1,7 @@
 # EterOS Orchestrator Meta-Agent Audit Report
 
 ## 1. Estado Actual de Compilación y Ejecución
-**Fecha:** 2026-05-11
+**Fecha:** 2026-05-12
 **Commit auditado:** HEAD
 **Versión Actualizada:** 0.2.0 Genesis SMP
 
@@ -21,14 +21,14 @@
 - **VFS / Filesystems:** Montajes extensos probados (`/dev`, `/proc`, `/tmp`, `fat32`, `jfs`, `shmfs`). ELF loader validado mitigando vulnerabilidades y soportando carga dinámica (`PT_DYNAMIC`).
 - **Control Panel & UI:** Subsistemas gráficos de minimizar ventanas (`hit_minimize_button`), UI web debounced y reportes de estado unificados mostrando "0.2.0 Genesis SMP" consistentemente.
 - **Testing & CI:** Entornos QEMU headless verificados, validaciones de código rigurosas (`run_tests.sh` y `run_integration.sh` OK). Integración continua robusta y fiable.
+- **Syscalls GNU/Linux:** Implementaciones básicas POSIX sólidas. PTY ioctls han sido completados en un subconjunto. El subsistema **ya cuenta con soporte para job control signals (`SIGSTOP`, `SIGCONT`, `SIGCHLD`, `SIGTTIN`, `SIGTTOU`)**, implementado exitosamente en `kernel/arch/x86_64/syscall.c`.
 
 ### 2.2 Áreas de Mejora a Corto Plazo (Para Compatibilidad Base)
-- **Filesystems JFS:** El driver de Journaling actual (`jfs.c`) opera puramente en RAM y bloque. Se debe revisar compatibilidad total VFS POSIX, soporte hardlinks y atomic commits.
+- **Filesystems JFS:** El driver de Journaling actual (`jfs.c`) opera puramente en RAM y bloque. Se debe revisar compatibilidad total VFS POSIX, soporte hardlinks (enlaces rígidos) y atomic commits.
 - **Control Multi-usuario:** Soporte base con parseo shadow y passwd operativo, modos `0600` de permisos VFS consolidados. Sin embargo, el binario de login NO está asignando TTYs/PTYs adecuadamente mediante `setsid()` e `ioctl(TIOCSCTTY)`.
-- **Syscalls GNU/Linux:** Implementaciones básicas POSIX sólidas. PTY ioctls han sido completados en un subconjunto. Sin embargo, el subsistema carece de soporte robusto para job control signals (`SIGSTOP`, `SIGCONT`, `SIGCHLD`, `SIGTTIN`, `SIGTTOU`) necesario para GNU terminal.
 
 ### 2.3 Metas Aspiracionales de la Plataforma (Largo Plazo)
-- Soporte Completo GNU Coreutils: ❌ Parcial. Progresando mediante `linux-syscall-compliance-bot`.
+- Soporte Completo GNU Coreutils: ❌ Parcial. Progresando mediante syscalls implementadas.
 - Entorno de Escritorio GNU Desktop: ❌ En diseño remoto (esperando abstracción DRM/KMS).
 - Capa de Compatibilidad Android: ⏳ En progreso (`/dev/binder` es un stub y solo retorna éxito sin implementar transacciones reales).
 
@@ -39,10 +39,11 @@
 Basado en las brechas observables en la arquitectura actual, se priorizan los hitos siguientes:
 
 1. **`users-security-panel-bot`:** Asignar TTY/PTY, usar `setsid()` e `ioctl(TIOCSCTTY)` en `userspace/login.c`.
-2. **`vfs-posix-filesystem-bot`:** Implementar soporte de `hardlinks` en el driver JFS (`kernel/fs/jfs.c`).
-3. **`linux-syscall-compliance-bot`:** Implementar job control signals (`SIGSTOP`, `SIGCONT`, `SIGCHLD`, `SIGTTIN`, `SIGTTOU`) para complementar PTY.
-4. **`aether-droid-subsystem-bot`:** Crear estructuras reales en `devfs.c` para Binder (`BINDER_WRITE_READ`).
-5. **`graphics-power-panel-bot`:** Crear abstracción DRM base (`kernel/gfx/drm.c` o similar `/dev/dri/card0`).
+2. **`vfs-posix-filesystem-bot`:** Implementar soporte de `hardlinks` y la syscall asociada en el driver JFS (`kernel/fs/jfs.c` y VFS base).
+3. **`aether-droid-subsystem-bot`:** Crear estructuras reales en `kernel/fs/devfs.c` para Binder (`BINDER_WRITE_READ`) estableciendo un motor de ruteo IPC.
+4. **`graphics-power-panel-bot`:** Crear abstracción DRM base (`kernel/gfx/drm.c` o similar `/dev/dri/card0`).
+
+*(Nota: La tarea de `linux-syscall-compliance-bot` de implementar job control signals ha sido **COMPLETADA**)*
 
 ---
 
@@ -55,5 +56,6 @@ Basado en las brechas observables en la arquitectura actual, se priorizan los hi
 ---
 
 ## 5. Changelog / Ultimos Avances
-- El Orchestrator Meta-Agent re-auditó nuevamente el sistema (2026-05-11) y verificó que el build y test run en la versión actual es un éxito total, incluyendo integración en QEMU Headless. Se reafirman las prioridades actuales para este ciclo.
-- Se han alineado los archivos `.md` de cada agente y también el state del sistema. Las instrucciones establecen el comienzo oficial de un ciclo de desarrollo enfocado en asignar TTY en login (`users-security-panel-bot`), soporte JFS de hardlinks (`vfs-posix-filesystem-bot`), job control signals en syscalls (`linux-syscall-compliance-bot`), transacciones en IPC Binder Android (`aether-droid-subsystem-bot`), y abstracción DRM/KMS gráfica (`graphics-power-panel-bot`).
+- El Orchestrator Meta-Agent re-auditó nuevamente el sistema (2026-05-12) y verificó que el build y test run en la versión actual es un éxito total, incluyendo integración en QEMU Headless.
+- **HITO COMPLETADO:** Se confirmó que el agente `linux-syscall-compliance-bot` ha implementado correctamente el soporte para job control signals (`SIGSTOP`, `SIGCONT`, `SIGCHLD`, `SIGTTIN`, `SIGTTOU`) en `kernel/arch/x86_64/syscall.c`. Su instrucción ha sido reiniciada a 'Waiting for new assignment'.
+- Se reafirman las prioridades actuales para este ciclo, enfocándose ahora en: asignar TTY en login (`users-security-panel-bot`), soporte JFS de hardlinks (`vfs-posix-filesystem-bot`), transacciones en IPC Binder Android (`aether-droid-subsystem-bot`), y abstracción DRM/KMS gráfica (`graphics-power-panel-bot`).
