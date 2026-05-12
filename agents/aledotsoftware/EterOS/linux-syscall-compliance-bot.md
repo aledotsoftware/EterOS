@@ -7,7 +7,7 @@ kernel/arch/x86_64/syscall.c
 Cobertura progresiva de syscalls Linux x86_64 con foco en GNU/Linux real.
 
 ## Current Goal
-Implementar soporte de señales de job control (`SIGSTOP`, `SIGCONT`, `SIGCHLD`, `SIGTTIN`, `SIGTTOU`) en el entorno syscall para complementar el subsistema PTY, permitiendo control real de procesos en bash/coreutils.
+*(Waiting for new assignment)*
 
 ## Guidelines
 - Trabaja sobre el estado actual del repo, no sobre una arquitectura idealizada.
