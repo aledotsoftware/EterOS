@@ -56,4 +56,5 @@ Basado en las brechas observables en la arquitectura actual, se priorizan los hi
 ## 5. Changelog / Ultimos Avances
 - El Orchestrator Meta-Agent ha auditado nuevamente el sistema (2026-05-12) y verificado que el build y test run en la versión actual es un éxito total, incluyendo integración en QEMU Headless.
 - Se reafirman las prioridades actuales para este ciclo, enfocándose en la alineación del roadmap crítico con un énfasis real en el control de procesos (login.c session tty), soporte JFS de hardlinks, ruteo IPC Binder Android y abstracción gráfica DRM/KMS.
+- El siguiente ciclo debe comenzar INMEDIATAMENTE asignando el bot `users-security-panel-bot` para implementar `setsid()` y `ioctl(TIOCSCTTY)` en `userspace/login.c`, estableciendo sesiones de terminal reales.
 - Todos los archivos `.md` de los agentes correspondientes han sido revisados y alineados con esta priorización activa.
