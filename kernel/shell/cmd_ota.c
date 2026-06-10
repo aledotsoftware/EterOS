@@ -76,10 +76,31 @@ void cmd_ota(const char* args) {
 
         uint8_t boot_part = nvram_get_boot_partition();
         terminal_write_string("\n\n  [Slots de Arranque]:\n");
+
+        fs_node_t *active_node = partition_get_active_root();
         terminal_write_string("    Slot Activo: ");
         terminal_write_string(boot_part == 0 ? "A (0)" : (boot_part == 1 ? "B (1)" : "Desconocido"));
+        if (active_node) {
+            terminal_write_string(" [particion ");
+            terminal_write_string(active_node->name);
+            terminal_write_string("]");
+            // Note: Since active_node is transiently allocated by create_partition_node,
+            // we safely free the allocated wrapper node to prevent leaks without unlinking real VFS structures.
+            kfree(active_node);
+        }
+
+        fs_node_t *passive_node = partition_get_passive_root();
         terminal_write_string("\n    Slot Pendiente: ");
         terminal_write_string(boot_part == 0 ? "B (1)" : (boot_part == 1 ? "A (0)" : "Desconocido"));
+        if (passive_node) {
+            terminal_write_string(" [particion ");
+            terminal_write_string(passive_node->name);
+            terminal_write_string("]");
+            kfree(passive_node);
+        } else {
+            terminal_write_string(" (No disponible)");
+        }
+
         terminal_write_string("\n\n");
     } else if (strcmp(subcmd, "seturl") == 0) {
         if (!*p) {
@@ -180,37 +201,53 @@ receive:
             return;
         }
 
-        uint32_t payload_size = 0;
-        char buffer[1024];
+        uint32_t total_received = 0;
+        int headers_done = 0;
+        uint32_t body_start_idx = 0;
         int len;
 
-        // Leer e ignorar cabeceras HTTP hasta encontrar \r\n\r\n
-        int headers_done = 0;
+        // Leer y procesar cabeceras HTTP hasta encontrar \r\n\r\n
+        while (total_received < max_payload && (len = sys_lwip_recv(sock, payload_data + total_received, max_payload - total_received, 0)) > 0) {
+            total_received += len;
 
-        while ((len = sys_lwip_recv(sock, buffer, sizeof(buffer), 0)) > 0) {
-            if (!headers_done) {
-                // Busqueda ineficiente pero simple de \r\n\r\n
-                for (int j = 0; j < len - 3; j++) {
-                    if (buffer[j] == '\r' && buffer[j+1] == '\n' && buffer[j+2] == '\r' && buffer[j+3] == '\n') {
+            if (!headers_done && total_received >= 4) {
+                for (uint32_t j = 0; j <= total_received - 4; j++) {
+                    if (payload_data[j] == '\r' && payload_data[j+1] == '\n' && payload_data[j+2] == '\r' && payload_data[j+3] == '\n') {
                         headers_done = 1;
-                        int body_start = j + 4;
-                        int body_len = len - body_start;
-                        if (payload_size + body_len <= max_payload) {
-                            memcpy(payload_data + payload_size, buffer + body_start, body_len);
-                            payload_size += body_len;
+                        body_start_idx = j + 4;
+
+                        // Validate HTTP 200 OK
+                        if (total_received >= 12 && (payload_data[0] == 'H' && payload_data[1] == 'T' && payload_data[2] == 'T' && payload_data[3] == 'P')) {
+                            uint32_t space_idx = 0;
+                            for (uint32_t k = 0; k < j; k++) {
+                                if (payload_data[k] == ' ') {
+                                    space_idx = k;
+                                    break;
+                                }
+                            }
+                            if (space_idx > 0 && space_idx + 3 < j) {
+                                if (payload_data[space_idx + 1] != '2' || payload_data[space_idx + 2] != '0' || payload_data[space_idx + 3] != '0') {
+                                    terminal_write_string("  [OTA] Error: Respuesta HTTP no es 200 OK.\n");
+                                    kfree(payload_data);
+                                    sys_lwip_close(sock);
+                                    if (passive_part) kfree(passive_part);
+                                    return;
+                                }
+                            }
                         }
                         break;
                     }
                 }
-                if (!headers_done) continue;
-            } else {
-                if (payload_size + len <= max_payload) {
-                    memcpy(payload_data + payload_size, buffer, len);
-                    payload_size += len;
-                } else {
+            }
+
+            if (total_received >= max_payload) {
+                // Peek to see if there is more data
+                char check_buf[1];
+                if (sys_lwip_recv(sock, check_buf, 1, 0) > 0) {
                     terminal_write_string("  [OTA] Error: Archivo de actualizacion demasiado grande.\n");
                     kfree(payload_data);
                     sys_lwip_close(sock);
+                    if (passive_part) kfree(passive_part);
                     return;
                 }
             }
@@ -219,9 +256,22 @@ receive:
 
         sys_lwip_close(sock);
 
+        if (!headers_done) {
+            terminal_write_string("  [OTA] Error: Cabeceras HTTP no encontradas.\n");
+            kfree(payload_data);
+            if (passive_part) kfree(passive_part);
+            return;
+        }
+
+        uint32_t payload_size = total_received - body_start_idx;
+        if (payload_size > 0) {
+            memmove(payload_data, payload_data + body_start_idx, payload_size);
+        }
+
         if (payload_size < 1024) {
              terminal_write_string("  [OTA] Error: El archivo descargado esta incompleto o es muy pequeno.\n");
              kfree(payload_data);
+             if (passive_part) kfree(passive_part);
              return;
         }
 
