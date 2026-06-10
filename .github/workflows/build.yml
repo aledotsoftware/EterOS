@@ -16,6 +16,12 @@ jobs:
     steps:
       - name: "Checkout código"
         uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           submodules: true
           fetch-depth: 0
@@ -85,7 +91,11 @@ jobs:
         run: |
           pip install playwright
           playwright install --with-deps chromium
-          for f in verification/*.py; do python3 "$f" || exit 1; done
+          # Replace hardcoded /app/web_ui paths to dynamically use GitHub Actions workspace path
+          for f in verification/*.py; do
+            sed -i "s|file:///app/web_ui|file://\${GITHUB_WORKSPACE}/web_ui|g" "$f"
+            python3 "$f" || exit 1
+          done
 
       - name: "Generar Reporte de Tests (Summary)"
         run: |
@@ -116,6 +126,12 @@ jobs:
     steps:
       - name: "Checkout código"
         uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           submodules: true
           fetch-depth: 0
