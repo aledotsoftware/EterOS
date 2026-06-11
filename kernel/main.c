@@ -235,16 +235,48 @@ void __attribute__((section(".text.boot"))) kmain(void) {
                 vfs_mount("/gnu", writable_fs);
                 vfs_mkdir("/tmp", 0);
                 vfs_mount("/tmp", shmfs_init());
+
+                /* Copy initrd /etc contents to volatile shmfs /etc */
+                fs_node_t* initrd_etc = vfs_lookup(fs_root, "/etc");
+                char passwd_buf[128] = {0};
+                char shadow_buf[128] = {0};
+                char autologin_buf[2] = {0};
+                int p_len = 0, s_len = 0, a_len = 0;
+
+                if (initrd_etc) {
+                    fs_node_t* p_node = vfs_lookup(fs_root, "/etc/passwd");
+                    if (p_node) p_len = read_fs(p_node, 0, sizeof(passwd_buf) - 1, (uint8_t*)passwd_buf);
+                    fs_node_t* s_node = vfs_lookup(fs_root, "/etc/shadow");
+                    if (s_node) s_len = read_fs(s_node, 0, sizeof(shadow_buf) - 1, (uint8_t*)shadow_buf);
+                    fs_node_t* a_node = vfs_lookup(fs_root, "/etc/autologin");
+                    if (a_node) a_len = read_fs(a_node, 0, sizeof(autologin_buf), (uint8_t*)autologin_buf);
+                }
+
                 vfs_mkdir("/etc", 0);
                 vfs_mount("/etc", shmfs_init());
 
-                /* Create default /etc/autologin to preserve previous behavior */
                 fs_node_t* etc_node = vfs_lookup(fs_root, "/etc");
                 if (etc_node) {
-                    create_fs(etc_node, "autologin", 0644);
-                    fs_node_t* autologin_node = vfs_lookup(fs_root, "/etc/autologin");
-                    if (autologin_node) {
-                        write_fs(autologin_node, 0, 2, (uint8_t*)"1\n");
+                    if (a_len > 0) {
+                        create_fs(etc_node, "autologin", 0644);
+                        fs_node_t* a_n = vfs_lookup(fs_root, "/etc/autologin");
+                        if (a_n) write_fs(a_n, 0, a_len, (uint8_t*)autologin_buf);
+                    } else {
+                        create_fs(etc_node, "autologin", 0644);
+                        fs_node_t* a_n = vfs_lookup(fs_root, "/etc/autologin");
+                        if (a_n) write_fs(a_n, 0, 2, (uint8_t*)"1\n");
+                    }
+
+                    if (p_len > 0) {
+                        create_fs(etc_node, "passwd", 0644);
+                        fs_node_t* p_n = vfs_lookup(fs_root, "/etc/passwd");
+                        if (p_n) write_fs(p_n, 0, p_len, (uint8_t*)passwd_buf);
+                    }
+
+                    if (s_len > 0) {
+                        create_fs(etc_node, "shadow", 0600);
+                        fs_node_t* s_n = vfs_lookup(fs_root, "/etc/shadow");
+                        if (s_n) write_fs(s_n, 0, s_len, (uint8_t*)shadow_buf);
                     }
                 }
 
