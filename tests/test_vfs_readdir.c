@@ -167,8 +167,8 @@ void test_readdir_fs_not_directory() {
 
     int result = readdir_fs(node, 0, &entry);
 
-    if (result != -1) {
-        printf("FAIL: readdir_fs should return -1 for non-directory nodes, got %d\n", result);
+    if (result != -ENOTDIR) {
+        printf("FAIL: readdir_fs should return -ENOTDIR for non-directory nodes, got %d\n", result);
         exit(1);
     }
 
@@ -193,8 +193,8 @@ void test_readdir_fs_null_pointer() {
 
     int result = readdir_fs(node, 0, &entry);
 
-    if (result != -1) {
-        printf("FAIL: readdir_fs should return -1 for nodes with NULL readdir pointer, got %d\n", result);
+    if (result != -ENOTDIR) {
+        printf("FAIL: readdir_fs should return -ENOTDIR for nodes with NULL readdir pointer, got %d\n", result);
         exit(1);
     }
 

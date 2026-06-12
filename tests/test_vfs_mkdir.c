@@ -1,3 +1,4 @@
+#include <errno.h>
 #ifndef __ETEROS_HOST_TEST__
 #define __ETEROS_HOST_TEST__
 #endif
@@ -101,13 +102,13 @@ void test_vfs_mkdir() {
     /* Test 1: NULL path */
     reset_mocks();
     ret = vfs_mkdir(NULL, 0x777);
-    assert(ret == -1);
+    assert(ret == -ENOENT);
     printf("Test 1 (NULL path) passed.\n");
 
     /* Test 2: No slash in path */
     reset_mocks();
     ret = vfs_mkdir("name", 0x777);
-    assert(ret == -1);
+    assert(ret == -ENOENT);
     printf("Test 2 (No slash) passed.\n");
 
     /* Test 3: Path too long (last_slash >= 127) */
@@ -119,13 +120,13 @@ void test_vfs_mkdir() {
     long_path[128] = 'B';
     long_path[129] = '\0';
     ret = vfs_mkdir(long_path, 0x777);
-    assert(ret == -1);
+    assert(ret == -ENOENT);
     printf("Test 3 (Path too long) passed.\n");
 
     /* Test 4: Parent directory lookup fails */
     reset_mocks();
     ret = vfs_mkdir("/nonexistent_dir/new_dir", 0x777);
-    assert(ret == -1);
+    assert(ret == -ENOENT);
     assert(mock_mkdir_called == 0);
     printf("Test 4 (Parent directory not found) passed.\n");
 
@@ -152,7 +153,7 @@ void test_vfs_mkdir() {
     /* Test 7: Parent is a file, not a directory */
     reset_mocks();
     ret = vfs_mkdir("/existing_file/new_dir", 0x777);
-    assert(ret == -1);
+    assert(ret == -ENOTDIR);
     assert(mock_mkdir_called == 0);
     printf("Test 7 (Parent is a file) passed.\n");
 

@@ -1,3 +1,4 @@
+#include <errno.h>
 #ifndef __ETEROS_HOST_TEST__
 #define __ETEROS_HOST_TEST__
 #endif
@@ -106,15 +107,15 @@ void test_edge_cases() {
 
     // Test: NULL out_path
     res = vfs_normalize_path(NULL, sizeof(out), "/abc", NULL);
-    if (res != -1) { printf("FAILED: NULL out_path should return -1\n"); exit(1); }
+    if (res != -ENOENT) { printf("FAILED: NULL out_path should return -ENOENT\n"); exit(1); }
 
     // Test: NULL path
     res = vfs_normalize_path(out, sizeof(out), NULL, NULL);
-    if (res != -1) { printf("FAILED: NULL path should return -1\n"); exit(1); }
+    if (res != -ENOENT) { printf("FAILED: NULL path should return -ENOENT\n"); exit(1); }
 
     // Test: size <= 0
     res = vfs_normalize_path(out, 0, "/abc", NULL);
-    if (res != -1) { printf("FAILED: size 0 should return -1\n"); exit(1); }
+    if (res != -ENOENT) { printf("FAILED: size 0 should return -ENOENT\n"); exit(1); }
 
     // Test: too many segments (> 64)
     char long_path[512] = "";
@@ -122,7 +123,7 @@ void test_edge_cases() {
         eteros_strlcat(long_path, "/a", sizeof(long_path));
     }
     res = vfs_normalize_path(out, sizeof(out), long_path, NULL);
-    if (res != -1) { printf("FAILED: > 64 segments should return -1 (returned %d instead)\n", res); exit(1); }
+    if (res != -ENAMETOOLONG) { printf("FAILED: > 64 segments should return -ENAMETOOLONG (returned %d instead)\n", res); exit(1); }
 
     // Test: path that exceeds temp buffer size in vfs_normalize_path (temp[512])
     char very_long_path[1024];

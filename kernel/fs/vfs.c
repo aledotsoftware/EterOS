@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <fs/vfs.h>
 #include <string.h>
 #include <mm.h>
@@ -62,7 +63,7 @@ int readdir_fs(fs_node_t *node, uint32_t index, struct dirent *entry) {
         spin_unlock(&node->lock);
         return ret;
     }
-    return -1;
+    return -ENOTDIR;
 }
 
 fs_node_t *finddir_fs(fs_node_t *node, char *name) {
@@ -96,25 +97,25 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) {
 int create_fs(fs_node_t *parent, char *name, uint16_t permission) {
     if ((parent->flags & 0x7) == FS_DIRECTORY && parent->create != 0)
         return parent->create(parent, name, permission);
-    return -1;
+    return -ENOTDIR;
 }
 
 int mkdir_fs(fs_node_t *parent, char *name, uint16_t permission) {
     if ((parent->flags & 0x7) == FS_DIRECTORY && parent->mkdir != 0)
         return parent->mkdir(parent, name, permission);
-    return -1;
+    return -ENOTDIR;
 }
 
 int unlink_fs(fs_node_t *parent, char *name) {
     if ((parent->flags & 0x7) == FS_DIRECTORY && parent->unlink != 0)
         return parent->unlink(parent, name);
-    return -1;
+    return -ENOTDIR;
 }
 
 int link_fs(fs_node_t *parent, fs_node_t *target, char *name) {
     if ((parent->flags & 0x7) == FS_DIRECTORY && parent->link != 0)
         return parent->link(parent, target, name);
-    return -1;
+    return -ENOTDIR;
 }
 
 int ioctl_fs(fs_node_t *node, int request, void *arg) {
@@ -124,14 +125,14 @@ int ioctl_fs(fs_node_t *node, int request, void *arg) {
         spin_unlock(&node->lock);
         return ret;
     }
-    return -1;
+    return -ENOTTY;
 }
 
 int vfs_mount(const char *path, fs_node_t *fs) {
-    if (!path || !fs) return -1;
+    if (!path || !fs) return -ENOENT;
 
     fs_node_t *node = vfs_lookup(fs_root, path);
-    if (!node) return -1;
+    if (!node) return -ENOENT;
 
     struct mount_point *mp = (struct mount_point*)kmalloc(sizeof(struct mount_point));
     if (!mp) {
@@ -150,7 +151,7 @@ int vfs_mount(const char *path, fs_node_t *fs) {
 }
 
 int vfs_mkdir(const char *path, uint16_t permission) {
-    if (!path) return -1;
+    if (!path) return -ENOENT;
     
     serial_write_string("[VFS] mkdir: ");
     serial_write_string(path);
@@ -171,7 +172,7 @@ int vfs_mkdir(const char *path, uint16_t permission) {
            But if we assume relative to root if only name given?
            Usually syscalls handle CWD. VFS here seems absolute.
            Lets assume invalid if no slash for now unless we default to root. */
-           return -1;
+           return -ENOENT;
     }
 
     /* Split path */
@@ -181,7 +182,7 @@ int vfs_mkdir(const char *path, uint16_t permission) {
         strlcpy(name, path + 1, sizeof(name));
     } else {
         /* "/path/to/name" */
-        if (last_slash >= 127) return -1;
+        if (last_slash >= 127) return -ENOENT;
         memcpy(parent_path, path, last_slash);
         parent_path[last_slash] = '\0';
         strlcpy(name, path + last_slash + 1, sizeof(name));
@@ -194,7 +195,7 @@ int vfs_mkdir(const char *path, uint16_t permission) {
     fs_node_t *parent = vfs_lookup(fs_root, parent_path);
     if (!parent) {
         serial_write_string("      ERROR: Parent not found!\n");
-        return -1;
+        return -ENOENT;
     }
 
     serial_write_string("      Parent Node Flags: ");
@@ -214,9 +215,9 @@ int vfs_mkdir(const char *path, uint16_t permission) {
 extern fs_node_t* tty_create_node(void);
 
 int vfs_link(const char *oldpath, const char *newpath) {
-    if (!oldpath || !newpath) return -1;
+    if (!oldpath || !newpath) return -ENOENT;
     fs_node_t *target = vfs_lookup(fs_root, oldpath);
-    if (!target) return -1;
+    if (!target) return -ENOENT;
 
     char parent_path[128];
     char name[128];
@@ -225,20 +226,20 @@ int vfs_link(const char *oldpath, const char *newpath) {
 
     for (int i = 0; i < len; i++) if (newpath[i] == '/') last_slash = i;
 
-    if (last_slash == -1) { kfree(target); return -1; }
+    if (last_slash == -1) { kfree(target); return -ENOENT; }
 
     if (last_slash == 0) {
         strlcpy(parent_path, "/", sizeof(parent_path));
         strlcpy(name, newpath + 1, sizeof(name));
     } else {
-        if (last_slash >= 127) { kfree(target); return -1; }
+        if (last_slash >= 127) { kfree(target); return -ENOENT; }
         memcpy(parent_path, newpath, last_slash);
         parent_path[last_slash] = '\0';
         strlcpy(name, newpath + last_slash + 1, sizeof(name));
     }
 
     fs_node_t *parent = vfs_lookup(fs_root, parent_path);
-    if (!parent) { kfree(target); return -1; }
+    if (!parent) { kfree(target); return -ENOENT; }
 
     int ret = link_fs(parent, target, name);
     kfree(parent);
@@ -247,7 +248,7 @@ int vfs_link(const char *oldpath, const char *newpath) {
 }
 
 int vfs_unlink(const char *path) {
-    if (!path) return -1;
+    if (!path) return -ENOENT;
     char parent_path[128];
     char name[128];
     int len = strlen(path);
@@ -255,20 +256,20 @@ int vfs_unlink(const char *path) {
 
     for (int i = 0; i < len; i++) if (path[i] == '/') last_slash = i;
 
-    if (last_slash == -1) return -1;
+    if (last_slash == -1) return -ENOENT;
 
     if (last_slash == 0) {
         strlcpy(parent_path, "/", sizeof(parent_path));
         strlcpy(name, path + 1, sizeof(name));
     } else {
-        if (last_slash >= 127) return -1;
+        if (last_slash >= 127) return -ENOENT;
         memcpy(parent_path, path, last_slash);
         parent_path[last_slash] = '\0';
         strlcpy(name, path + last_slash + 1, sizeof(name));
     }
 
     fs_node_t *parent = vfs_lookup(fs_root, parent_path);
-    if (!parent) return -1;
+    if (!parent) return -ENOENT;
 
     int ret = unlink_fs(parent, name);
     kfree(parent);
@@ -276,7 +277,7 @@ int vfs_unlink(const char *path) {
 }
 
 int vfs_normalize_path(char* out_path, int size, const char* path, const char* base_dir) {
-    if (!out_path || !path || size <= 0) return -1;
+    if (!out_path || !path || size <= 0) return -ENOENT;
 
     char temp[512];
     temp[0] = '\0';
@@ -327,7 +328,7 @@ int vfs_normalize_path(char* out_path, int size, const char* path, const char* b
             if (count < 64) {
                 segments[count++] = start;
             } else {
-                return -1; // Too many segments
+                return -ENAMETOOLONG; // Too many segments
             }
         }
     }

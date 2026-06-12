@@ -1,3 +1,4 @@
+#include <errno.h>
 #ifndef __ETEROS_HOST_TEST__
 #define __ETEROS_HOST_TEST__
 #endif
@@ -89,7 +90,7 @@ void test_create_fs() {
 
     ret = create_fs(&parent, "test_file", 0644);
 
-    assert(ret == -1);
+    assert(ret == -ENOTDIR);
     assert(mock_create_called == 0);
     printf("Test 2 (Directory with NULL create function) passed.\n");
 
@@ -100,7 +101,7 @@ void test_create_fs() {
 
     ret = create_fs(&parent, "test_file", 0644);
 
-    assert(ret == -1);
+    assert(ret == -ENOTDIR);
     assert(mock_create_called == 0);
     printf("Test 3 (Parent is a file, not a directory) passed.\n");
 
