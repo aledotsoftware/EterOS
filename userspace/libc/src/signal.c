@@ -7,7 +7,7 @@
 #include <sys/syscall.h>
 #include <errno.h>
 
-/* extern int errno; */
+
 
 static inline long syscall2(long n, long a1, long a2) {
     long ret;
