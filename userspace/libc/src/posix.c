@@ -19,7 +19,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
-/* extern int errno; */
+
 extern char **environ;
 
 /* Syscall primitives (self-contained to avoid cross-TU dependencies). */

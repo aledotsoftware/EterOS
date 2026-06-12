@@ -91,28 +91,15 @@ _start:
     jmp .parse_auxv
 
 .done_auxv:
-    ; 5. Call global constructors
-    ; Here we would call _init() if it exists, or call function pointers in .init_array
-    ; For now, we declare them externally if needed, or just let linker provide them.
-    ; Standard libc runs the init array. We'll leave it as a placeholder call for now
-    ; since the requirement just mentioned "call constructors".
-    extern _init
-    ; call _init ; Need to ensure _init is provided by CRT files. Usually provided by crti.o
-    ; If we don't have crti/n, we can skip or provide a weak symbol.
-    ; To avoid linker errors, we'll assume the environment doesn't strictly need _init
-    ; unless we compile with it, but we can do a weak reference.
-
-    ; Pass argc, argv, envp explicitly just in case (SysV ABI passes them in rdi, rsi, rdx)
-    ; rdi currently has argc, rsi has argv, rdx has envp.
-    ; We need to make sure they are in these registers.
-    ; At the top, we did: pop rdi (argc), mov rsi, rsp (argv), lea rdx, ... (envp)
-    ; But we used rdi, rsi, rdx. Did we clobber them?
-    ; r8, r9, r10 were used for auxv.
-    ; Let's restore rdi, rsi, rdx if needed, but we didn't touch them!
-
-    ; Call main(argc, argv, envp)
-    and rsp, ~15     ; Align stack to 16 bytes (SysV ABI)
+    ; Let's just make sure we align stack perfectly.
+    mov rbp, rsp
+    and rsp, ~15
     call main
+    mov rsp, rbp
+
+
+
+
 
     ; 6. Run atexit handlers and exit
     mov r12, rax     ; Save main's return value
