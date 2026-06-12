@@ -11,6 +11,7 @@
 #include <vga.h>
 #include <string.h>
 #include <task.h>
+#include "acpi.h"
 #include <keyboard.h>
 #include <fs/vfs.h>
 #include <mm.h>
@@ -3373,6 +3374,15 @@ static int64_t sys_sched_yield_wrapper(void) {
     return 0;
 }
 
+
+static int64_t sys_reboot(int magic1, int magic2, int cmd, void *arg) {
+    (void)magic1; (void)magic2; (void)cmd; (void)arg;
+#ifndef __ETEROS_HOST_TEST__
+    acpi_poweroff();
+#endif
+    return 0;
+}
+
 static int64_t sys_exit_wrapper(int status) {
     task_exit(status);
     __builtin_unreachable();
@@ -3512,6 +3522,7 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [302] = (syscall_ptr_t)sys_prlimit64,
     [318] = (syscall_ptr_t)sys_getrandom,
     [400] = (syscall_ptr_t)sys_gethostbyname,
+    [169] = (syscall_ptr_t)sys_reboot,
     [24] = (syscall_ptr_t)sys_sched_yield_wrapper,
     [60] = (syscall_ptr_t)sys_exit_wrapper,
     [82] = (syscall_ptr_t)sys_rename,
@@ -3647,6 +3658,7 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [318] = (syscall_ptr_t)sys_getrandom,
     [400] = (syscall_ptr_t)sys_gethostbyname,
     [319] = (syscall_ptr_t)sys_memfd_create,
+    [169] = (syscall_ptr_t)sys_reboot,
     [24] = (syscall_ptr_t)sys_sched_yield_wrapper,
     [60] = (syscall_ptr_t)sys_exit_wrapper,
     [82] = (syscall_ptr_t)sys_rename,
