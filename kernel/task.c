@@ -1506,6 +1506,21 @@ int task_waitpid(int pid, int* status, int options) {
         if (found_event) {
              task_t* ev = &tasks[event_slot];
              int is_zombie = (ev->state == TASK_DEAD);
+             if (is_zombie) {
+                 int is_active = 0;
+                 for (int c = 0; c < MAX_CPUS; c++) {
+                     if (cpus[c].current_task == (volatile void*)ev) {
+                         is_active = 1;
+                         break;
+                     }
+                 }
+                 if (is_active) {
+                     spin_unlock(&sched_lock);
+                     __asm__ volatile("sti");
+                     task_sleep(10);
+                     continue;
+                 }
+             }
              int is_nowait = (options & WNOWAIT);
              if (!is_nowait) {
                  if (is_zombie) task_reap_zombie_locked(event_slot);
