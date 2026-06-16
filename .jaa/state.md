@@ -47,3 +47,9 @@
   - Removed hardcoded fallback IP `162.159.200.1` from `cmd_ntp` (`kernel/shell/cmd_time.c`) so NTP properly aborts if DNS resolution fails.
   - Reviewed Keyboard standard mapping bounds in `scancode_to_ascii_es`. Validated `hlt` instruction bounds on `cmd_panel.c` for UI responsiveness on `mouse_moved` events.
   - Confirmed RTC `rtc_is_updating()` correctly disables NMI and loops appropriately across the CMOS data port ensuring synchronized and robust atomic date fetching.
+
+- **ota-update-panel-bot**: OTA logic hardened and verified.
+  - Improved `cmd_ota.c` update diagnostics by including partition size in KB within the `info` command and removing unused boot variables.
+  - Implemented robust write-verification for OTA downloads: the payload is read back after writing to disk and strictly `memcmp`'d against the source, preventing corrupted updates from being flagged as pending.
+  - Fixed the `rollback` command to properly compute the active slot dynamically via `partition_get_active_root()->impl` rather than relying solely on NVRAM fallbacks.
+  - Ensured correct memory lifecycle (`kfree`) for allocated buffers and wrapper nodes upon success and failure paths.
