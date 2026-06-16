@@ -74,7 +74,6 @@ void cmd_ota(const char* args) {
         terminal_write_string(" ");
         terminal_write_string(__TIME__);
 
-        uint8_t boot_part = nvram_get_boot_partition();
         terminal_write_string("\n\n  [Slots de Arranque]:\n");
 
         fs_node_t *active_node = partition_get_active_root();
@@ -83,7 +82,11 @@ void cmd_ota(const char* args) {
             terminal_write_string(active_node->impl == 0 ? "A (0)" : (active_node->impl == 1 ? "B (1)" : "Desconocido"));
             terminal_write_string(" [particion ");
             terminal_write_string(active_node->name);
-            terminal_write_string("]");
+            terminal_write_string(", ");
+            char size_buf[32];
+            itoa_s(active_node->length / 1024, size_buf, sizeof(size_buf), 10);
+            terminal_write_string(size_buf);
+            terminal_write_string(" KB]");
             // Note: Since active_node is transiently allocated by create_partition_node,
             // we safely free the allocated wrapper node to prevent leaks without unlinking real VFS structures.
             kfree(active_node);
@@ -97,7 +100,11 @@ void cmd_ota(const char* args) {
             terminal_write_string(passive_node->impl == 0 ? "A (0)" : (passive_node->impl == 1 ? "B (1)" : "Desconocido"));
             terminal_write_string(" [particion ");
             terminal_write_string(passive_node->name);
-            terminal_write_string("]");
+            terminal_write_string(", ");
+            char size_buf[32];
+            itoa_s(passive_node->length / 1024, size_buf, sizeof(size_buf), 10);
+            terminal_write_string(size_buf);
+            terminal_write_string(" KB]");
             kfree(passive_node);
         } else {
             terminal_write_string("Desconocido (No disponible)");
@@ -366,13 +373,33 @@ receive:
         terminal_write_string("  [OTA] Escribiendo imagen...\n");
         uint32_t written = write_fs(passive_part, write_offset, write_size, payload_data + data_offset);
 
-        kfree(passive_part);
-
         if (written != write_size) {
             terminal_write_string("  [OTA] ERROR: Fallo al escribir la imagen completa en el slot.\n");
+            kfree(passive_part);
             kfree(payload_data);
             return;
         }
+
+        terminal_write_string("  [OTA] Verificando escritura...\n");
+        uint8_t *verify_buf = kmalloc(write_size);
+        if (!verify_buf) {
+            terminal_write_string("  [OTA] ERROR: Sin memoria para verificar escritura.\n");
+            kfree(passive_part);
+            kfree(payload_data);
+            return;
+        }
+
+        uint32_t verified_read = read_fs(passive_part, write_offset, write_size, verify_buf);
+        if (verified_read != write_size || memcmp(payload_data + data_offset, verify_buf, write_size) != 0) {
+            terminal_write_string("  [OTA] ERROR: Fallo la verificacion de escritura (corrupcion o fallo en lectura).\n");
+            kfree(verify_buf);
+            kfree(passive_part);
+            kfree(payload_data);
+            return;
+        }
+        kfree(verify_buf);
+        kfree(passive_part);
+        terminal_write_string("  [OTA] Verificacion de escritura exitosa.\n");
 
         unsigned char sha256_hash[32];
         SHA256_CTX ctx;
@@ -412,11 +439,17 @@ receive:
         }
     } else if (strcmp(subcmd, "rollback") == 0) {
         if (nvram_get_update_state() == UPDATE_STATE_PENDING) {
-            uint8_t current_part = nvram_get_boot_partition();
-            uint8_t next_part = (current_part == 0) ? 1 : 0;
-            nvram_set_boot_partition(next_part);
-            nvram_set_update_state(UPDATE_STATE_FAILED);
-            terminal_write_string("  [OTA] Rollback solicitado. El sistema regresara al slot anterior en el proximo reinicio.\n");
+            fs_node_t *active_node = partition_get_active_root();
+            if (active_node) {
+                uint8_t current_part = active_node->impl;
+                uint8_t next_part = (current_part == 0) ? 1 : 0;
+                nvram_set_boot_partition(next_part);
+                nvram_set_update_state(UPDATE_STATE_FAILED);
+                terminal_write_string("  [OTA] Rollback solicitado. El sistema regresara al slot anterior en el proximo reinicio.\n");
+                kfree(active_node);
+            } else {
+                terminal_write_string("  [OTA] ERROR: No se pudo determinar el slot activo para hacer rollback.\n");
+            }
         } else {
             terminal_write_string("  [OTA] No hay ninguna actualizacion pendiente de la cual hacer rollback.\n");
         }
