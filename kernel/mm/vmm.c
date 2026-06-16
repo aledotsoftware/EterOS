@@ -697,3 +697,25 @@ int vmm_strncpy_from_user(char* dst, const char* src, size_t max) {
     dst[max - 1] = '\0';
     return (int)max;
 }
+
+int vmm_safe_copy_from_user(void *dest, const void *src, size_t n) {
+    if (!src || !dest) return -EFAULT;
+
+    if (!vmm_verify_user_access(src, n, 0)) {
+        return -EFAULT;
+    }
+
+    memcpy(dest, src, n);
+    return 0;
+}
+
+int vmm_safe_copy_to_user(void *dest, const void *src, size_t n) {
+    if (!src || !dest) return -EFAULT;
+
+    if (!vmm_verify_user_access(dest, n, 1)) {
+        return -EFAULT;
+    }
+
+    memcpy(dest, src, n);
+    return 0;
+}

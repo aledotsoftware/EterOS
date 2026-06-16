@@ -158,4 +158,26 @@ void vmm_destroy_pml4(uint64_t pml4_phys);
  */
 int vmm_strncpy_from_user(char* dst, const char* src, size_t max);
 
+/**
+ * Safely copies data from user space to kernel space.
+ * Checks for page boundaries and user permissions during the copy.
+ *
+ * @param dest Kernel buffer to copy to.
+ * @param src User space address to copy from.
+ * @param n Number of bytes to copy.
+ * @return 0 on success, or -EFAULT on error.
+ */
+int vmm_safe_copy_from_user(void *dest, const void *src, size_t n);
+
+/**
+ * Safely copies data from kernel space to user space.
+ * Checks for page boundaries and user permissions during the copy.
+ *
+ * @param dest User space address to copy to.
+ * @param src Kernel buffer to copy from.
+ * @param n Number of bytes to copy.
+ * @return 0 on success, or -EFAULT on error.
+ */
+int vmm_safe_copy_to_user(void *dest, const void *src, size_t n);
+
 #endif /* ETEROS_VMM_H */

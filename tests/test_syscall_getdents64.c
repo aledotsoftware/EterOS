@@ -262,6 +262,21 @@ fs_node_t *vfs_lookup_ext(fs_node_t *root, const char *path, int follow_symlink)
 fs_node_t* shmfs_create_memfd(const char* name) { (void)name; return (fs_node_t*)malloc(sizeof(fs_node_t)); }
 
 
+int vmm_safe_copy_to_user(void *dest, const void *src, size_t n) {
+    if (!dest || !src) return -14;
+    if (!vmm_verify_user_access(dest, n, 1)) return -14;
+    memcpy(dest, src, n);
+    return 0;
+}
+
+int vmm_safe_copy_from_user(void *dest, const void *src, size_t n) {
+    if (!dest || !src) return -14;
+    if (!vmm_verify_user_access(src, n, 0)) return -14;
+    memcpy(dest, src, n);
+    return 0;
+}
+
+
 #include "../kernel/arch/x86_64/syscall.c"
 
 int main() {

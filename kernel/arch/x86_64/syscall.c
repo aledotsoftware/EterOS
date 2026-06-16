@@ -1581,13 +1581,11 @@ static int64_t sys_get_robust_list(int pid, struct robust_list_head** head_ptr, 
     if (!target) return -ESRCH;
 
     if (head_ptr) {
-        if (!vmm_verify_user_access(head_ptr, sizeof(struct robust_list_head*), 1)) return -EFAULT;
-        memcpy(head_ptr, &target->robust_list, sizeof(struct robust_list_head*));
+        if (vmm_safe_copy_to_user(head_ptr, &target->robust_list, sizeof(struct robust_list_head*)) != 0) return -EFAULT;
     }
     if (len_ptr) {
         size_t len = sizeof(struct robust_list_head);
-        if (!vmm_verify_user_access(len_ptr, sizeof(size_t), 1)) return -EFAULT;
-        memcpy(len_ptr, &len, sizeof(size_t));
+        if (vmm_safe_copy_to_user(len_ptr, &len, sizeof(size_t)) != 0) return -EFAULT;
     }
     return 0;
 }

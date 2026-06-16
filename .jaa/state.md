@@ -5,6 +5,8 @@
   - Confirmed `total_pages` boundary constraints are active in `pmm_mark_region_used`.
   - Verified `vmm_virt_to_phys` is used for stack pointer validation during panics in `idt.c` to prevent nested faults.
   - Confirmed `ist[1]` isolation is maintained in `tss_set_rsp0` for Double Fault protection.
+  - Refactored `safe_copy_to_user` and `safe_copy_from_user` from `devfs.c` to global `vmm.c` APIs (`vmm_safe_copy_to_user`, `vmm_safe_copy_from_user`) to enforce userspace boundary checks across the kernel.
+  - Resolved `memcpy` vulnerability in `sys_get_robust_list` by replacing it with `vmm_safe_copy_to_user`.
   - Removed stale `.rej` artifacts and restored robust QA build flow (`nasm` dependency resolved).
   - All host tests (`run_tests.sh`) and build targets (`make all`) pass successfully.
 - Improved DNS Resolution: `cmd_ota.c` now dynamically resolves update server URLs via `net_gethostbyname` instead of hardcoded IPs.

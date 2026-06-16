@@ -216,10 +216,10 @@ void pmm_init(void) {
     ASSERT((uint64_t)pmm_bitmap == 0x1A000 && "PMM Bitmap no esta en la region correcta!");
     ASSERT((uint64_t)pmm_ref_counts > ((uint64_t)pmm_bitmap + pmm_bitmap_size) - 4096 && "PMM RefCounts colisionan con el Bitmap");
 
-    /* Inicializar bitmap: MARCAR TODO COMO USADO (1) por defecto */
+    /* Inicializar bitmap: MARCAR TODAS LAS PAGINAS COMO USADAS (1) por defecto */
     /* Luego liberaremos solo las regiones USABLE del mapa E820 */
     memset(pmm_bitmap, 0xFF, pmm_bitmap_size);
-    /* Inicializar refcounts: MARCAR TODO COMO USADO (1) por defecto */
+    /* Inicializar refcounts: MARCAR TODAS LAS PAGINAS COMO USADAS (1) por defecto */
     /* Use loop since memset sets bytes, and we want uint16_t entries to be 1 */
     for (uint64_t i = 0; i < total_pages; i++) {
         pmm_ref_counts[i] = 1;

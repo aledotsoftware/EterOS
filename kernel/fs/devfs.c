@@ -112,20 +112,6 @@ typedef struct {
 
 static client_queue_t cl_queues[BINDER_MAX_QUEUED];
 
-/* Helper to safely copy from user space. In a real kernel this would handle page faults. */
-static int safe_copy_from_user(void *dest, const void *src, size_t n) {
-    if (!src || !dest) return -EFAULT;
-    memcpy(dest, src, n);
-    return 0;
-}
-
-/* Helper to safely copy to user space. */
-static int safe_copy_to_user(void *dest, const void *src, size_t n) {
-    if (!src || !dest) return -EFAULT;
-    memcpy(dest, src, n);
-    return 0;
-}
-
 static ssize_t dev_binder_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)node; (void)offset; (void)size; (void)buffer;
     return 0;
@@ -145,7 +131,7 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
         if (!arg) return -EINVAL;
         struct binder_version ver;
         ver.protocol_version = 8; /* Current Binder protocol version */
-        if (safe_copy_to_user(arg, &ver, sizeof(ver)) != 0) return -EFAULT;
+        if (vmm_safe_copy_to_user(arg, &ver, sizeof(ver)) != 0) return -EFAULT;
         return 0;
     }
     if (request == BINDER_SET_CONTEXT_MGR) {
@@ -161,7 +147,7 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
     if (request == BINDER_WRITE_READ) {
         if (!arg) return -EINVAL;
         struct binder_write_read bwr;
-        if (safe_copy_from_user(&bwr, arg, sizeof(bwr)) != 0) return -EFAULT;
+        if (vmm_safe_copy_from_user(&bwr, arg, sizeof(bwr)) != 0) return -EFAULT;
 
         /* Process Writes (Client -> Binder) */
         if (bwr.write_size > 0 && bwr.write_buffer) {
@@ -170,13 +156,13 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
 
             while (consumed + sizeof(uint32_t) <= bwr.write_size) {
                 uint32_t cmd;
-                if (safe_copy_from_user(&cmd, wbuf + consumed, sizeof(cmd)) != 0) break;
+                if (vmm_safe_copy_from_user(&cmd, wbuf + consumed, sizeof(cmd)) != 0) break;
                 consumed += sizeof(uint32_t);
 
                 if (cmd == BC_TRANSACTION || cmd == BC_REPLY) {
                     if (consumed + sizeof(struct binder_transaction_data) > bwr.write_size) break;
                     struct binder_transaction_data tr;
-                    if (safe_copy_from_user(&tr, wbuf + consumed, sizeof(tr)) != 0) break;
+                    if (vmm_safe_copy_from_user(&tr, wbuf + consumed, sizeof(tr)) != 0) break;
                     consumed += sizeof(struct binder_transaction_data);
 
                     uint8_t *temp_payload = NULL;
@@ -185,7 +171,7 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
                         if (tr.data_size <= 1024 * 1024) {
                             temp_payload = (uint8_t*)kmalloc((size_t)tr.data_size);
                             if (temp_payload) {
-                                if (safe_copy_from_user(temp_payload, (void*)(uintptr_t)tr.data.ptr.buffer, (size_t)tr.data_size) != 0) {
+                                if (vmm_safe_copy_from_user(temp_payload, (void*)(uintptr_t)tr.data.ptr.buffer, (size_t)tr.data_size) != 0) {
                                     kfree(temp_payload);
                                     temp_payload = NULL;
                                     tr.data_size = 0;
@@ -237,7 +223,7 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
                 } else if (cmd == BC_FREE_BUFFER) {
                      if (consumed + sizeof(uintptr_t) > bwr.write_size) break;
                      uintptr_t buffer_to_free;
-                     if (safe_copy_from_user(&buffer_to_free, wbuf + consumed, sizeof(buffer_to_free)) != 0) break;
+                     if (vmm_safe_copy_from_user(&buffer_to_free, wbuf + consumed, sizeof(buffer_to_free)) != 0) break;
                      consumed += sizeof(uintptr_t);
 
                      /* We must validate that the buffer belongs to our tracked payloads to prevent arbitrary kfree */
@@ -302,7 +288,7 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
                     if (payload_ptr && tr_copy.data.ptr.buffer) {
                         /* In this shim, we assume the reader provided a valid buffer in tr_copy.data.ptr.buffer
                            to copy the payload into. This is not strictly Android compliant but safe for our baremetal shim. */
-                        if (safe_copy_to_user((void*)(uintptr_t)tr_copy.data.ptr.buffer, payload_ptr, tr_copy.data_size) != 0) {
+                        if (vmm_safe_copy_to_user((void*)(uintptr_t)tr_copy.data.ptr.buffer, payload_ptr, tr_copy.data_size) != 0) {
                            /* Copy failed */
                         }
                         /* We don't free payload_ptr here, BC_FREE_BUFFER must handle it based on the tracking logic */
@@ -310,9 +296,9 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
                         tr_copy.data.ptr.buffer = 0;
                     }
 
-                    if (safe_copy_to_user(rbuf + read_out, &out_cmd, sizeof(out_cmd)) == 0) {
+                    if (vmm_safe_copy_to_user(rbuf + read_out, &out_cmd, sizeof(out_cmd)) == 0) {
                         read_out += sizeof(uint32_t);
-                        if (safe_copy_to_user(rbuf + read_out, &tr_copy, sizeof(tr_copy)) == 0) {
+                        if (vmm_safe_copy_to_user(rbuf + read_out, &tr_copy, sizeof(tr_copy)) == 0) {
                             read_out += sizeof(struct binder_transaction_data);
                         }
                     }
@@ -323,7 +309,7 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
             } else {
                 if (bwr.read_size >= sizeof(uint32_t)) {
                     uint32_t noop = BR_NOOP;
-                    if (safe_copy_to_user(rbuf + read_out, &noop, sizeof(noop)) == 0) {
+                    if (vmm_safe_copy_to_user(rbuf + read_out, &noop, sizeof(noop)) == 0) {
                         read_out += sizeof(uint32_t);
                     }
                 }
@@ -331,7 +317,7 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
             bwr.read_consumed = read_out;
         }
 
-        if (safe_copy_to_user(arg, &bwr, sizeof(bwr)) != 0) return -EFAULT;
+        if (vmm_safe_copy_to_user(arg, &bwr, sizeof(bwr)) != 0) return -EFAULT;
         return 0;
     }
 

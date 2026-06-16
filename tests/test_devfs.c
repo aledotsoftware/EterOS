@@ -76,6 +76,18 @@ fs_node_t *devfs_dri_finddir(fs_node_t *node, char *name) { return 0; }
 
 int vmm_strncpy_from_user(char* dst, const char* src, size_t max) { strncpy(dst, src, max); dst[max-1]='\0'; return strlen(dst); }
 /* Include DevFS source directly to test static functions */
+int vmm_safe_copy_to_user(void *dest, const void *src, size_t n) {
+    if (!dest || !src) return -14;
+    memcpy(dest, src, n);
+    return 0;
+}
+
+int vmm_safe_copy_from_user(void *dest, const void *src, size_t n) {
+    if (!dest || !src) return -14;
+    memcpy(dest, src, n);
+    return 0;
+}
+
 #include "../kernel/fs/devfs.c"
 
 void test_devfs_finddir() {

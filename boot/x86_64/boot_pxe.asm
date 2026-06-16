@@ -2,7 +2,7 @@
 ; éterOS PXE Bootloader - x86_64
 ; =============================================================================
 ; Este bootloader está diseñado para ser cargado por un servidor PXE.
-; A diferencia del MBR, asume que TODO el archivo ya está en memoria
+; A diferencia del MBR, asume que todo el archivo ya está en memoria
 ; (cargado por el ROM de la tarjeta de red, ej. SiS191).
 ;
 ; El ROM carga el archivo en 0x0000:0x7C00.
