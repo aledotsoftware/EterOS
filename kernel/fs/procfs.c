@@ -18,7 +18,7 @@ static task_t* proc_node_task(fs_node_t *node) {
 }
 
 static int proc_node_fd(fs_node_t *node) {
-    if (!node || node->inode < 1000) return -1;
+    if (!node || node->inode < 1000) return -EINVAL;
     return (int)(node->inode - 1000);
 }
 

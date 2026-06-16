@@ -150,9 +150,9 @@ fs_node_t* shmfs_create_memfd(const char* name) {
 }
 
 int shmfs_truncate(fs_node_t *node, uint32_t length) {
-    if (!node) return -1;
+    if (!node) return -EINVAL;
     shm_object_t* obj = (shm_object_t*)(uintptr_t)node->impl;
-    if (!obj) return -1;
+    if (!obj) return -EINVAL;
 
     spin_lock(&obj->lock);
     
@@ -163,7 +163,7 @@ int shmfs_truncate(fs_node_t *node, uint32_t length) {
         uint64_t* new_pages = (uint64_t*)kmalloc(new_page_count * sizeof(uint64_t));
         if (!new_pages) {
             spin_unlock(&obj->lock);
-            return -1; /* ENOMEM */
+            return -ENOMEM; /* ENOMEM */
         }
         
         /* Copy old pages */
@@ -237,30 +237,30 @@ static fs_node_t *shmfs_finddir(fs_node_t *node, char *name) {
 
 static int shmfs_create(fs_node_t *parent, char *name, uint16_t permission) {
     (void)parent; (void)permission;
-    if (!name) return -1;
+    if (!name) return -EINVAL;
     
     spin_lock(&shm_lock);
     shm_object_t* obj = shm_find_object(name);
     if (obj) {
         spin_unlock(&shm_lock);
-        return 0; /* Already exists */
+        return -EEXIST; /* Already exists */
     }
     
     obj = shm_create_object(name);
     spin_unlock(&shm_lock);
     
-    return obj ? 0 : -1;
+    return obj ? 0 : -ENOMEM;
 }
 
 static int shmfs_unlink(fs_node_t *parent, char *name) {
     (void)parent;
-    if (!name) return -1;
+    if (!name) return -EINVAL;
     
     spin_lock(&shm_lock);
     shm_object_t* obj = shm_find_object(name);
     if (!obj) {
         spin_unlock(&shm_lock);
-        return -1;
+        return -ENOENT;
     }
     
     /* For simplicity, free immediately. A true POSIX shm unlinks the name but 
@@ -274,13 +274,13 @@ static int shmfs_unlink(fs_node_t *parent, char *name) {
 static int shmfs_rename(fs_node_t *old_parent, char *old_name, fs_node_t *new_parent, char *new_name) {
     (void)old_parent;
     (void)new_parent;
-    if (!old_name || !new_name) return -1;
+    if (!old_name || !new_name) return -EINVAL;
 
     spin_lock(&shm_lock);
     shm_object_t* obj = shm_find_object(old_name);
     if (!obj) {
         spin_unlock(&shm_lock);
-        return -1;
+        return -ENOENT;
     }
 
     if (shm_find_object(new_name)) {

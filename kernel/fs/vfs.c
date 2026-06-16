@@ -137,7 +137,7 @@ int vfs_mount(const char *path, fs_node_t *fs) {
     struct mount_point *mp = (struct mount_point*)kmalloc(sizeof(struct mount_point));
     if (!mp) {
         kfree(node);
-        return -2;
+        return -ENOMEM;
     }
 
     mp->inode = node->inode;
