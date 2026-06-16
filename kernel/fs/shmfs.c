@@ -5,6 +5,7 @@
 #include <vmm.h>
 #include <string.h>
 #include <lock.h>
+#include <errno.h>
 
 static fs_node_t* shmfs_root = NULL;
 static shm_object_t* shm_objects = NULL;
