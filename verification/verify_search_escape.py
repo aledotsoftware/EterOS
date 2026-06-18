@@ -35,7 +35,7 @@ def verify_search_escape():
 
         if not clear_btn.is_visible():
             print("ERROR: Clear button is NOT visible after typing.")
-            page.screenshot(path="verification/error_not_visible_escape.png")
+            page.screenshot(path=os.path.join(os.path.dirname(__file__), 'error_not_visible_escape.png'))
             browser.close()
             return
 
@@ -49,7 +49,7 @@ def verify_search_escape():
             print("Input is empty.")
         else:
             print(f"ERROR: Input is not empty. Value: '{input_value}'")
-            page.screenshot(path="verification/error_escape_clear_failed.png")
+            page.screenshot(path=os.path.join(os.path.dirname(__file__), 'error_escape_clear_failed.png'))
             browser.close()
             return
 

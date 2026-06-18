@@ -56,7 +56,7 @@ def run():
         assert 0.43 < opacity_style < 0.45, f"Expected opacity ~0.44, got {opacity_style}"
 
         # Take screenshot for visual verification
-        page.screenshot(path="verification/slider_raf_optimization.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'slider_raf_optimization.png'))
         print("Screenshot saved to verification/slider_raf_optimization.png")
 
         print("Verification passed!")

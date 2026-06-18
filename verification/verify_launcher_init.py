@@ -47,7 +47,7 @@ def run():
         print("Filtering successful!")
 
         # Take screenshot
-        page.screenshot(path="verification/launcher_verification.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'launcher_verification.png'))
         print("Screenshot saved to verification/launcher_verification.png")
 
         browser.close()

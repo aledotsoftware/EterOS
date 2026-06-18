@@ -73,3 +73,4 @@ In EterOS `userspace/login.c`, reading passwords via `read` from stdin must clea
   - Replaced generic negative integers (-1, -2, -3) with specific POSIX error codes (-ENOENT, -ENOSPC, -ENOMEM, -ENOTDIR, -EINVAL) in `vfs.c`, `fat32.c`, `jfs.c`, `shmfs.c`, `procfs.c`, `devfs.c`, and `bcache.c`.
   - Adjusted mock implementations and assertion handlers in `test_vfs_path_splitting.c`, `test_initrd_security.c`, `test_elf_truncation.c` to accurately match native prototypes and expect corrected POSIX semantics.
   - Verified `read_fs` functions in `kernel/fs/vfs.c`, `kernel/fs/initrd.c`, `kernel/fs/procfs.c` etc use `ssize_t` types where applicable.
+- **devices-time-panel-bot**: Added missing Spanish keyboard mappings for '<' and '>' (0x56), adjusted `cmd_time` padding to ensure robust text-mode UI interactions in `cmd_panel.c`, and fixed testing scripts to use robust absolute resolving paths using `__file__`.

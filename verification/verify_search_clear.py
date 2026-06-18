@@ -17,7 +17,7 @@ def verify_search_clear():
             print("Boot splash disappeared.")
         except:
              print("Boot splash did not disappear in time.")
-             page.screenshot(path="verification/error_splash_timeout.png")
+             page.screenshot(path=os.path.join(os.path.dirname(__file__), 'error_splash_timeout.png'))
              browser.close()
              return
 
@@ -42,12 +42,12 @@ def verify_search_clear():
             print("Clear button is visible.")
         except:
             print("ERROR: Clear button is NOT visible.")
-            page.screenshot(path="verification/error_not_visible.png")
+            page.screenshot(path=os.path.join(os.path.dirname(__file__), 'error_not_visible.png'))
             browser.close()
             return
 
         # Take screenshot of visible button
-        page.screenshot(path="verification/search_with_text.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'search_with_text.png'))
 
         # Click clear button
         print("Clicking clear button...")
@@ -68,7 +68,7 @@ def verify_search_clear():
              print("ERROR: Clear button is still visible.")
 
         # Take final screenshot
-        page.screenshot(path="verification/search_cleared.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'search_cleared.png'))
 
         browser.close()
 

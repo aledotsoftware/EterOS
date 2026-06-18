@@ -43,7 +43,7 @@ def test_sliders():
 
         # Take screenshot
         os.makedirs("verification", exist_ok=True)
-        page.screenshot(path="verification/sliders_verified.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'sliders_verified.png'))
 
         browser.close()
 

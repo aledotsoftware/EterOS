@@ -26,7 +26,7 @@ def run():
 
         # Take screenshot of initial state (with notifications)
         print("Taking screenshot of notifications...")
-        page.screenshot(path="verification/notifications_before.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'notifications_before.png'))
 
         # Verify notifications are present
         notif_list = page.locator("#notif-list")
@@ -68,7 +68,7 @@ def run():
 
         # Take screenshot of cleared state
         print("Taking screenshot of empty state...")
-        page.screenshot(path="verification/notifications_after.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'notifications_after.png'))
 
         browser.close()
 
