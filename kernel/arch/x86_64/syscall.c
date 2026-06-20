@@ -3411,6 +3411,7 @@ static int64_t sys_chdir(const char* path) {
 
 
 static int64_t sys_execveat(int dirfd, const char* path, char* const argv[], char* const envp[], int flags, struct syscall_regs* regs) {
+    if (!path || !vmm_check_user_string(path, 256)) return -EFAULT;
     (void)flags;
     char* kpath = (char*)kmalloc(256);
     if (!kpath) return -ENOMEM;
@@ -3422,6 +3423,7 @@ static int64_t sys_execveat(int dirfd, const char* path, char* const argv[], cha
 }
 
 static int64_t sys_execve(const char* path, char* const argv[], char* const envp[], struct syscall_regs* regs) {
+    if (!path || !vmm_check_user_string(path, 256)) return -EFAULT;
     return task_exec(path, argv, envp, regs);
 }
 static int64_t sys_wait4(int pid, int* status, int options, void* rusage) {
