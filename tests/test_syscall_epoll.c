@@ -116,7 +116,7 @@ uint64_t vmm_clone_pml4(int cow) { return 0; }
 
 /* Mock VFS functions */
 ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
+ssize_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
 void close_fs(fs_node_t *node) {}
 
 fs_node_t* vfs_lookup(fs_node_t* root, const char* path) {

@@ -78,7 +78,7 @@ static ssize_t shmfs_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8
     return 0;
 }
 
-static uint32_t shmfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t shmfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)node; (void)offset; (void)size; (void)buffer;
     /* Basic write support not typically needed for SHM. Returns 0 to indicate error or no bytes written. */
     return 0;

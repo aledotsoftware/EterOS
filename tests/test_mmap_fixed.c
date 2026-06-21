@@ -141,7 +141,7 @@ int hal_mem_map(uint64_t phys, uint64_t virt, uint32_t flags) { return 0; }
 
 /* Stub VFS */
 ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
+ssize_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
 void close_fs(fs_node_t *node) {}
 fs_node_t* vfs_lookup(fs_node_t* root, const char* path) { return NULL; }
 int create_fs(fs_node_t *parent, char *name, uint16_t permission) { return 0; }

@@ -106,7 +106,7 @@ __attribute__((weak)) int net_send(int sock, const void* buf, int len, int flags
 __attribute__((weak)) int net_recv(int sock, void* buf, int len, int flags) { return -1; }
 
 __attribute__((weak)) ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return 0; }
-__attribute__((weak)) uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return 0; }
+__attribute__((weak)) ssize_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return 0; }
 __attribute__((weak)) void open_fs(fs_node_t *node, uint8_t read, uint8_t write) {}
 __attribute__((weak)) void close_fs(fs_node_t *node) {}
 __attribute__((weak)) int create_fs(fs_node_t *parent, char *name, uint16_t permission) { return -1; }

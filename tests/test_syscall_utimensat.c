@@ -62,7 +62,7 @@ uint64_t vmm_virt_to_phys(uint64_t virt) { return virt; }
 void vmm_destroy_pml4(uint64_t pml4) {}
 uint64_t vmm_clone_pml4(int cow) { return 0; }
 ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
+ssize_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return size; }
 void close_fs(fs_node_t *node) {}
 fs_node_t* vfs_lookup(fs_node_t* root, const char* path) {
     if (strcmp(path, "/test") == 0) {

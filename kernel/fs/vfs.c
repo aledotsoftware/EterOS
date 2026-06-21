@@ -19,6 +19,9 @@ struct mount_point {
 static struct mount_point *mounts = NULL;
 
 ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+    if ((node->flags & 0x7) == FS_DIRECTORY) {
+        return -EISDIR;
+    }
     if (node->read != 0) {
         spin_lock(&node->lock);
         ssize_t ret = node->read(node, offset, size, buffer);
@@ -28,10 +31,13 @@ ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer
     return 0;
 }
 
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+ssize_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+    if ((node->flags & 0x7) == FS_DIRECTORY) {
+        return -EISDIR;
+    }
     if (node->write != 0) {
         spin_lock(&node->lock);
-        uint32_t ret = node->write(node, offset, size, buffer);
+        ssize_t ret = node->write(node, offset, size, buffer);
         spin_unlock(&node->lock);
         return ret;
     }

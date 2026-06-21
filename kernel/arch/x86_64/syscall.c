@@ -130,12 +130,12 @@ static ssize_t socket_read_fs(fs_node_t* node, uint32_t offset, uint32_t size, u
     return (res < 0) ? 0 : (ssize_t)res;
 }
 
-static uint32_t socket_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) __attribute__((unused));
-static uint32_t socket_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+static ssize_t socket_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) __attribute__((unused));
+static ssize_t socket_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
     (void)offset;
     if ((node->flags & 0x7) != FS_SOCKET) return 0;
     int res = net_send((int)node->inode, buffer, size, 0);
-    return (res < 0) ? 0 : (uint32_t)res;
+    return (res < 0) ? 0 : (ssize_t)res;
 }
 
 static void socket_close_fs(fs_node_t* node) __attribute__((unused));
@@ -253,9 +253,9 @@ static ssize_t timerfd_read_fs(fs_node_t* node, uint32_t offset, uint32_t size, 
     }
 }
 
-static uint32_t __attribute__((unused)) timerfd_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+static ssize_t __attribute__((unused)) timerfd_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
     (void)node; (void)offset; (void)size; (void)buffer;
-    return (uint32_t)-EINVAL;
+    return -EINVAL;
 }
 
 static int __attribute__((unused)) timerfd_ioctl_fs(fs_node_t* node, int request, void* arg) {
@@ -333,7 +333,7 @@ static ssize_t pipe_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
     return read;
 }
 
-static uint32_t pipe_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+static ssize_t pipe_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
     (void)offset;
     pipe_t* pipe = (pipe_t*)node->ptr;
     if (!pipe) return 0;
@@ -776,8 +776,10 @@ static int64_t sys_write(int fd, const void* buf, size_t count) {
         current->fd_table[fd].offset = current->fd_table[fd].node->length;
     }
 
-    uint32_t written = write_fs(current->fd_table[fd].node, current->fd_table[fd].offset, count, (uint8_t*)buf);
-    current->fd_table[fd].offset += written;
+    ssize_t written = write_fs(current->fd_table[fd].node, current->fd_table[fd].offset, count, (uint8_t*)buf);
+    if (written > 0) {
+        current->fd_table[fd].offset += written;
+    }
     return written;
 }
 
@@ -1380,7 +1382,7 @@ static int64_t sys_pwrite64(int fd, const void* buf, size_t count, int64_t offse
 
     if ((current->fd_table[fd].flags & O_ACCMODE) == O_RDONLY) return -EBADF;
 
-    uint32_t written = write_fs(current->fd_table[fd].node, offset, count, (uint8_t*)buf);
+    ssize_t written = write_fs(current->fd_table[fd].node, offset, count, (uint8_t*)buf);
     return written;
 }
 

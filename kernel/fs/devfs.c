@@ -22,7 +22,7 @@
 
 /* Global root node for DevFS */
 static fs_node_t* devfs_root = NULL;
-static uint32_t dev_mouse_read_debug = 0;
+static ssize_t dev_mouse_read_debug = 0;
 static struct termios dev_tty_termios = {0};
 static struct winsize dev_tty_winsz = {25, 80, 0, 0};
 static int dev_tty_session = -1;
@@ -82,7 +82,7 @@ static ssize_t dev_null_read(fs_node_t *node, uint32_t offset, uint32_t size, ui
     return 0; /* EOF */
 }
 
-static uint32_t dev_null_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t dev_null_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)node; (void)offset; (void)size; (void)buffer;
     return size; /* Discard data, return success */
 }
@@ -132,7 +132,7 @@ static ssize_t dev_binder_read(fs_node_t *node, uint32_t offset, uint32_t size, 
     return 0;
 }
 
-static uint32_t dev_binder_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t dev_binder_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)node; (void)offset; (void)buffer;
     return size;
 }
@@ -352,7 +352,7 @@ static ssize_t dev_zero_read(fs_node_t *node, uint32_t offset, uint32_t size, ui
     return size;
 }
 
-static uint32_t dev_zero_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t dev_zero_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)node; (void)offset; (void)size; (void)buffer;
     return size; /* Discard */
 }
@@ -392,7 +392,7 @@ static ssize_t dev_sda_read(fs_node_t *node, uint32_t offset, uint32_t size, uin
     return bytes_read;
 }
 
-static uint32_t dev_sda_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t dev_sda_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)node;
     if (!buffer) return 0;
     
@@ -457,7 +457,7 @@ static ssize_t dev_tty_read(fs_node_t *node, uint32_t offset, uint32_t size, uin
     return size;
 }
 
-static uint32_t dev_tty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t dev_tty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)node; (void)offset;
     task_t* current = task_get_current();
     if (!current) return 0;
@@ -665,7 +665,7 @@ static ssize_t dev_pty_read(fs_node_t *node, uint32_t offset, uint32_t size, uin
     return pty_ring_read(p, &p->m2s, buffer, size, p->master_refs);
 }
 
-static uint32_t dev_pty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t dev_pty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)offset;
     pty_pair_t* p = pty_from_node(node);
     int role = pty_node_role(node);
@@ -1023,7 +1023,7 @@ static ssize_t dev_random_read(fs_node_t *node, uint32_t offset, uint32_t size, 
     return size;
 }
 
-static uint32_t dev_random_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t dev_random_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)node; (void)offset;
 
     /* Mix user data into the entropy pool */

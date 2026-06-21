@@ -28,7 +28,7 @@ static void jfs_journal_write(uint32_t target_block, const void *data);
 static jfs_inode_t* get_inode(uint32_t inode_idx);
 static void put_inode(jfs_inode_t* inode_ptr, uint32_t inode_idx);
 static ssize_t jfs_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-static uint32_t jfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
+static ssize_t jfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 static int jfs_readdir(fs_node_t *node, uint32_t index, struct dirent *entry);
 static fs_node_t* jfs_finddir(fs_node_t *node, char *name);
 static int jfs_create(fs_node_t *parent, char *name, uint16_t permission);
@@ -341,7 +341,7 @@ static ssize_t jfs_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t
     return read_bytes;
 }
 
-static uint32_t jfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t jfs_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     if (jfs_is_directory(node->inode)) return 0;
     jfs_inode_t *inode = get_inode(node->inode);
     if (!inode) return 0;

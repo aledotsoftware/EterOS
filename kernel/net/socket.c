@@ -20,7 +20,7 @@ static ssize_t lwip_socket_read_fs(fs_node_t* node, uint32_t offset, uint32_t si
     return (res < 0) ? 0 : (ssize_t)res;
 }
 
-static uint32_t lwip_socket_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+static ssize_t lwip_socket_write_fs(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
     (void)offset;
     if ((node->flags & 0x7) != FS_SOCKET) return 0;
     int res = lwip_send((int)node->inode, buffer, size, 0);

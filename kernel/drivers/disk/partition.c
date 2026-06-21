@@ -88,7 +88,7 @@ static ssize_t partition_read(fs_node_t *node, uint32_t offset, uint32_t size, u
     return bytes_read;
 }
 
-static uint32_t partition_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t partition_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     if (!node || !buffer) return 0;
 
     int p_index = node->impl;

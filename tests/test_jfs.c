@@ -60,7 +60,7 @@ static ssize_t mock_part_read(fs_node_t *node, uint32_t offset, uint32_t size, u
     memcpy(buffer, mock_disk + offset, size);
     return size;
 }
-static uint32_t mock_part_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t mock_part_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     memcpy(mock_disk + offset, buffer, size);
     return size;
 }

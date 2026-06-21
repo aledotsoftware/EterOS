@@ -87,7 +87,7 @@ int net_connect(int sock, const struct sockaddr_in_old* addr, int addrlen) { ret
 int net_send(int sock, const void* buf, int len, int flags) { return -1; }
 int net_recv(int sock, void* buf, int len, int flags) { return -1; }
 ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return 0; }
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return 0; }
+ssize_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) { return 0; }
 void open_fs(fs_node_t *node, uint8_t read, uint8_t write) {}
 void close_fs(fs_node_t *node) {}
 int create_fs(fs_node_t *parent, char *name, uint16_t permission) { return -1; }

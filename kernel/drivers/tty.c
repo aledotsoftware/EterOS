@@ -73,7 +73,7 @@ static ssize_t tty_read(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t
     return i;
 }
 
-static uint32_t tty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+static ssize_t tty_write(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     (void)node; (void)offset;
 
     for (uint32_t i = 0; i < size; i++) {

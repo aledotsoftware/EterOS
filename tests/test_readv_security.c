@@ -123,7 +123,7 @@ ssize_t read_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer
     return size; // Simulate success
 }
 
-uint32_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
+ssize_t write_fs(fs_node_t *node, uint32_t offset, uint32_t size, uint8_t *buffer) {
     return size; // Simulate success
 }
 
