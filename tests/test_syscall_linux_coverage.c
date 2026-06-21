@@ -164,6 +164,10 @@ int main() {
     assert(sys_arch_prctl(ARCH_SET_FS, 0x12345678) == 0);
     assert(current_task_mock.fs_base == 0x12345678);
 
+    printf("Testing unimplemented linux syscalls\n");
+    assert(sys_getrusage(0, NULL) == -38); // -ENOSYS
+    assert(sys_prlimit64(0, 0, NULL, NULL) == -38); // -ENOSYS
+    assert(sys_syslog(0, NULL, 0) == -38); // -ENOSYS
 
     printf("Testing sys_reboot\n");
     assert(sys_reboot(1, 2, 3, NULL) == 0);
