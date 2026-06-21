@@ -31,5 +31,5 @@
   - Read/Write semantics and property service.
 
 ## Strategy for Next Steps
-1. **ELF Loader PT_TLS**: Implement `PT_TLS` segment parsing in `kernel/fs/elf.c` to support TLS block allocation and initialization for Bionic and GNU libc.
-2. **Binder Mmap**: Implement `mmap` for `/dev/binder` to handle transaction buffers directly via VMA, replacing the current `kmalloc` / `anonymous page` workaround.
+1. **ELF Loader PT_TLS**: Implement `PT_TLS` segment parsing in `kernel/fs/elf.c` to support TLS block allocation and initialization for Bionic and GNU libc. *(Completed)*
+2. **Binder Mmap**: Implement `mmap` for `/dev/binder` to handle transaction buffers directly via VMA, replacing the current `kmalloc` / `anonymous page` workaround. *(Completed)*

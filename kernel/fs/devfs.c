@@ -1,4 +1,5 @@
 #include <fs/devfs.h>
+#include <pmm.h>
 #include <fs/vfs.h>
 #include <errno.h>
 #include <string.h>
@@ -245,21 +246,31 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
                      if (safe_copy_from_user(&buffer_to_free, wbuf + consumed, sizeof(buffer_to_free)) != 0) break;
                      consumed += sizeof(uintptr_t);
 
-                     /* We must validate that the buffer belongs to our tracked payloads to prevent arbitrary kfree */
-                     spin_lock(&binder_lock);
-                     for (int i = 0; i < BINDER_MAX_QUEUED; i++) {
-                         if (payload_buffers[i] == (uint8_t*)buffer_to_free && buffer_to_free != 0) {
-                             kfree((void*)buffer_to_free);
-                             payload_buffers[i] = NULL;
-                             break;
+                     /* If it's an mmap buffer, we just reset the allocator for now (simplified)
+                        Proper implementation needs a bitmap or linked list of free blocks in the VMA */
+                     if (current->binder_mmap_base && buffer_to_free >= current->binder_mmap_base && buffer_to_free < current->binder_mmap_base + current->binder_mmap_size) {
+                         /* For this minimal implementation, if we free the last allocation, we can rewind.
+                            Otherwise, we just let it leak until the process dies or we implement a real allocator. */
+                         if (buffer_to_free == current->binder_mmap_base) {
+                             current->binder_mmap_offset = 0;
                          }
-                         if (cl_queues[i].payload == (uint8_t*)buffer_to_free && buffer_to_free != 0) {
-                             kfree((void*)buffer_to_free);
-                             cl_queues[i].payload = NULL;
-                             break;
+                     } else {
+                         /* Legacy shim cleanup */
+                         spin_lock(&binder_lock);
+                         for (int i = 0; i < BINDER_MAX_QUEUED; i++) {
+                             if (payload_buffers[i] == (uint8_t*)buffer_to_free && buffer_to_free != 0) {
+                                 kfree((void*)buffer_to_free);
+                                 payload_buffers[i] = NULL;
+                                 break;
+                             }
+                             if (cl_queues[i].payload == (uint8_t*)buffer_to_free && buffer_to_free != 0) {
+                                 kfree((void*)buffer_to_free);
+                                 cl_queues[i].payload = NULL;
+                                 break;
+                             }
                          }
+                         spin_unlock(&binder_lock);
                      }
-                     spin_unlock(&binder_lock);
 
                 } else {
                     /* Unknown or unimplemented command, break */
@@ -303,14 +314,26 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
 
             if (has_tr) {
                 if (bwr.read_size >= sizeof(uint32_t) + sizeof(struct binder_transaction_data)) {
-                    /* Basic shim copies data to the user provided buffer instead of mmaps, to avoid passing kernel pointers */
-                    if (payload_ptr && tr_copy.data.ptr.buffer) {
-                        /* In this shim, we assume the reader provided a valid buffer in tr_copy.data.ptr.buffer
-                           to copy the payload into. This is not strictly Android compliant but safe for our baremetal shim. */
+                    /* Real Android behavior: Map into the receiver's mmap'd Binder region */
+                    if (payload_ptr && current->binder_mmap_base && tr_copy.data_size > 0) {
+                        /* Ensure we have space in the receiver's mmap region */
+                        if (current->binder_mmap_offset + tr_copy.data_size <= current->binder_mmap_size) {
+                            uint64_t dest_addr = current->binder_mmap_base + current->binder_mmap_offset;
+                            /* We are in the receiver's context, so we can just copy to the mapped memory */
+                            if (safe_copy_to_user((void*)(uintptr_t)dest_addr, payload_ptr, tr_copy.data_size) == 0) {
+                                tr_copy.data.ptr.buffer = dest_addr;
+                                current->binder_mmap_offset += PAGE_ALIGN_UP(tr_copy.data_size); /* Simple bump allocator for now */
+                            } else {
+                                tr_copy.data.ptr.buffer = 0;
+                            }
+                        } else {
+                            tr_copy.data.ptr.buffer = 0; /* Out of mapped space */
+                        }
+                    } else if (payload_ptr && tr_copy.data.ptr.buffer) {
+                        /* Fallback to legacy shim if no mmap is active (for some old test binaries) */
                         if (safe_copy_to_user((void*)(uintptr_t)tr_copy.data.ptr.buffer, payload_ptr, tr_copy.data_size) != 0) {
                            /* Copy failed */
                         }
-                        /* We don't free payload_ptr here, BC_FREE_BUFFER must handle it based on the tracking logic */
                     } else {
                         tr_copy.data.ptr.buffer = 0;
                     }

@@ -101,6 +101,10 @@ typedef struct task {
     uint64_t       tls_memsz;               /* TLS segment memory size */
     uint64_t       tls_filesz;              /* TLS segment file size */
     uint64_t       tls_align;               /* TLS segment alignment */
+    /* Binder IPC */
+    uint64_t       binder_mmap_base;
+    uint64_t       binder_mmap_size;
+    uint64_t       binder_mmap_offset;
 
     struct task*   next_ready;              /* Next task in ready queue */
     struct task*   prev_ready;              /* Previous task in ready queue */

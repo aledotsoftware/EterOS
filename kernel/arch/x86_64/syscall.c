@@ -628,6 +628,11 @@ static int64_t sys_mmap(void* addr, size_t len, int prot, int flags, int fd, int
 #ifndef __ETEROS_HOST_TEST__
             memset((void*)v, 0, PAGE_SIZE);
 #endif
+            if (v == start) {
+                current->binder_mmap_base = start;
+                current->binder_mmap_size = len;
+                current->binder_mmap_offset = 0;
+            }
         } else if (is_properties) {
             /* __properties__ VMA - Map anonymous page and copy dummy properties */
             void* phys = pmm_alloc_page();
