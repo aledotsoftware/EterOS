@@ -1383,6 +1383,42 @@ static void handle_mouse_event(const input_event_t* ev) {
             redraw_all();
         } else if (old_hover != new_hover) {
             redraw_all();
+
+            if (new_hover > 0) {
+                int win_idx = find_window_at(mouse_x, mouse_y);
+                if (win_idx >= 0) {
+                    marea_window_t* win = &windows[win_idx];
+                    const char* tooltip_text = "";
+                    int btn_spacing = 20;
+                    int btn_base_x = win->x + win->w - 14;
+                    int btn_base_y = win->y + TITLEBAR_HEIGHT / 2;
+                    int tt_x = mouse_x;
+
+                    if (new_hover == 1) {
+                        tooltip_text = "Cerrar";
+                        tt_x = btn_base_x;
+                    } else if (new_hover == 2) {
+                        tooltip_text = "Minimizar";
+                        tt_x = btn_base_x - btn_spacing * 2;
+                    } else if (new_hover == 3) {
+                        tooltip_text = "Maximizar";
+                        tt_x = btn_base_x - btn_spacing;
+                    }
+
+                    int text_len = strlen(tooltip_text) * 8;
+                    int tt_w = text_len + 16;
+                    int tt_h = 24;
+                    int actual_x = tt_x - tt_w / 2;
+                    int actual_y = btn_base_y + 16;
+
+                    if (actual_x < 0) actual_x = 0;
+                    if (actual_x + tt_w > (int)fb_info.width) actual_x = fb_info.width - tt_w;
+
+                    fill_rounded_rect(actual_x, actual_y, tt_w, tt_h, 4, 0xEE111111);
+                    stroke_rect(actual_x, actual_y, tt_w, tt_h, 0xFF444444);
+                    draw_text(actual_x + 8, actual_y + 4, tooltip_text, 0xFFEEEEEE, 0);
+                }
+            }
         }
 
         cursor_save_bg(mouse_x, mouse_y);
