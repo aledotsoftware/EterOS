@@ -519,8 +519,8 @@ void cmd_panel(const char* args) {
                 cmd_clear("");
                 terminal_write_string("\n  -- Red y Conectividad --\n");
                 cmd_net("");
-                // cmd_net outputs exactly 7 lines everywhere, so options start at y=10
-                terminal_write_string("\n  1. Renovar DHCP\n");
+                // cmd_net outputs exactly 7 lines everywhere (plus 1 newline), so options start at y=11
+                terminal_write_string("  1. Renovar DHCP\n");
                 terminal_write_string("  2. Probar conexion (wget tudexgames.com)\n");
                 terminal_write_string("\n  Elija [1-2] o ESC para volver.\n");
                 char c = 0;
@@ -533,8 +533,8 @@ void cmd_panel(const char* args) {
                     if (panel_mouse_clicked) {
                         panel_mouse_clicked = false;
                         if (panel_mouse_x >= 2 && panel_mouse_x <= 50) {
-                            if (panel_mouse_y >= 10 && panel_mouse_y <= 11) { // 7 lines from cmd_net + title
-                                c = '1' + (panel_mouse_y - 10);
+                            if (panel_mouse_y >= 11 && panel_mouse_y <= 12) { // 7 lines from cmd_net + title
+                                c = '1' + (panel_mouse_y - 11);
                                 if (c > '2') c = '2';
                                 break;
                             } else {
