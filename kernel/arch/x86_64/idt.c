@@ -19,6 +19,7 @@
 #include "../../../include/vga.h"
 #include "../../../include/serial.h"
 #include "../../../include/io.h"
+#include "../../../include/hal.h"
 #include "../../../include/string.h"
 #include "../../../include/timer.h"
 #include "../../../include/task.h"
@@ -174,6 +175,40 @@ static void handle_exception(uint8_t vector, struct interrupt_frame* frame, uint
             serial_write_string("\n");
         }
 
+        if (regs) {
+            serial_write_string("\nRegisters:\n");
+            serial_write_string(" RAX: 0x"); utoa_hex_s(regs->rax, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" RBX: 0x"); utoa_hex_s(regs->rbx, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" RCX: 0x"); utoa_hex_s(regs->rcx, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" RDX: 0x"); utoa_hex_s(regs->rdx, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string("\n RSI: 0x"); utoa_hex_s(regs->rsi, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" RDI: 0x"); utoa_hex_s(regs->rdi, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" RBP: 0x"); utoa_hex_s(regs->rbp, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string("\n  R8: 0x"); utoa_hex_s(regs->r8, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string("  R9: 0x"); utoa_hex_s(regs->r9, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" R10: 0x"); utoa_hex_s(regs->r10, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" R11: 0x"); utoa_hex_s(regs->r11, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string("\n R12: 0x"); utoa_hex_s(regs->r12, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" R13: 0x"); utoa_hex_s(regs->r13, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" R14: 0x"); utoa_hex_s(regs->r14, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string(" R15: 0x"); utoa_hex_s(regs->r15, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string("\n");
+        }
+
+        serial_write_string("\nStack Trace (RBP chain):\n");
+        uint64_t* rbp;
+        __asm__ volatile("mov %%rbp, %0" : "=r"(rbp));
+        for (int i=0; i<15 && rbp != NULL; i++) {
+            if (!vmm_virt_to_phys((uint64_t)rbp)) break;
+            if (!vmm_virt_to_phys((uint64_t)rbp + 8)) break;
+            uint64_t rip_caller = rbp[1];
+            serial_write_string("  ["); itoa_s(i, buf, sizeof(buf), 10); serial_write_string(buf);
+            serial_write_string("] 0x"); utoa_hex_s(rip_caller, buf, sizeof(buf)); serial_write_string(buf);
+            serial_write_string("\n");
+            rbp = (uint64_t*)rbp[0];
+        }
+        serial_write_string("\n");
+
         /* Kill current task */
         task_t* current = task_get_current();
         if (current) {
@@ -188,7 +223,7 @@ static void handle_exception(uint8_t vector, struct interrupt_frame* frame, uint
 
         /* Just in case we return (e.g. error killing task), loop forever or schedule */
         schedule();
-        for(;;) __asm__ volatile("hlt");
+        for(;;) hal_cpu_halt();
         return;
     }
 
@@ -313,8 +348,8 @@ static void handle_exception(uint8_t vector, struct interrupt_frame* frame, uint
     serial_write_string("\n");
 
     /* Halt forever */
-    __asm__ volatile ("cli");
-    for (;;) { __asm__ volatile ("hlt"); }
+    hal_interrupts_disable();
+    for (;;) { hal_cpu_halt(); }
 }
 
 extern void syscall_int80_handler(struct syscall_regs* regs);

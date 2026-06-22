@@ -128,6 +128,13 @@ void hal_init(void);
 void hal_interrupts_enable(void);
 
 /**
+ * Habilita las interrupciones y detiene la CPU atómicamente.
+ * Evita la condición de carrera donde una interrupción ocurre justo antes del halt.
+ * x86: STI; HLT
+ */
+void hal_cpu_enable_interrupts_and_halt(void);
+
+/**
  * Deshabilita las interrupciones globales.
  * x86: CLI | ARM: CPSID I | RISC-V: csrc mstatus, MIE
  */

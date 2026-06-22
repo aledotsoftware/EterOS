@@ -12,6 +12,7 @@
 #include "../../include/vga.h"
 #include "../../include/fs/bcache.h"
 #include "../../include/lock.h"
+#include "../../include/hal.h"
 #include <assert.h>
 
 /* ========================================================================= */
@@ -48,14 +49,17 @@ static uint64_t last_free_idx = 0;
 /* ========================================================================= */
 
 static void bitmap_set(uint64_t bit) {
+    if (bit >= total_pages) return;
     pmm_bitmap[bit / 8] |= (1 << (bit % 8));
 }
 
 static void bitmap_unset(uint64_t bit) {
+    if (bit >= total_pages) return;
     pmm_bitmap[bit / 8] &= ~(1 << (bit % 8));
 }
 
 static int bitmap_test(uint64_t bit) {
+    if (bit >= total_pages) return 1; /* Tratado como ocupado si está fuera de rango */
     return (pmm_bitmap[bit / 8] & (1 << (bit % 8)));
 }
 
@@ -398,8 +402,8 @@ check_wrap:
 void* pmm_alloc_page(void) {
     if (!pmm_bitmap) {
         serial_write_string("[PMM] FATAL: pmm_alloc_page called before pmm_init!\n");
-        __asm__ volatile("cli");
-        for(;;) __asm__ volatile("hlt");
+        hal_interrupts_disable();
+        for(;;) hal_cpu_halt();
     }
 
     spin_lock(&pmm_lock);

@@ -125,6 +125,8 @@ static inline pt_entry_t* get_active_pml4() {
  * la limpia, y la enlaza en la tabla actual.
  */
 static pt_entry_t* get_next_table(pt_entry_t* table, uint64_t index, int alloc) {
+    if (!table || index >= 512) return NULL;
+
     if (table[index] & PAGE_PRESENT) {
         /* Check for Huge Page (Identity Mapped by Bootloader) */
         if (table[index] & PAGE_HUGE) {

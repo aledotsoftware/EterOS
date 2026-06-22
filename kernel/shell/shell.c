@@ -3,6 +3,7 @@
 #include "../../include/serial.h"
 #include "../../include/string.h"
 #include "../../include/timer.h"
+#include "../../include/hal.h"
 
 static void shell_print_prompt(void) {
     terminal_write_colored(SHELL_PROMPT, VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
@@ -64,11 +65,11 @@ void shell_run(void) {
             }
 
             /* Dormir hasta la próxima interrupción */
-            __asm__ volatile("cli");
+            hal_interrupts_disable();
             if (!keyboard_has_input() && !serial_received()) {
-                __asm__ volatile("sti; hlt");
+                hal_cpu_enable_interrupts_and_halt();
             } else {
-                __asm__ volatile("sti");
+                hal_interrupts_enable();
             }
         }
 

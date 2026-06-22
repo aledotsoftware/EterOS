@@ -181,5 +181,5 @@ void user_loader_entry(void) {
 
     /* Should never return here */
     serial_write_string("[USER] Error: Returned from Ring 3 (unexpected)\n");
-    for(;;) __asm__ volatile("hlt");
+    for(;;) hal_cpu_halt();
 }
