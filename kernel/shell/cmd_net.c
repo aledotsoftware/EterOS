@@ -33,15 +33,13 @@ void cmd_net(const char* args) {
         snprintf(buf, sizeof(buf), "DNS: %d.%d.%d.%d\n",
             (dns_ip >> 24) & 0xFF, (dns_ip >> 16) & 0xFF, (dns_ip >> 8) & 0xFF, dns_ip & 0xFF);
         terminal_write_string(buf);
+
+        terminal_write_string("\n");
     } else {
         terminal_write_string("State: DOWN (Link or DHCP pending)\n");
-        terminal_write_string("\n\n\n");
+        terminal_write_string("\n\n\n\n");
     }
     // Pad output to always be exactly 6 lines after the title
-    if (!network_ready) {
-        // Output already has 1 line (MAC) + 1 line (State) + 3 newlines = 5 lines. Add 1 more.
-        terminal_write_string("\n");
-    }
 }
 
 #include "../../include/timer.h"

@@ -62,7 +62,7 @@ void rtc_get_time(rtc_time_t* time) {
     unsigned char registerB;
 
     // Wait until update is not in progress
-    while (rtc_is_updating());
+    int timeout = 100000; while (rtc_is_updating() && timeout-- > 0);
 
     second = rtc_read_register(0x00);
     minute = rtc_read_register(0x02);
@@ -79,7 +79,7 @@ void rtc_get_time(rtc_time_t* time) {
         last_month = month;
         last_year = year;
 
-        while (rtc_is_updating());
+        int timeout = 100000; while (rtc_is_updating() && timeout-- > 0);
         second = rtc_read_register(0x00);
         minute = rtc_read_register(0x02);
         hour   = rtc_read_register(0x04);
@@ -141,7 +141,7 @@ void rtc_set_time(rtc_time_t* time) {
     unsigned char registerB;
     unsigned char second, minute, hour, day, month, year;
 
-    while (rtc_is_updating());
+    int timeout = 100000; while (rtc_is_updating() && timeout-- > 0);
 
     registerB = rtc_read_register(0x0B);
 

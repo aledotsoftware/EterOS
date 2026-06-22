@@ -264,15 +264,15 @@ static void panel_time(void) {
         if (panel_mouse_clicked) {
             panel_mouse_clicked = false;
             // The output of cmd_time is about 6 lines long.
-            // Menu starts at roughly y=10.
+            // Menu starts at roughly y=7.
             // "1. Sincronizar via red"
             // "2. Zona Horaria"
             // "3. Zona Horaria UTC"
             // "4. Sincronizacion Manual"
             if (panel_mouse_x >= 2 && panel_mouse_x <= 50) {
                 // Approximate mapping based on typical cmd_time length
-                if (panel_mouse_y >= 10 && panel_mouse_y <= 13) { // 6 lines from cmd_time + title
-                    c = '1' + (panel_mouse_y - 10);
+                if (panel_mouse_y >= 7 && panel_mouse_y <= 10) { // 6 lines from cmd_time + title
+                    c = '1' + (panel_mouse_y - 7);
                     if (c > '4') c = '4'; // Clamping
                     break;
                 } else {
@@ -519,7 +519,7 @@ void cmd_panel(const char* args) {
                 cmd_clear("");
                 terminal_write_string("\n  -- Red y Conectividad --\n");
                 cmd_net("");
-                // cmd_net outputs exactly 7 lines everywhere, so options start at y=10
+                // cmd_net outputs exactly 8 lines everywhere (including title), so options start at y=11
                 terminal_write_string("\n  1. Renovar DHCP\n");
                 terminal_write_string("  2. Probar conexion (wget tudexgames.com)\n");
                 terminal_write_string("\n  Elija [1-2] o ESC para volver.\n");
@@ -533,8 +533,8 @@ void cmd_panel(const char* args) {
                     if (panel_mouse_clicked) {
                         panel_mouse_clicked = false;
                         if (panel_mouse_x >= 2 && panel_mouse_x <= 50) {
-                            if (panel_mouse_y >= 10 && panel_mouse_y <= 11) { // 7 lines from cmd_net + title
-                                c = '1' + (panel_mouse_y - 10);
+                            if (panel_mouse_y >= 11 && panel_mouse_y <= 12) { // 8 lines from cmd_net + title
+                                c = '1' + (panel_mouse_y - 11);
                                 if (c > '2') c = '2';
                                 break;
                             } else {
