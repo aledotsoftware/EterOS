@@ -67,6 +67,7 @@ fs_node_t *finddir_fs(fs_node_t *node, char *name) { return NULL; }
 fs_node_t *vfs_lookup_ext(fs_node_t *root, const char *path, int follow_symlink) { return NULL; }
 task_t* task_get_at(int i) { return NULL; }
 void task_exit_signal(int sig) {}
+void task_stop_signal(int sig) {}
 int task_waitid(int idtype, int id, int options, int* out_pid, int* out_status, int* out_code) { return 0; }
 fs_node_t *fs_root = NULL;
 socket_entry_t socket_table[16];

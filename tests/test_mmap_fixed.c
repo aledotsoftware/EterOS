@@ -232,6 +232,7 @@ fs_node_t *vfs_lookup_ext(fs_node_t *root, const char *path, int follow_symlink)
 task_t* task_get_at(int index) { (void)index; return NULL; }
 int task_get_count(void) { return 0; }
 void task_exit_signal(int sig) { (void)sig; }
+void task_stop_signal(int sig) { (void)sig; }
 int task_waitid(int idtype, int id, int options, int* out_pid, int* out_status, int* out_code) { (void)idtype; (void)id; (void)options; (void)out_pid; (void)out_status; (void)out_code; return -1; }
 fs_node_t* shmfs_create_memfd(const char* name) {
     (void)name;

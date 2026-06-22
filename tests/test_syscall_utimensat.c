@@ -46,6 +46,7 @@ int get_cpu_id(void) { return 0; }
 int task_get_count(void) { return 1; }
 task_t* task_get_at(int idx) { return NULL; }
 void task_exit_signal(int sig) {}
+void task_stop_signal(int sig) {}
 int task_waitid(int idtype, int id, int options, int* out_pid, int* out_status, int* out_code) { return -1; }
 void task_exit(int status) { exit(status); }
 void task_yield(void) {}

@@ -35,7 +35,7 @@ static int futex_hash(uint32_t *uaddr, int is_private) {
     task_t* current = task_get_current();
     uint64_t addr = (uint64_t)uaddr;
     /* Mix CR3 into the hash to isolate processes, but threads sharing VM will match */
-    uint64_t cr3 = (current && !is_private) ? current->cr3 : 0;
+    uint64_t cr3 = (current && is_private) ? current->cr3 : 0;
     return ((addr >> 2) ^ (cr3 >> 12)) % FUTEX_BUCKETS;
 }
 
@@ -176,7 +176,7 @@ int futex_wake(uint32_t *uaddr, int count, int op, uint32_t bitset) {
     task_t* current = task_get_current();
 
     while (curr && woken < count) {
-        if (curr->uaddr == uaddr && (is_private || curr->task->cr3 == current->cr3)) {
+        if (curr->uaddr == uaddr && (!is_private || curr->task->cr3 == current->cr3)) {
             if ((curr->bitset & bitset) != 0) {
                 /* Wake up this task */
                 if (curr->task->state == TASK_BLOCKED) {
