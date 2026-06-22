@@ -12,13 +12,13 @@ rm tests/test_heap
 
 echo "---------------------------------------------------"
 echo "Running test_heap_perf..."
-gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_heap_perf.c -o tests/test_heap_perf 2>/dev/null
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_heap_perf.c -o tests/test_heap_perf
 ./tests/test_heap_perf
 rm tests/test_heap_perf
 
 echo "---------------------------------------------------"
 echo "Running test_heap_security..."
-gcc -D__ETEROS_HOST_TEST__ tests/test_heap_security.c -o tests/test_heap_security 2>/dev/null
+gcc -D__ETEROS_HOST_TEST__ tests/test_heap_security.c -o tests/test_heap_security
 ./tests/test_heap_security
 rm tests/test_heap_security
 
@@ -435,7 +435,35 @@ echo "---------------------------------------------------"
 echo "---------------------------------------------------"
 echo "Running test_vfs_leak..."
 gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/mock_net.c tests/test_vfs_leak.c tests/mock_pmm.c kernel/string.c -o tests/test_vfs_leak
-if [ -f tests/test_vfs_leak ]; then
-    ./tests/test_vfs_leak
-    rm tests/test_vfs_leak
-fi
+./tests/test_vfs_leak
+rm tests/test_vfs_leak
+
+echo "---------------------------------------------------"
+echo "Running test_elf_truncation..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_elf_truncation.c -o tests/test_elf_truncation
+./tests/test_elf_truncation
+rm tests/test_elf_truncation
+
+echo "---------------------------------------------------"
+echo "Running test_initrd_security..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_initrd_security.c -o tests/test_initrd_security
+./tests/test_initrd_security
+rm tests/test_initrd_security
+
+echo "---------------------------------------------------"
+echo "Running test_lwip_socket..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_lwip_socket.c -o tests/test_lwip_socket
+./tests/test_lwip_socket
+rm tests/test_lwip_socket
+
+echo "---------------------------------------------------"
+echo "Running test_vfs_path_splitting..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_vfs_path_splitting.c -o tests/test_vfs_path_splitting
+./tests/test_vfs_path_splitting
+rm tests/test_vfs_path_splitting
+
+echo "---------------------------------------------------"
+echo "Running verify_memset_edge_cases..."
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/verify_memset_edge_cases.c -o tests/verify_memset_edge_cases
+./tests/verify_memset_edge_cases
+rm tests/verify_memset_edge_cases
