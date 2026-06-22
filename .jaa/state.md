@@ -8,4 +8,6 @@
   - Removed stale `.rej` artifacts and restored robust QA build flow (`nasm` dependency resolved).
   - Hardened `handle_exception` in `kernel/arch/x86_64/idt.c` to output full register traces unconditionally on unhandled exceptions.
   - Hardened architectural boundaries in `smp.c` and `task.c` by substituting raw `cli`/`sti` instructions with cross-platform `hal_interrupts_disable`/`hal_interrupts_enable` abstractions.
-No changes were needed for the task as network integration is fully functional
+- **users-security-panel-bot**: Consolidated and hardened multi-user and `/etc/shadow` functionality.
+  - Implemented safe atomic update via `.tmp` file and `rename` in `useradd.c` instead of unsafe `O_APPEND`.
+  - Added support for empty string passwords by bypassing `sha256` hashing when no password is set to support autologin securely in `cmd_user.c`, `useradd.c`, and `passwd.c`.

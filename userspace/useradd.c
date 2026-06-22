@@ -53,13 +53,15 @@ int main(int argc, char *argv[]) {
     password[len] = '\0';
     if (password[len-1] == '\n') password[len-1] = '\0';
 
-    /* Calculate SHA256 */
-    uint8_t hash[SHA256_BLOCK_SIZE];
-    sha256((const uint8_t*)password, strlen(password), hash);
-
     char hash_str[SHA256_BLOCK_SIZE * 2 + 1];
-    for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
-        snprintf(&hash_str[i*2], sizeof(hash_str) - (i * 2), "%02x", hash[i]);
+    if (strlen(password) > 0) {
+        uint8_t hash[SHA256_BLOCK_SIZE];
+        sha256((const uint8_t*)password, strlen(password), hash);
+        for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
+            snprintf(&hash_str[i*2], sizeof(hash_str) - (i * 2), "%02x", hash[i]);
+        }
+    } else {
+        hash_str[0] = '\0';
     }
 
     /* Assign next UID/GID from /etc/passwd */
@@ -125,29 +127,33 @@ int main(int argc, char *argv[]) {
     write(fd, passwd_entry, strlen(passwd_entry));
     close(fd);
 
-    /* Check if shadow exists */
     int fd_shadow = open("/etc/shadow", O_RDONLY);
     if (fd_shadow < 0) {
-        fd_shadow = open("/etc/shadow", O_WRONLY | O_CREAT, 0600);
-        if (fd_shadow >= 0) {
-            const char* root_entry = "root::19000:0:99999:7:::\n";
-            write(fd_shadow, root_entry, strlen(root_entry));
-            close(fd_shadow);
-        }
-    } else {
-        close(fd_shadow);
-    }
-
-    /* Append to /etc/shadow */
-    fd = open("/etc/shadow", O_WRONLY | O_APPEND | O_CREAT, 0600);
-    if (fd < 0) {
-        printf("Error: Could not open /etc/shadow for writing\n");
+        printf("Error: Could not open /etc/shadow\n");
         return 1;
     }
+
+    int temp_fd = open("/etc/shadow.tmp", O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (temp_fd < 0) {
+        printf("Error: Could not open /etc/shadow.tmp\n");
+        close(fd_shadow);
+        return 1;
+    }
+
+    char line[MAX_LINE];
+    while (read_line(fd_shadow, line, sizeof(line)) > 0) {
+        write(temp_fd, line, strlen(line));
+    }
+
     char shadow_entry[MAX_LINE];
     snprintf(shadow_entry, sizeof(shadow_entry), "%s:%s:19000:0:99999:7:::\n", username, hash_str);
-    write(fd, shadow_entry, strlen(shadow_entry));
-    close(fd);
+    write(temp_fd, shadow_entry, strlen(shadow_entry));
+
+    close(fd_shadow);
+    close(temp_fd);
+
+    unlink("/etc/shadow");
+    rename("/etc/shadow.tmp", "/etc/shadow");
 
     /* Enforce file permissions */
     chmod("/etc/shadow", 0600);

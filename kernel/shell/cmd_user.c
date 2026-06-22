@@ -42,19 +42,23 @@ static void cmd_useradd(const char* args) {
     }
 
     /* SHA256 */
-    uint8_t hash[SHA256_BLOCK_SIZE];
-    sha256((const uint8_t*)password, strlen(password), hash);
     char hash_str[SHA256_BLOCK_SIZE * 2 + 1];
-    for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
-        char hex[3];
-        utoa_hex_s(hash[i], hex, sizeof(hex));
-        if (hash[i] < 16) {
-            hash_str[i*2] = '0';
-            hash_str[i*2+1] = hex[0];
-        } else {
-            hash_str[i*2] = hex[0];
-            hash_str[i*2+1] = hex[1];
+    if (strlen(password) > 0) {
+        uint8_t hash[SHA256_BLOCK_SIZE];
+        sha256((const uint8_t*)password, strlen(password), hash);
+        for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
+            char hex[3];
+            utoa_hex_s(hash[i], hex, sizeof(hex));
+            if (hash[i] < 16) {
+                hash_str[i*2] = '0';
+                hash_str[i*2+1] = hex[0];
+            } else {
+                hash_str[i*2] = hex[0];
+                hash_str[i*2+1] = hex[1];
+            }
         }
+    } else {
+        hash_str[0] = '\0';
     }
     hash_str[SHA256_BLOCK_SIZE * 2] = '\0';
 
@@ -292,19 +296,23 @@ static void cmd_passwd(const char* args) {
     }
 
     /* SHA256 */
-    uint8_t hash[SHA256_BLOCK_SIZE];
-    sha256((const uint8_t*)password, strlen(password), hash);
     char hash_str[SHA256_BLOCK_SIZE * 2 + 1];
-    for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
-        char hex[3];
-        utoa_hex_s(hash[i], hex, sizeof(hex));
-        if (hash[i] < 16) {
-            hash_str[i*2] = '0';
-            hash_str[i*2+1] = hex[0];
-        } else {
-            hash_str[i*2] = hex[0];
-            hash_str[i*2+1] = hex[1];
+    if (strlen(password) > 0) {
+        uint8_t hash[SHA256_BLOCK_SIZE];
+        sha256((const uint8_t*)password, strlen(password), hash);
+        for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
+            char hex[3];
+            utoa_hex_s(hash[i], hex, sizeof(hex));
+            if (hash[i] < 16) {
+                hash_str[i*2] = '0';
+                hash_str[i*2+1] = hex[0];
+            } else {
+                hash_str[i*2] = hex[0];
+                hash_str[i*2+1] = hex[1];
+            }
         }
+    } else {
+        hash_str[0] = '\0';
     }
     hash_str[SHA256_BLOCK_SIZE * 2] = '\0';
 
