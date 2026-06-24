@@ -221,6 +221,16 @@ void task_exit(int status);
 void task_exit_signal(int sig);
 
 /**
+ * Detiene la tarea actual, simulando el comportamiento de SIGSTOP.
+ */
+void task_stop_signal(int sig);
+
+/**
+ * Continúa la ejecución de una tarea detenida, simulando el comportamiento de SIGCONT.
+ */
+void task_continue_signal(task_t* target);
+
+/**
  * Obtiene la tarea actual.
  */
 task_t* task_get_current(void);

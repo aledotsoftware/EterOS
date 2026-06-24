@@ -136,3 +136,6 @@ void serial_write_string(const char* s) {}
 #include <stdint.h>
 int ata_read_sector(uint32_t lba, uint8_t *buffer) { return 0; }
 int ata_write_sector(uint32_t lba, uint8_t *buffer) { return 0; }
+
+void task_stop_signal(int sig) {}
+void task_continue_signal(task_t* target) {}

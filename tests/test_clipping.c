@@ -30,3 +30,11 @@ int main() {
 
     return 0;
 }
+
+
+
+
+
+
+void task_stop_signal(int sig) {}
+void task_continue_signal(void* target) {}

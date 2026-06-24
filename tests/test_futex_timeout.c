@@ -180,3 +180,6 @@ int main(void) {
     printf("All tests passed.\n");
     return 0;
 }
+
+void task_stop_signal(int sig) {}
+void task_continue_signal(task_t* target) {}

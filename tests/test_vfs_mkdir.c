@@ -173,3 +173,11 @@ int main() {
     test_vfs_mkdir();
     return 0;
 }
+
+
+
+
+
+
+void task_stop_signal(int sig) {}
+void task_continue_signal(void* target) {}

@@ -157,3 +157,6 @@ int main(void) {
     return 0;
 }
 void serial_write_string(const char* s) {}
+
+void task_stop_signal(int sig) {}
+void task_continue_signal(task_t* target) {}

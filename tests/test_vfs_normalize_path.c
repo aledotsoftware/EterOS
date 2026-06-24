@@ -156,3 +156,11 @@ int main() {
     printf("All tests completed successfully!\n");
     return 0;
 }
+
+
+
+
+
+
+void task_stop_signal(int sig) {}
+void task_continue_signal(void* target) {}

@@ -212,3 +212,11 @@ int main() {
     printf("\nAll VFS readdir_fs tests passed successfully!\n");
     return 0;
 }
+
+
+
+
+
+
+void task_stop_signal(int sig) {}
+void task_continue_signal(void* target) {}

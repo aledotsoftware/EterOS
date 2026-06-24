@@ -143,3 +143,11 @@ int main() {
     printf("All OTA state machine tests passed!\n");
     return 0;
 }
+
+
+
+
+
+
+void task_stop_signal(int sig) {}
+void task_continue_signal(void* target) {}

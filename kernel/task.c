@@ -964,6 +964,53 @@ void task_exit_signal(int sig) {
     task_exit_internal(128 + (sig & 0x7F), (sig & 0x7F), CLD_KILLED);
 }
 
+void task_stop_signal(int sig) {
+    uint64_t irq_flags = task_irq_save();
+    spin_lock(&sched_lock);
+
+    task_t* current = task_get_current();
+    current->wait_status = ((sig & 0xFF) << 8) | 0x7F;
+    current->wait_code = CLD_STOPPED;
+    current->wait_pending = 1;
+    current->state = TASK_STOPPED;
+
+    task_t* parent = task_get_by_id(current->parent_id);
+
+    spin_unlock(&sched_lock);
+    task_irq_restore(irq_flags);
+
+    if (parent) {
+        task_wakeup(parent);
+    }
+    schedule();
+}
+
+void task_continue_signal(task_t* target) {
+    if (!target) return;
+
+    uint64_t irq_flags = task_irq_save();
+    spin_lock(&sched_lock);
+
+    int was_stopped = 0;
+    if (target->state == TASK_STOPPED) {
+        target->wait_status = 0xFFFF;
+        target->wait_code = CLD_CONTINUED;
+        target->wait_pending = 1;
+        target->state = TASK_READY;
+        enqueue_ready(target);
+        was_stopped = 1;
+    }
+
+    task_t* parent = task_get_by_id(target->parent_id);
+
+    spin_unlock(&sched_lock);
+    task_irq_restore(irq_flags);
+
+    if (was_stopped && parent) {
+        task_wakeup(parent);
+    }
+}
+
 task_t* task_get_current(void) {
     cpu_info_t* cpu = get_current_cpu();
     if (cpu && cpu->current_task) {

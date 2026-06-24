@@ -124,3 +124,11 @@ int main() {
     test_create_fs();
     return 0;
 }
+
+
+
+
+
+
+void task_stop_signal(int sig) {}
+void task_continue_signal(void* target) {}
