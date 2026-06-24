@@ -142,7 +142,7 @@ void user_loader_entry(void) {
     if (entry_point == 0) {
         serial_write_string("[USER] Warning: No user shell binary found in initrd. Automatic user-mode shell disabled.\n");
         serial_write_string("[USER] You can use the kernel shell to launch binaries manually.\n");
-        while(1) { task_yield(); hal_cpu_halt(); }
+        while(1) { task_yield(); hal_halt(); }
     }
 
     if (entry_point != 0) {

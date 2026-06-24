@@ -212,7 +212,7 @@ void trap_handler(void) {
         }
     } else {
         /* Exception (Sync) */
-        hal_cpu_halt();
+        hal_halt();
     }
 }
 
@@ -233,7 +233,7 @@ void hal_init(void) {
 /* CPU                                                                       */
 /* ========================================================================= */
 
-void hal_cpu_halt(void) {
+void hal_halt(void) {
     __asm__ volatile ("wfi");
 }
 
@@ -281,4 +281,9 @@ void hal_debug_putchar(char c) {
 
 void hal_debug_write(const char* str) {
     hal_console_write(str);
+}
+
+void hal_cpu_enable_interrupts_and_halt(void) {
+    hal_interrupts_enable();
+    hal_halt();
 }

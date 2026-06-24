@@ -1,3 +1,4 @@
+#include <hal.h>
 #include "shell_internal.h"
 #include "../../include/keyboard.h"
 #include "../../include/serial.h"
@@ -64,11 +65,11 @@ void shell_run(void) {
             }
 
             /* Dormir hasta la próxima interrupción */
-            __asm__ volatile("cli");
+            hal_interrupts_disable();
             if (!keyboard_has_input() && !serial_received()) {
-                __asm__ volatile("sti; hlt");
+                hal_cpu_enable_interrupts_and_halt();
             } else {
-                __asm__ volatile("sti");
+                hal_interrupts_enable();
             }
         }
 

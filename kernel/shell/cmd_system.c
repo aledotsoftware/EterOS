@@ -1,3 +1,4 @@
+#include <hal.h>
 #include "shell_internal.h"
 #include "../../include/pmm.h"
 #include "../../include/mm.h"
@@ -215,15 +216,15 @@ void cmd_reboot(const char* args) {
     /* Si por alguna razón no funciona, usar reset vía 8042 */
     outb(0x64, 0xFE);
 
-    for (;;) { __asm__ volatile ("hlt"); }
+    for (;;) { hal_halt(); }
 }
 
 void cmd_halt(const char* args) {
     (void)args;
     terminal_write_colored("  CPU detenida (HLT).\n", VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
     serial_write_string("[eterOS] Halt solicitado.\n");
-    __asm__ volatile ("cli");
-    for (;;) { __asm__ volatile ("hlt"); }
+    hal_interrupts_disable();
+    for (;;) { hal_halt(); }
 }
 
 void cmd_uptime(const char* args) {

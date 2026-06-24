@@ -385,7 +385,7 @@ void __attribute__((section(".text.boot"))) kmain(void) {
         terminal_set_silent(true);
         serial_write_string("[ETER] Desktop autostart detected. Kernel framebuffer terminal disabled.\n");
         while(1) {
-            hal_cpu_halt();
+            hal_halt();
             task_yield();
         }
     }
@@ -404,7 +404,7 @@ void __attribute__((section(".text.boot"))) kmain(void) {
 
     /* Main kernel task becomes Idle loop (reached if shell exits) */
     while(1) {
-        hal_cpu_halt();
+        hal_halt();
         task_yield();
     }
 }

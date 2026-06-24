@@ -99,7 +99,7 @@ void klog(int level, const char* fmt, ...) {
         /* Disable interrupts and halt */
         hal_interrupts_disable();
         while (1) {
-            hal_cpu_halt();
+            hal_halt();
         }
     }
 }

@@ -104,7 +104,7 @@ void hal_irq_install(uint8_t vector, irq_handler_t handler) {
     (void)handler;
 }
 
-void hal_cpu_halt(void) {
+void hal_halt(void) {
     __asm__ volatile ("wfi");
 }
 
@@ -221,3 +221,8 @@ void hal_mmu_init(void) {
     /* We could config MPU here, but for now do nothing as Tier 1 doesn't require MMU */
 }
 #endif
+
+void hal_cpu_enable_interrupts_and_halt(void) {
+    hal_interrupts_enable();
+    hal_halt();
+}

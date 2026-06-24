@@ -1,3 +1,4 @@
+#include <hal.h>
 /**
  * éterOS - IDT Implementation (x86_64)
  * Copyright (c) 2026 Tudex Networks. All rights reserved.
@@ -313,8 +314,8 @@ static void handle_exception(uint8_t vector, struct interrupt_frame* frame, uint
     serial_write_string("\n");
 
     /* Halt forever */
-    __asm__ volatile ("cli");
-    for (;;) { __asm__ volatile ("hlt"); }
+    hal_interrupts_disable();
+    for (;;) { hal_halt(); }
 }
 
 extern void syscall_int80_handler(struct syscall_regs* regs);

@@ -80,7 +80,7 @@ void hal_irq_install(uint8_t vector, irq_handler_t handler) {
     (void)handler;
 }
 
-void hal_cpu_halt(void) {
+void hal_halt(void) {
     __asm__ volatile ("hlt");
 }
 
@@ -96,7 +96,7 @@ void hal_cpu_reset(void) {
     /* struct { uint16_t limit; uint64_t base; } __attribute__((packed)) idtr = { 0, 0 }; */
     /* __asm__ volatile ("lidt %0; int3" : : "m"(idtr)); */
 
-    while(1) hal_cpu_halt();
+    while(1) hal_halt();
 }
 
 /* ---- Console (VGA + Serial) ---- */
@@ -180,4 +180,8 @@ void hal_debug_putchar(char c) {
 
 void hal_debug_write(const char* str) {
     serial_write_string(str);
+}
+
+void hal_cpu_enable_interrupts_and_halt(void) {
+    __asm__ volatile ("sti; hlt");
 }

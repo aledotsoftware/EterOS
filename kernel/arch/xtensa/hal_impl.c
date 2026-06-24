@@ -74,7 +74,7 @@ void hal_init(void) {
      */
 }
 
-void hal_cpu_halt(void) {
+void hal_halt(void) {
     /* Instrucción WAITI de Xtensa: espera interrupciones (bajo consumo) */
 #ifndef __ETEROS_HOST_TEST__
     __asm__ volatile ("waiti 0");
@@ -314,4 +314,9 @@ void ble_init_stub(void) {
 
 void mqtt_client_init_stub(void) {
     hal_console_write("[HAL-MQTT] Hook para lwIP/MQTT registrado.\n");
+}
+
+void hal_cpu_enable_interrupts_and_halt(void) {
+    hal_interrupts_enable();
+    hal_halt();
 }

@@ -147,7 +147,7 @@ void hal_irq_install(uint8_t vector, irq_handler_t handler);
  * Detiene la CPU hasta la próxima interrupción.
  * x86: HLT | ARM: WFI | RISC-V: WFI
  */
-void hal_cpu_halt(void);
+void hal_halt(void);
 
 /**
  * Reinicia el sistema.
@@ -226,3 +226,9 @@ void hal_debug_putchar(char c);
 void hal_debug_write(const char* str);
 
 #endif /* ETEROS_HAL_H */
+
+/**
+ * Habilita las interrupciones y detiene la CPU de forma atómica.
+ * x86: sti; hlt
+ */
+void hal_cpu_enable_interrupts_and_halt(void);
