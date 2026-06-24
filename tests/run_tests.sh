@@ -12,13 +12,13 @@ rm tests/test_heap
 
 echo "---------------------------------------------------"
 echo "Running test_heap_perf..."
-gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_heap_perf.c -o tests/test_heap_perf 2>/dev/null
+gcc -D__ETEROS_HOST_TEST__ -Iinclude tests/test_heap_perf.c -o tests/test_heap_perf
 ./tests/test_heap_perf
 rm tests/test_heap_perf
 
 echo "---------------------------------------------------"
 echo "Running test_heap_security..."
-gcc -D__ETEROS_HOST_TEST__ tests/test_heap_security.c -o tests/test_heap_security 2>/dev/null
+gcc -D__ETEROS_HOST_TEST__ tests/test_heap_security.c -o tests/test_heap_security
 ./tests/test_heap_security
 rm tests/test_heap_security
 
