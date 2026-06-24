@@ -168,6 +168,26 @@ int main() {
     printf("Testing sys_reboot\n");
     assert(sys_reboot(1, 2, 3, NULL) == 0);
 
+    printf("Testing sys_prlimit64\n");
+    struct rlimit rlim;
+    memset(&rlim, 0, sizeof(struct rlimit));
+    assert(sys_prlimit64(0, 0, NULL, &rlim) == 0);
+    assert(rlim.rlim_cur == RLIM_INFINITY);
+
+    printf("Testing sys_getrusage\n");
+    char rusage_buf[144];
+    memset(rusage_buf, 0xAA, sizeof(rusage_buf));
+    assert(sys_getrusage(0, rusage_buf) == -ENOSYS);
+    for (int j = 0; j < 144; j++) {
+        assert((unsigned char)rusage_buf[j] == 0xAA);
+    }
+
+    printf("Testing sys_setfsuid / sys_setfsgid\n");
+    assert(sys_setfsuid(0) == 0);
+    assert(current_task_mock.euid == 0);
+    assert(sys_setfsgid(0) == 0);
+    assert(current_task_mock.egid == 0);
+
     printf("Tests passed!\n");
     free(valid_node);
     return 0;

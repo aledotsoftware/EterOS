@@ -1636,13 +1636,15 @@ static int64_t sys_prlimit64(int pid, int resource, const struct rlimit* new_lim
     (void)pid; (void)resource;
     if (old_limit) {
         if (!vmm_verify_user_access(old_limit, sizeof(struct rlimit), 1)) return -EFAULT;
+        /* EterOS does not enforce limits yet, return infinity */
         old_limit->rlim_cur = RLIM_INFINITY;
         old_limit->rlim_max = RLIM_INFINITY;
     }
     if (new_limit) {
         if (!vmm_verify_user_access(new_limit, sizeof(struct rlimit), 0)) return -EFAULT;
+        /* Setting limits is not supported, ignore gracefully to appease GNU tools */
     }
-    return -ENOSYS;
+    return 0;
 }
 
 static int64_t sys_sigaltstack(const stack_t* ss, stack_t* old_ss) {
@@ -3132,6 +3134,26 @@ static int64_t sys_setregid(uint32_t rgid, uint32_t egid) {
     return 0;
 }
 
+static int64_t sys_setfsuid(uint32_t fsuid) {
+    task_t* current = task_get_current();
+    if (current->uid != 0 && current->uid != fsuid && current->euid != fsuid) {
+        return -EPERM;
+    }
+    /* EterOS currently maps fsuid to euid */
+    current->euid = fsuid;
+    return 0;
+}
+
+static int64_t sys_setfsgid(uint32_t fsgid) {
+    task_t* current = task_get_current();
+    if (current->uid != 0 && current->gid != fsgid && current->egid != fsgid) {
+        return -EPERM;
+    }
+    /* EterOS currently maps fsgid to egid */
+    current->egid = fsgid;
+    return 0;
+}
+
 static int64_t sys_setresuid(uint32_t ruid, uint32_t euid, uint32_t suid) {
     task_t* current = task_get_current();
     if (current->uid != 0) {
@@ -3550,7 +3572,6 @@ static int64_t sys_getrusage(int who, void *usage) {
 
     // struct rusage is 144 bytes on 64-bit Linux usually, let's just use 144
     if (!vmm_verify_user_access(usage, 144, 1)) return -EFAULT;
-    memset(usage, 0, 144);
 
     return -ENOSYS;
 }
@@ -3683,6 +3704,8 @@ static syscall_ptr_t syscall_native_table[MAX_SYSCALL_NUM] = {
     [119] = (syscall_ptr_t)sys_setresgid,
     [120] = (syscall_ptr_t)sys_getresgid,
     [121] = (syscall_ptr_t)sys_getpgid,
+    [122] = (syscall_ptr_t)sys_setfsuid,
+    [123] = (syscall_ptr_t)sys_setfsgid,
     [124] = (syscall_ptr_t)sys_getsid,
     [109] = (syscall_ptr_t)sys_setpgid,
     [110] = (syscall_ptr_t)sys_getppid,
@@ -3835,6 +3858,8 @@ static syscall_ptr_t syscall_linux_table[MAX_SYSCALL_NUM] = {
     [119] = (syscall_ptr_t)sys_setresgid,
     [120] = (syscall_ptr_t)sys_getresgid,
     [121] = (syscall_ptr_t)sys_getpgid,
+    [122] = (syscall_ptr_t)sys_setfsuid,
+    [123] = (syscall_ptr_t)sys_setfsgid,
     [124] = (syscall_ptr_t)sys_getsid,
     [109] = (syscall_ptr_t)sys_setpgid,
     [110] = (syscall_ptr_t)sys_getppid,
