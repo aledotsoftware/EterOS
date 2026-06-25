@@ -10,3 +10,4 @@
   - Hardened architectural boundaries in `smp.c` and `task.c` by substituting raw `cli`/`sti` instructions with cross-platform `hal_interrupts_disable`/`hal_interrupts_enable` abstractions.
 No changes were needed for the task as network integration is fully functional
 - **linux-syscall-compliance-bot**: Checked `sys_fsync`, `sys_fdatasync`, `sys_truncate`, and `sys_ftruncate` implementations. They were already compliant. Fixed their tests in `test_syscall_linux_coverage.c` to prevent false failures.
+- **linux-syscall-compliance-bot**: Fixed `sys_getrusage` and `sys_prlimit64` to strictly return `-ENOSYS` without modifying user-provided memory buffers (`usage` and `old_limit` respectively), adhering to POSIX ABI compliance. Added memory modification assertions to `test_syscall_linux_coverage.c` to prevent future regressions.

@@ -131,6 +131,21 @@ int main() {
     current_task_mock.fd_table[3].node = valid_node;
     current_task_mock.fd_table[3].flags = O_RDWR;
 
+    printf("Testing sys_getrusage memory modification\n");
+    char rusage_buf[144];
+    memset(rusage_buf, 0xAB, 144);
+    assert(sys_getrusage(0, rusage_buf) == -ENOSYS);
+    assert((unsigned char)rusage_buf[0] == 0xAB);
+
+    printf("Testing sys_prlimit64 memory modification\n");
+    struct rlimit rlim;
+    memset(&rlim, 0xCD, sizeof(struct rlimit));
+    assert(sys_prlimit64(0, 0, NULL, &rlim) == -ENOSYS);
+    assert(((unsigned char*)&rlim)[0] == 0xCD);
+
+    printf("Testing sys_syslog\n");
+    assert(sys_syslog(0, NULL, 0) == -ENOSYS);
+
     printf("Testing fsync\n");
     assert(sys_fsync(3) == 0);
     assert(sys_fdatasync(3) == 0);
