@@ -346,3 +346,7 @@ int net_gethostbyname(const char* hostname, uint32_t* out_ip) {
     kfree(state);
     return res;
 }
+
+uint8_t* net_get_mac(void) {
+    return main_netif.hwaddr;
+}

@@ -100,4 +100,6 @@ extern uint32_t gateway_ip;
 extern uint32_t dns_ip;
 extern uint8_t gateway_mac[6];
 
+uint8_t* net_get_mac(void);
+
 #endif /* ETEROS_NET_DEFS_H */

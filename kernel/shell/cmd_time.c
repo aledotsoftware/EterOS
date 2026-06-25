@@ -69,7 +69,7 @@ void cmd_ntp(const char* args) {
         server = args;
     }
 
-    if (!current_nic || !network_ready) {
+    if (!network_ready) {
         terminal_write_string("  [NTP] Error: Adaptador de red no activo o DHCP no asignado.\n");
         return;
     }

@@ -7,12 +7,8 @@
 void cmd_net(const char* args) {
     (void)args;
     terminal_write_string("==== Network Status ====\n");
-    if (!current_nic) {
-        terminal_write_string("Error: Network adapter not active or not detected.\n");
-        return;
-    }
 
-    uint8_t* mac = current_nic->get_mac();
+    uint8_t* mac = net_get_mac();
 
     char buf[64];
     snprintf(buf, sizeof(buf), "MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -49,10 +45,6 @@ void cmd_net(const char* args) {
 
 void cmd_dhcp(const char* args) {
     (void)args;
-    if (!current_nic) {
-        terminal_write_string("Error: Network adapter not active or not detected.\n");
-        return;
-    }
 
     terminal_write_string("Waiting for IP address...\n");
 
@@ -86,10 +78,6 @@ void cmd_dhcp(const char* args) {
     terminal_write_string("DHCP timeout.\n");
 }
 void cmd_wget(const char* args) {
-    if (!current_nic) {
-        terminal_write_string("Error: Network adapter not active or not detected.\n");
-        return;
-    }
     if (!network_ready) {
         terminal_write_string("Error: Network is not ready. Please wait for DHCP or configure IP manually.\n");
         return;
