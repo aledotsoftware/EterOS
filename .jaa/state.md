@@ -10,3 +10,4 @@
   - Hardened architectural boundaries in `smp.c` and `task.c` by substituting raw `cli`/`sti` instructions with cross-platform `hal_interrupts_disable`/`hal_interrupts_enable` abstractions.
 No changes were needed for the task as network integration is fully functional
 - **linux-syscall-compliance-bot**: Checked `sys_fsync`, `sys_fdatasync`, `sys_truncate`, and `sys_ftruncate` implementations. They were already compliant. Fixed their tests in `test_syscall_linux_coverage.c` to prevent false failures.
+- **devices-time-panel-bot**: Added `hal_cpu_enable_interrupts_and_halt` across all archs (x86_64, aarch64, arm-cortex-m, riscv64, xtensa). Refactored `kernel/shell/cmd_panel.c` to use `hal_cpu_enable_interrupts_and_halt()` instead of raw `sti; hlt` to avoid missed interrupts/lost wakeups. Refactored `rtc_get_time` and `rtc_set_time` to use a 100,000 loop timeout limit on `rtc_is_updating()` instead of an infinite while loop.

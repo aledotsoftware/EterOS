@@ -181,3 +181,6 @@ void hal_debug_putchar(char c) {
 void hal_debug_write(const char* str) {
     serial_write_string(str);
 }
+void hal_cpu_enable_interrupts_and_halt(void) {
+    __asm__ volatile ("sti; hlt");
+}

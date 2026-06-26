@@ -221,3 +221,6 @@ void hal_mmu_init(void) {
     /* We could config MPU here, but for now do nothing as Tier 1 doesn't require MMU */
 }
 #endif
+void hal_cpu_enable_interrupts_and_halt(void) {
+    __asm__ volatile ("cpsie i\n\twfi");
+}

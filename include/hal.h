@@ -226,3 +226,7 @@ void hal_debug_putchar(char c);
 void hal_debug_write(const char* str);
 
 #endif /* ETEROS_HAL_H */
+/**
+ * Atomically enable interrupts and halt until next interrupt.
+ */
+void hal_cpu_enable_interrupts_and_halt(void);

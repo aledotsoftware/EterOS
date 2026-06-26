@@ -315,3 +315,8 @@ void ble_init_stub(void) {
 void mqtt_client_init_stub(void) {
     hal_console_write("[HAL-MQTT] Hook para lwIP/MQTT registrado.\n");
 }
+void hal_cpu_enable_interrupts_and_halt(void) {
+    // Basic fallback for xtensa
+    hal_interrupts_enable();
+    hal_cpu_halt();
+}

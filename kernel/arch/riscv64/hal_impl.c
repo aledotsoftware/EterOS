@@ -282,3 +282,6 @@ void hal_debug_putchar(char c) {
 void hal_debug_write(const char* str) {
     hal_console_write(str);
 }
+void hal_cpu_enable_interrupts_and_halt(void) {
+    __asm__ volatile ("csrsi mstatus, 8\n\twfi");
+}
