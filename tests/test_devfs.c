@@ -136,3 +136,11 @@ void serial_write_string(const char* s) {}
 #include <stdint.h>
 int ata_read_sector(uint32_t lba, uint8_t *buffer) { return 0; }
 int ata_write_sector(uint32_t lba, uint8_t *buffer) { return 0; }
+
+/* Mock for task_get_by_id */
+task_t dummy_task = {0};
+
+task_t* task_get_by_id(uint32_t id) {
+    if (id == dummy_task.id) return &dummy_task;
+    return NULL;
+}

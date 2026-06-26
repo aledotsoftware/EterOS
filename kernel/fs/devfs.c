@@ -99,7 +99,6 @@ static spinlock_t binder_lock = 0;
 /* Simple queue to hold transactions destined for context manager */
 #define BINDER_MAX_QUEUED 16
 static struct binder_transaction_data cm_queue[BINDER_MAX_QUEUED];
-static uint8_t *payload_buffers[BINDER_MAX_QUEUED];
 static int cm_q_head = 0;
 static int cm_q_tail = 0;
 
@@ -107,7 +106,6 @@ static int cm_q_tail = 0;
 typedef struct {
     int pid;
     struct binder_transaction_data tr;
-    uint8_t *payload;
     int used;
 } client_queue_t;
 
@@ -184,23 +182,48 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
                     if (safe_copy_from_user(&tr, wbuf + consumed, sizeof(tr)) != 0) break;
                     consumed += sizeof(struct binder_transaction_data);
 
-                    uint8_t *temp_payload = NULL;
-                    if (tr.data.ptr.buffer && tr.data_size > 0) {
-                        /* Real allocation instead of a static buffer, capped at 1MB to prevent OOM */
-                        if (tr.data_size <= 1024 * 1024) {
-                            temp_payload = (uint8_t*)kmalloc((size_t)tr.data_size);
-                            if (temp_payload) {
-                                if (safe_copy_from_user(temp_payload, (void*)(uintptr_t)tr.data.ptr.buffer, (size_t)tr.data_size) != 0) {
-                                    kfree(temp_payload);
-                                    temp_payload = NULL;
+                    int target_pid = (cmd == BC_REPLY) ? (int)tr.target.handle : binder_context_mgr_pid;
+                    if (target_pid == -1 && tr.target.handle == 0 && cmd != BC_REPLY) {
+                        break;
+                    }
+                    task_t *target_task = task_get_by_id(target_pid);
+
+                    if (tr.data.ptr.buffer && tr.data_size > 0 && target_task && target_task->binder_mmap_base != 0) {
+                        if (tr.data_size <= target_task->binder_mmap_size - target_task->binder_mmap_offset) {
+                            uint8_t *temp_buf = kmalloc(tr.data_size);
+                            if (temp_buf) {
+                                if (safe_copy_from_user(temp_buf, (void*)(uintptr_t)tr.data.ptr.buffer, tr.data_size) == 0) {
+                                    uint64_t dest_vaddr = target_task->binder_mmap_base + target_task->binder_mmap_offset;
+                                    uint64_t old_cr3;
+                                    __asm__ volatile("mov %%cr3, %0" : "=r"(old_cr3));
+                                    __asm__ volatile("mov %0, %%cr3" :: "r"(target_task->cr3));
+
+                                    memcpy((void*)(uintptr_t)dest_vaddr, temp_buf, tr.data_size);
+
+                                    __asm__ volatile("mov %0, %%cr3" :: "r"(old_cr3));
+
+                                    tr.data.ptr.buffer = dest_vaddr;
+                                    target_task->binder_mmap_offset += tr.data_size;
+                                    /* Align to 8 bytes */
+                                    if (target_task->binder_mmap_offset % 8 != 0) {
+                                        target_task->binder_mmap_offset += 8 - (target_task->binder_mmap_offset % 8);
+                                    }
+                                } else {
                                     tr.data_size = 0;
+                                    tr.data.ptr.buffer = 0;
                                 }
+                                kfree(temp_buf);
                             } else {
                                 tr.data_size = 0;
+                                tr.data.ptr.buffer = 0;
                             }
                         } else {
-                            tr.data_size = 0; /* Deny oversized requests */
+                            tr.data_size = 0;
+                            tr.data.ptr.buffer = 0;
                         }
+                    } else {
+                        tr.data_size = 0;
+                        tr.data.ptr.buffer = 0;
                     }
 
                     spin_lock(&binder_lock);
@@ -211,31 +234,17 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
                             memcpy(&cm_queue[cm_q_head], &tr, sizeof(struct binder_transaction_data));
                             cm_queue[cm_q_head].sender_pid = current->id;
 
-                            payload_buffers[cm_q_head] = temp_payload;
                             cm_q_head = next_head;
-                        } else {
-                            if (temp_payload) kfree(temp_payload);
                         }
                     } else if (cmd == BC_REPLY) {
-                        /* Target is encoded in the transaction struct for replies, or handle explicitly maps to PID */
-                        /* Assuming target pid is in sender_pid for simplicity in this basic IPC */
-                        int target_pid = tr.target.handle;
-                        int stored = 0;
                         for (int i = 0; i < BINDER_MAX_QUEUED; i++) {
                             if (!cl_queues[i].used) {
                                 cl_queues[i].pid = target_pid;
                                 memcpy(&cl_queues[i].tr, &tr, sizeof(struct binder_transaction_data));
-                                cl_queues[i].payload = temp_payload;
                                 cl_queues[i].used = 1;
-                                stored = 1;
                                 break;
                             }
                         }
-                        if (!stored && temp_payload) {
-                            kfree(temp_payload);
-                        }
-                    } else {
-                        if (temp_payload) kfree(temp_payload);
                     }
                     spin_unlock(&binder_lock);
 
@@ -245,21 +254,7 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
                      if (safe_copy_from_user(&buffer_to_free, wbuf + consumed, sizeof(buffer_to_free)) != 0) break;
                      consumed += sizeof(uintptr_t);
 
-                     /* We must validate that the buffer belongs to our tracked payloads to prevent arbitrary kfree */
-                     spin_lock(&binder_lock);
-                     for (int i = 0; i < BINDER_MAX_QUEUED; i++) {
-                         if (payload_buffers[i] == (uint8_t*)buffer_to_free && buffer_to_free != 0) {
-                             kfree((void*)buffer_to_free);
-                             payload_buffers[i] = NULL;
-                             break;
-                         }
-                         if (cl_queues[i].payload == (uint8_t*)buffer_to_free && buffer_to_free != 0) {
-                             kfree((void*)buffer_to_free);
-                             cl_queues[i].payload = NULL;
-                             break;
-                         }
-                     }
-                     spin_unlock(&binder_lock);
+                     current->binder_mmap_offset = 0;
 
                 } else {
                     /* Unknown or unimplemented command, break */
@@ -274,7 +269,6 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
             uint8_t *rbuf = (uint8_t*)(uintptr_t)bwr.read_buffer;
             uint64_t read_out = 0;
             struct binder_transaction_data tr_copy;
-            uint8_t *payload_ptr = NULL;
             int has_tr = 0;
             uint32_t out_cmd = BR_NOOP;
 
@@ -282,7 +276,6 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
             if (current->id == (uint32_t)binder_context_mgr_pid) {
                 if (cm_q_head != cm_q_tail) {
                     memcpy(&tr_copy, &cm_queue[cm_q_tail], sizeof(struct binder_transaction_data));
-                    payload_ptr = payload_buffers[cm_q_tail];
                     cm_q_tail = (cm_q_tail + 1) % BINDER_MAX_QUEUED;
                     has_tr = 1;
                     out_cmd = BR_TRANSACTION;
@@ -291,7 +284,6 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
                 for (int i = 0; i < BINDER_MAX_QUEUED; i++) {
                     if (cl_queues[i].used && cl_queues[i].pid == (int)current->id) {
                         memcpy(&tr_copy, &cl_queues[i].tr, sizeof(struct binder_transaction_data));
-                        payload_ptr = cl_queues[i].payload;
                         cl_queues[i].used = 0;
                         has_tr = 1;
                         out_cmd = BR_REPLY;
@@ -303,18 +295,6 @@ static int dev_binder_ioctl(fs_node_t *node, int request, void *arg) {
 
             if (has_tr) {
                 if (bwr.read_size >= sizeof(uint32_t) + sizeof(struct binder_transaction_data)) {
-                    /* Basic shim copies data to the user provided buffer instead of mmaps, to avoid passing kernel pointers */
-                    if (payload_ptr && tr_copy.data.ptr.buffer) {
-                        /* In this shim, we assume the reader provided a valid buffer in tr_copy.data.ptr.buffer
-                           to copy the payload into. This is not strictly Android compliant but safe for our baremetal shim. */
-                        if (safe_copy_to_user((void*)(uintptr_t)tr_copy.data.ptr.buffer, payload_ptr, tr_copy.data_size) != 0) {
-                           /* Copy failed */
-                        }
-                        /* We don't free payload_ptr here, BC_FREE_BUFFER must handle it based on the tracking logic */
-                    } else {
-                        tr_copy.data.ptr.buffer = 0;
-                    }
-
                     if (safe_copy_to_user(rbuf + read_out, &out_cmd, sizeof(out_cmd)) == 0) {
                         read_out += sizeof(uint32_t);
                         if (safe_copy_to_user(rbuf + read_out, &tr_copy, sizeof(tr_copy)) == 0) {

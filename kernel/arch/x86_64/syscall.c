@@ -621,6 +621,11 @@ static int64_t sys_mmap(void* addr, size_t len, int prot, int flags, int fd, int
             }
             spin_unlock(&shm_obj->lock);
         } else if (is_binder) {
+            if (v == start) {
+                current->binder_mmap_base = start;
+                current->binder_mmap_size = len;
+                current->binder_mmap_offset = 0;
+            }
             /* Binder VMA - Allocate anonymous page for receive buffer */
             void* phys = pmm_alloc_page();
             if (!phys) return -ENOMEM;
