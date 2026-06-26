@@ -120,13 +120,13 @@ static int _join_path(char *dst, size_t dst_sz, const char *dir, const char *fil
 int fork(void) {
     long ret = _syscall0(SYS_fork);
     if ((unsigned long)ret >= (unsigned long)-4095) { errno = (int)(-ret); return -1; }
-    return (int)ret;
+    return 0;
 }
 
 int execve(const char *pathname, char *const argv[], char *const envp[]) {
     long ret = _syscall3(SYS_execve, (long)pathname, (long)argv, (long)envp);
     if ((unsigned long)ret >= (unsigned long)-4095) { errno = (int)(-ret); return -1; }
-    return (int)ret;
+    return 0;
 }
 
 int execv(const char *pathname, char *const argv[]) {
@@ -230,19 +230,19 @@ int pipe2(int pipefd[2], int flags) {
 int dup(int oldfd) {
     long ret = _syscall1(SYS_dup, oldfd);
     if ((unsigned long)ret >= (unsigned long)-4095) { errno = (int)(-ret); return -1; }
-    return (int)ret;
+    return 0;
 }
 
 int dup2(int oldfd, int newfd) {
     long ret = _syscall2(SYS_dup2, oldfd, newfd);
     if ((unsigned long)ret >= (unsigned long)-4095) { errno = (int)(-ret); return -1; }
-    return (int)ret;
+    return 0;
 }
 
 int dup3(int oldfd, int newfd, int flags) {
     long ret = _syscall3(SYS_dup3, oldfd, newfd, flags);
     if ((unsigned long)ret >= (unsigned long)-4095) { errno = (int)(-ret); return -1; }
-    return (int)ret;
+    return 0;
 }
 
 int openat(int dirfd, const char *pathname, int flags, ...) {
@@ -256,7 +256,7 @@ int openat(int dirfd, const char *pathname, int flags, ...) {
 
     long ret = _syscall4(SYS_openat, dirfd, (long)pathname, flags, mode);
     if ((unsigned long)ret >= (unsigned long)-4095) { errno = (int)(-ret); return -1; }
-    return (int)ret;
+    return 0;
 }
 
 int fcntl(int fd, int cmd, ...) {
@@ -268,7 +268,7 @@ int fcntl(int fd, int cmd, ...) {
 
     long ret = _syscall3(SYS_fcntl, fd, cmd, arg);
     if ((unsigned long)ret >= (unsigned long)-4095) { errno = (int)(-ret); return -1; }
-    return (int)ret;
+    return 0;
 }
 
 int access(const char *pathname, int mode) {
@@ -385,7 +385,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struc
         errno = (int)(-ret);
         return -1;
     }
-    return (int)ret;
+    return 0;
 }
 
 int epoll_create1(int flags) {

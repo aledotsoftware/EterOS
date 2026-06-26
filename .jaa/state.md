@@ -10,3 +10,4 @@
   - Hardened architectural boundaries in `smp.c` and `task.c` by substituting raw `cli`/`sti` instructions with cross-platform `hal_interrupts_disable`/`hal_interrupts_enable` abstractions.
 No changes were needed for the task as network integration is fully functional
 - **linux-syscall-compliance-bot**: Checked `sys_fsync`, `sys_fdatasync`, `sys_truncate`, and `sys_ftruncate` implementations. They were already compliant. Fixed their tests in `test_syscall_linux_coverage.c` to prevent false failures.
+- **userspace-libc-posix-bot**: Hardened libc wrappers inside `userspace/libc/src/syscall.c` and `userspace/libc/src/posix.c` to return exactly `-1` and set `errno` properly. Removed invalid semicolons from `SYSCALL_RETURN` macro. Updated `SYS_gettid` in `userspace/libc/include/sys/syscall.h` and used it in `pthread_self()`. Changed `global_errno` to not be a Thread Local variable.
