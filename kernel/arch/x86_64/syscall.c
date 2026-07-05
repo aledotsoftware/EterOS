@@ -413,33 +413,33 @@ static int split_path(const char* path, char* parent, char* name) {
     }
 
     if (last_slash == -1) {
-        strlcpy(parent, "/", 256);
-        if (len >= 256) return -1;
-        strlcpy(name, path, 256);
+        strlcpy(parent, "/", 1024);
+        if (len >= 1024) return -1;
+        strlcpy(name, path, 1024);
     } else {
         if (last_slash == 0) {
-            strlcpy(parent, "/", 256);
+            strlcpy(parent, "/", 1024);
         } else {
-            if (last_slash >= 256) return -1;
+            if (last_slash >= 1024) return -1;
             memcpy(parent, path, last_slash);
             parent[last_slash] = 0;
         }
-        if (len - last_slash - 1 >= 256) return -1;
-        strlcpy(name, path + last_slash + 1, 256);
+        if (len - last_slash - 1 >= 1024) return -1;
+        strlcpy(name, path + last_slash + 1, 1024);
     }
     return 0;
 }
 
 static int resolve_path(int dirfd, const char* user_path, char* out_path, int size) {
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    char* base_dir = (char*)kmalloc(256);
+    char* base_dir = (char*)kmalloc(1024);
     if (!base_dir) {
         kfree(kpath);
         return -ENOMEM;
     }
 
-    int res = vmm_strncpy_from_user(kpath, user_path, 256);
+    int res = vmm_strncpy_from_user(kpath, user_path, 1024);
     if (res < 0) {
         kfree(kpath);
         kfree(base_dir);
@@ -452,12 +452,12 @@ static int resolve_path(int dirfd, const char* user_path, char* out_path, int si
     int ret_val;
     if (kpath[0] != '/') {
         if (dirfd == AT_FDCWD) {
-            strlcpy(base_dir, current->cwd, 256);
+            strlcpy(base_dir, current->cwd, 1024);
         } else {
             if (dirfd < 0 || dirfd >= MAX_FD) { kfree(kpath); kfree(base_dir); return -EBADF; }
             if (!current->fd_table[dirfd].node) { kfree(kpath); kfree(base_dir); return -EBADF; }
             if ((current->fd_table[dirfd].node->flags & 0x7) != FS_DIRECTORY) { kfree(kpath); kfree(base_dir); return -ENOTDIR; }
-            strlcpy(base_dir, current->fd_table[dirfd].path, 256);
+            strlcpy(base_dir, current->fd_table[dirfd].path, 1024);
         }
         ret_val = vfs_normalize_path(out_path, size, kpath, base_dir);
     } else {
@@ -814,9 +814,9 @@ static int check_node_permission(fs_node_t* node, uint32_t req_mask) {
 
 static int64_t sys_openat(int dirfd, const char* path, int flags, int mode) {
     if (!vmm_verify_user_access(path, 1, 0)) return -EFAULT;
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(dirfd, path, kpath, 256);
+    int res = resolve_path(dirfd, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
     if ((flags & O_ACCMODE) > O_RDWR) { kfree(kpath); return -EINVAL; }
 
@@ -874,9 +874,9 @@ static int64_t sys_openat(int dirfd, const char* path, int flags, int mode) {
 
     if (!node) {
         if (flags & O_CREAT) {
-            char* parent_path = (char*)kmalloc(256);
+            char* parent_path = (char*)kmalloc(1024);
             if (!parent_path) { kfree(kpath); return -ENOMEM; }
-            char* filename = (char*)kmalloc(256);
+            char* filename = (char*)kmalloc(1024);
             if (!filename) { kfree(parent_path); kfree(kpath); return -ENOMEM; }
 
             if (split_path(kpath, parent_path, filename) != 0) { kfree(filename); kfree(parent_path); kfree(kpath); return -ENAMETOOLONG; }
@@ -965,14 +965,14 @@ static int64_t sys_close(int fd) {
 }
 
 static int64_t sys_mkdirat(int dirfd, const char* path, int mode) {
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(dirfd, path, kpath, 256);
+    int res = resolve_path(dirfd, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
 
-    char* parent_path = (char*)kmalloc(256);
+    char* parent_path = (char*)kmalloc(1024);
     if (!parent_path) { kfree(kpath); return -ENOMEM; }
-    char* filename = (char*)kmalloc(256);
+    char* filename = (char*)kmalloc(1024);
     if (!filename) { kfree(parent_path); kfree(kpath); return -ENOMEM; }
     if (split_path(kpath, parent_path, filename) != 0) { kfree(filename); kfree(parent_path); kfree(kpath); return -ENAMETOOLONG; }
     fs_node_t* parent = vfs_lookup(fs_root, parent_path);
@@ -995,12 +995,12 @@ static int64_t sys_linkat(int olddirfd, const char* oldpath, int newdirfd, const
     (void)flags;
     if (!vmm_verify_user_access(oldpath, 1, 0) || !vmm_verify_user_access(newpath, 1, 0)) return -EFAULT;
     
-    char* kold = (char*)kmalloc(256);
-    char* knew = (char*)kmalloc(256);
+    char* kold = (char*)kmalloc(1024);
+    char* knew = (char*)kmalloc(1024);
     if (!kold || !knew) { kfree(kold); kfree(knew); return -ENOMEM; }
 
-    int res1 = resolve_path(olddirfd, oldpath, kold, 256);
-    int res2 = resolve_path(newdirfd, newpath, knew, 256);
+    int res1 = resolve_path(olddirfd, oldpath, kold, 1024);
+    int res2 = resolve_path(newdirfd, newpath, knew, 1024);
 
     if (res1 < 0 || res2 < 0) { kfree(kold); kfree(knew); return -EINVAL; }
 
@@ -1015,14 +1015,14 @@ static int64_t sys_link(const char* oldpath, const char* newpath) {
 
 static int64_t sys_unlinkat(int dirfd, const char* path, int flags) {
     (void)flags;
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(dirfd, path, kpath, 256);
+    int res = resolve_path(dirfd, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
 
-    char* parent_path = (char*)kmalloc(256);
+    char* parent_path = (char*)kmalloc(1024);
     if (!parent_path) { kfree(kpath); return -ENOMEM; }
-    char* filename = (char*)kmalloc(256);
+    char* filename = (char*)kmalloc(1024);
     if (!filename) { kfree(parent_path); kfree(kpath); return -ENOMEM; }
     if (split_path(kpath, parent_path, filename) != 0) { kfree(filename); kfree(parent_path); kfree(kpath); return -ENAMETOOLONG; }
 
@@ -1063,14 +1063,14 @@ static int64_t sys_unlink(const char* path) {
 
 
 static int64_t sys_rmdir(const char* path) {
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(AT_FDCWD, path, kpath, 256);
+    int res = resolve_path(AT_FDCWD, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
 
-    char* parent_path = (char*)kmalloc(256);
+    char* parent_path = (char*)kmalloc(1024);
     if (!parent_path) { kfree(kpath); return -ENOMEM; }
-    char* filename = (char*)kmalloc(256);
+    char* filename = (char*)kmalloc(1024);
     if (!filename) { kfree(parent_path); kfree(kpath); return -ENOMEM; }
     if (split_path(kpath, parent_path, filename) != 0) { kfree(filename); kfree(parent_path); kfree(kpath); return -ENAMETOOLONG; }
 
@@ -1097,10 +1097,10 @@ static int64_t sys_rmdir(const char* path) {
 }
 
 static int64_t sys_chmod(const char* path, int mode) {
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
 
-    int res = resolve_path(AT_FDCWD, path, kpath, 256);
+    int res = resolve_path(AT_FDCWD, path, kpath, 1024);
     if (res < 0) {
         kfree(kpath);
         return res;
@@ -1142,10 +1142,10 @@ static int64_t sys_fchmod(int fd, int mode) {
 }
 
 static int64_t sys_fchmodat(int dirfd, const char* path, int mode) {
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
 
-    int res = resolve_path(dirfd, path, kpath, 256);
+    int res = resolve_path(dirfd, path, kpath, 1024);
     if (res < 0) {
         kfree(kpath);
         return res;
@@ -1167,9 +1167,9 @@ static int64_t sys_fchmodat(int dirfd, const char* path, int mode) {
 static int64_t sys_readlinkat(int dirfd, const char* path, char* buf, size_t bufsiz) {
     if (!vmm_verify_user_access(buf, bufsiz, 1)) return -EFAULT;
 
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(dirfd, path, kpath, 256);
+    int res = resolve_path(dirfd, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
 
     fs_node_t* node = vfs_lookup_ext(fs_root, kpath, 0); // 0 means do not follow the last symlink
@@ -1222,18 +1222,18 @@ static int64_t sys_rename(const char* oldpath, const char* newpath) {
 }
 
 static int64_t sys_renameat(int olddirfd, const char* oldpath, int newdirfd, const char* newpath) {
-    char* koldpath = (char*)kmalloc(256);
+    char* koldpath = (char*)kmalloc(1024);
     if (!koldpath) return -ENOMEM;
-    int res = resolve_path(olddirfd, oldpath, koldpath, 256);
+    int res = resolve_path(olddirfd, oldpath, koldpath, 1024);
     if (res < 0) { kfree(koldpath); return res; }
 
-    char* knewpath = (char*)kmalloc(256);
+    char* knewpath = (char*)kmalloc(1024);
     if (!knewpath) { kfree(koldpath); return -ENOMEM; }
-    res = resolve_path(newdirfd, newpath, knewpath, 256);
+    res = resolve_path(newdirfd, newpath, knewpath, 1024);
     if (res < 0) { kfree(knewpath); kfree(koldpath); return res; }
 
-    char* old_parent_path = (char*)kmalloc(256);
-    char* old_filename = (char*)kmalloc(256);
+    char* old_parent_path = (char*)kmalloc(1024);
+    char* old_filename = (char*)kmalloc(1024);
     if (!old_parent_path || !old_filename) {
         if (old_filename) kfree(old_filename);
         if (old_parent_path) kfree(old_parent_path);
@@ -1243,8 +1243,8 @@ static int64_t sys_renameat(int olddirfd, const char* oldpath, int newdirfd, con
         kfree(old_filename); kfree(old_parent_path); kfree(knewpath); kfree(koldpath); return -ENAMETOOLONG;
     }
 
-    char* new_parent_path = (char*)kmalloc(256);
-    char* new_filename = (char*)kmalloc(256);
+    char* new_parent_path = (char*)kmalloc(1024);
+    char* new_filename = (char*)kmalloc(1024);
     if (!new_parent_path || !new_filename) {
         if (new_filename) kfree(new_filename);
         if (new_parent_path) kfree(new_parent_path);
@@ -1278,18 +1278,18 @@ static int64_t sys_renameat(int olddirfd, const char* oldpath, int newdirfd, con
 }
 
 static int64_t sys_symlinkat(const char* target, int newdirfd, const char* linkpath) {
-    char* ktarget = (char*)kmalloc(256);
+    char* ktarget = (char*)kmalloc(1024);
     if (!ktarget) return -ENOMEM;
-    if (!vmm_check_user_string(target, 256)) { kfree(ktarget); return -EFAULT; }
-    strlcpy(ktarget, target, 256);
+    if (!vmm_check_user_string(target, 1024)) { kfree(ktarget); return -EFAULT; }
+    strlcpy(ktarget, target, 1024);
 
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) { kfree(ktarget); return -ENOMEM; }
-    int res = resolve_path(newdirfd, linkpath, kpath, 256);
+    int res = resolve_path(newdirfd, linkpath, kpath, 1024);
     if (res < 0) { kfree(kpath); kfree(ktarget); return res; }
 
-    char* parent_path = (char*)kmalloc(256);
-    char* filename = (char*)kmalloc(256);
+    char* parent_path = (char*)kmalloc(1024);
+    char* filename = (char*)kmalloc(1024);
     if (!parent_path || !filename) {
         if (parent_path) kfree(parent_path);
         if (filename) kfree(filename);
@@ -1323,9 +1323,9 @@ static int64_t sys_utimensat(int dirfd, const char* pathname, const struct times
         if (!vmm_verify_user_access(times, 2 * sizeof(struct timespec), 0)) return -EFAULT;
     }
 
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(dirfd, pathname, kpath, 256);
+    int res = resolve_path(dirfd, pathname, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
 
     fs_node_t* node = vfs_lookup(fs_root, kpath);
@@ -1400,11 +1400,11 @@ static int64_t sys_fdatasync(int fd) {
 
 static int64_t sys_truncate(const char* path, int64_t length) {
     if (length < 0) return -EINVAL;
-    if (!vmm_check_user_string(path, 256)) return -EFAULT;
+    if (!vmm_check_user_string(path, 1024)) return -EFAULT;
 
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(AT_FDCWD, path, kpath, 256);
+    int res = resolve_path(AT_FDCWD, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
 
     fs_node_t* node = vfs_lookup(fs_root, kpath);
@@ -1450,10 +1450,10 @@ static int64_t sys_fchdir(int fd) {
 }
 
 static int64_t sys_chown(const char* path, uint32_t owner, uint32_t group) {
-    if (!vmm_check_user_string(path, 256)) return -EFAULT;
-    char* kpath = (char*)kmalloc(256);
+    if (!vmm_check_user_string(path, 1024)) return -EFAULT;
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(AT_FDCWD, path, kpath, 256);
+    int res = resolve_path(AT_FDCWD, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
 
     fs_node_t* node = vfs_lookup(fs_root, kpath);
@@ -2070,10 +2070,10 @@ static int64_t sys_newfstatat(int dirfd, const char* path, struct linux_stat* bu
             node->lock = 0;
         }
     } else {
-        kpath = (char*)kmalloc(256);
+        kpath = (char*)kmalloc(1024);
         if (!kpath) return -ENOMEM;
         {
-            int r = resolve_path(dirfd, path, kpath, 256);
+            int r = resolve_path(dirfd, path, kpath, 1024);
             if (r < 0) { kfree(kpath); return r; }
         }
         node = vfs_lookup_ext(fs_root, kpath, (flags & AT_SYMLINK_NOFOLLOW) ? 0 : 1);
@@ -3183,9 +3183,9 @@ static int64_t sys_setgid(uint32_t gid) {
 
 static int64_t sys_faccessat(int dirfd, const char* path, int mode, int flags) {
     (void)flags;
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(dirfd, path, kpath, 256);
+    int res = resolve_path(dirfd, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
 
     fs_node_t* node = vfs_lookup(fs_root, kpath);
@@ -3347,7 +3347,7 @@ static int64_t sys_getdents64(int fd, struct linux_dirent64* dirp, unsigned int 
 }
 
 static int64_t sys_gethostbyname(const char* name, uint32_t* out_ip) {
-    if (!name || !vmm_check_user_string(name, 256)) return -EFAULT;
+    if (!name || !vmm_check_user_string(name, 1024)) return -EFAULT;
     if (!out_ip || !vmm_verify_user_access(out_ip, sizeof(uint32_t), 1)) return -EFAULT;
     return net_gethostbyname(name, out_ip);
 }
@@ -3368,9 +3368,9 @@ static int64_t sys_getcwd(char* buf, size_t size) {
 }
 
 static int64_t sys_chdir(const char* path) {
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(AT_FDCWD, path, kpath, 256);
+    int res = resolve_path(AT_FDCWD, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
 
     fs_node_t* node = vfs_lookup(fs_root, kpath);
@@ -3399,9 +3399,9 @@ static int64_t sys_chdir(const char* path) {
 
 static int64_t sys_execveat(int dirfd, const char* path, char* const argv[], char* const envp[], int flags, struct syscall_regs* regs) {
     (void)flags;
-    char* kpath = (char*)kmalloc(256);
+    char* kpath = (char*)kmalloc(1024);
     if (!kpath) return -ENOMEM;
-    int res = resolve_path(dirfd, path, kpath, 256);
+    int res = resolve_path(dirfd, path, kpath, 1024);
     if (res < 0) { kfree(kpath); return res; }
     int64_t ret = task_exec(kpath, argv, envp, regs);
     kfree(kpath);
