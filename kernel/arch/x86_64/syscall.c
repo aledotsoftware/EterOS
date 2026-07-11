@@ -2404,7 +2404,7 @@ static void sys_rt_sigreturn(struct syscall_regs* regs) {
     if (cpu) cpu->user_stack_scratch = current->user_rsp;
 }
 
-static void handle_signal(struct syscall_regs* regs) {
+void handle_signal_if_needed(struct syscall_regs* regs) {
     task_t* current = task_get_current();
     if (!current->signal_pending) return;
 
@@ -4040,7 +4040,7 @@ static void syscall_linux32_handler(struct syscall_regs* regs) {
     }
 
     regs->rax = ret;
-    handle_signal(regs);
+    handle_signal_if_needed(regs);
 }
 
 
@@ -4089,7 +4089,7 @@ static void syscall_native_handler(struct syscall_regs* regs) {
     }
 
     regs->rax = ret;
-    handle_signal(regs);
+    handle_signal_if_needed(regs);
 }
 
 static void syscall_linux_handler(struct syscall_regs* regs) {
@@ -4146,7 +4146,7 @@ static void syscall_linux_handler(struct syscall_regs* regs) {
     }
 
     regs->rax = ret;
-    handle_signal(regs);
+    handle_signal_if_needed(regs);
 }
 
 void syscall_int80_handler(struct syscall_regs* regs) {
