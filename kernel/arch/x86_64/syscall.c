@@ -1639,8 +1639,13 @@ static int64_t sys_getrlimit(int resource, struct rlimit* rlim) {
 }
 
 static int64_t sys_prlimit64(int pid, int resource, const struct rlimit* new_limit, struct rlimit* old_limit) {
-    (void)pid; (void)resource; (void)new_limit; (void)old_limit;
-    return -ENOSYS;
+    (void)pid; (void)resource; (void)new_limit;
+    if (old_limit) {
+        if (!vmm_verify_user_access(old_limit, sizeof(struct rlimit), 1)) return -EFAULT;
+        old_limit->rlim_cur = RLIM_INFINITY;
+        old_limit->rlim_max = RLIM_INFINITY;
+    }
+    return 0;
 }
 
 static int64_t sys_sigaltstack(const stack_t* ss, stack_t* old_ss) {
@@ -2930,6 +2935,8 @@ void get_random_bytes(uint8_t *buf, size_t len) {
 
 static int64_t sys_getrandom(void* buf, size_t buflen, unsigned int flags) {
     (void)flags;
+    if (buflen == 0) return 0;
+    if (!buf) return -EFAULT;
     if (!vmm_verify_user_access(buf, buflen, 1)) return -EFAULT;
     get_random_bytes((uint8_t*)buf, buflen);
     return buflen;
@@ -3500,6 +3507,7 @@ static int64_t sys_getgroups(int size, uint32_t list[]) {
 
     if (size < 1) return -EINVAL;
 
+    if (!list) return -EFAULT;
     if (!vmm_verify_user_access(list, sizeof(uint32_t), 1)) return -EFAULT;
     list[0] = current->gid;
 
@@ -3511,10 +3519,11 @@ static int64_t sys_setgroups(size_t size, const uint32_t *list) {
     if (!current) return -ENOSYS;
 
     // Only root can set groups
-    if (current->euid != 0) return -1; // -EPERM
+    if (current->euid != 0) return -EPERM;
 
     // We don't support supplementary groups yet, but accept clearing them or setting to just the primary
     if (size > 1) {
+        if (!list) return -EFAULT;
         // Technically not supported, but we'll accept it to appease GNU tools
         if (!vmm_verify_user_access(list, size * sizeof(uint32_t), 0)) return -EFAULT;
     }
@@ -3542,9 +3551,10 @@ static int64_t sys_pause(void) {
 static int64_t sys_getrusage(int who, void *usage) {
     // who: 0 = RUSAGE_SELF, -1 = RUSAGE_CHILDREN
     (void)who;
-    (void)usage;
-
-    return -ENOSYS;
+    if (!usage) return -EFAULT;
+    if (!vmm_verify_user_access(usage, 144, 1)) return -EFAULT;
+    memset(usage, 0, 144);
+    return 0;
 }
 
 static int64_t sys_times(void *buf) {
@@ -3559,9 +3569,8 @@ static int64_t sys_times(void *buf) {
 static int64_t sys_syslog(int type, char *bufp, int len) {
     // Read/clear/control kernel ring buffer
     (void)type; (void)bufp; (void)len;
-
-    // Not implemented yet
-    return -ENOSYS;
+    // Stub returning 0 to appease GNU tools
+    return 0;
 }
 
 

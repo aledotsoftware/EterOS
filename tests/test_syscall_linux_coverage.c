@@ -168,12 +168,30 @@ int main() {
     assert(current_task_mock.fs_base == 0x12345678);
 
     printf("Testing sys_getrusage\n");
-    assert(sys_getrusage(0, NULL) == -ENOSYS);
+    assert(sys_getrusage(0, NULL) == -EFAULT);
+    char rusage_buf[144];
+    assert(sys_getrusage(0, rusage_buf) == 0);
 
     printf("Testing sys_prlimit64\n");
-    assert(sys_prlimit64(0, 0, NULL, NULL) == -ENOSYS);
+    assert(sys_prlimit64(0, 0, NULL, NULL) == 0);
+    char rlim_buf[16];
+    assert(sys_prlimit64(0, 0, NULL, (void*)rlim_buf) == 0);
+    assert(*(uint64_t*)rlim_buf == ~0ULL);
 
 
+
+    printf("Testing sys_syslog\n");
+    assert(sys_syslog(0, NULL, 0) == 0);
+
+    printf("Testing sys_getgroups\n");
+    assert(sys_getgroups(1, NULL) == -EFAULT);
+    assert(sys_setgroups(2, NULL) == -EFAULT);
+
+    printf("Testing sys_getrandom\n");
+    assert(sys_getrandom(NULL, 10, 0) == -EFAULT);
+    assert(sys_getrandom(NULL, 0, 0) == 0);
+    char rand_buf[10];
+    assert(sys_getrandom(rand_buf, 10, 0) == 10);
 
     printf("Testing sys_reboot\n");
     assert(sys_reboot(1, 2, 3, NULL) == 0);
