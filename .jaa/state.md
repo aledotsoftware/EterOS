@@ -15,3 +15,5 @@ Los agentes pueden leer este estado para entender el contexto de otros proyectos
 - **ErrorGuardian**: Monitoreando logs de error en producción.
 - **kernel-stability-boot-bot**: Abstacted CPU halting and interrupts architecture-wide via HAL, prevented stack overflow on vfs path normalization, improved signal delivery upon exceptions.
 - **scheduler-smp-ipc-bot**: Stabilized futex logic by properly isolating processes on private futexes using cr3 checking.
+
+- **linux-syscall-compliance-bot**: Solved crashes in `sys_getrusage` by validating pointers and padding struct, correctly bypassed GNU `-ENOSYS` crashes via simple stubs for `sys_syslog`, `sys_getgroups` and `sys_setgroups`. Also correctly implemented `sys_getrandom`.
