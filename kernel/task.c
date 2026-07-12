@@ -953,7 +953,7 @@ static void task_exit_internal(int status, int wait_status, int wait_code) {
     
     task_irq_restore(irq_flags);
 
-    for (;;) { __asm__ volatile("hlt"); }
+    for (;;) { hal_cpu_halt(); }
 }
 
 void task_exit(int status) {
@@ -1686,7 +1686,8 @@ int task_waitid(int idtype, int id, int options, int* out_pid, int* out_status, 
 static int read_shebang_line(const char* path, char* interp, size_t interp_sz, char* interp_arg, size_t interp_arg_sz, char* abs_script, size_t abs_script_sz) {
     task_t* current = task_get_current();
     fs_node_t* node;
-    char abs_path[256];
+    char* abs_path = kmalloc(1024);
+    if(!abs_path) return -ENOMEM;
     uint8_t head[256];
     ssize_t nread;
     size_t i = 0;
@@ -1699,15 +1700,19 @@ static int read_shebang_line(const char* path, char* interp, size_t interp_sz, c
     interp_arg[0] = '\0';
     abs_script[0] = '\0';
 
-    if (vfs_normalize_path(abs_path, sizeof(abs_path), path, current->cwd) != 0) {
+    if (vfs_normalize_path(abs_path, 1024, path, current->cwd) != 0) {
+        kfree(abs_path);
         return -ENOENT;
     }
     strlcpy(abs_script, abs_path, abs_script_sz);
 
     node = vfs_lookup(fs_root, abs_path);
     if (!node) {
+        kfree(abs_path);
         return -ENOENT;
     }
+    kfree(abs_path);
+
     if ((node->flags & 0x7) != FS_FILE) {
         if (__atomic_sub_fetch(&node->ref_count, 1, __ATOMIC_SEQ_CST) == 0) kfree(node);
         return -ENOEXEC;
@@ -1751,14 +1756,16 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
     int shebang = 0;
     char shebang_interp[256];
     char shebang_interp_arg[128];
-    char shebang_script_abs[256];
 
     /* 1. Validate */
-    char* kpath = (char*)kmalloc(256);
-    if (!kpath) return -ENOMEM;
-    res = vmm_strncpy_from_user(kpath, path, 256);
+    char* kpath = (char*)kmalloc(1024);
+    char* shebang_script_abs = (char*)kmalloc(1024);
+    if(!shebang_script_abs) { kfree(kpath); return -ENOMEM; }
+    if (!kpath) { kfree(shebang_script_abs); return -ENOMEM; }
+    res = vmm_strncpy_from_user(kpath, path, 1024);
     if (res < 0) {
         kfree(kpath);
+        kfree(shebang_script_abs);
         return res;
     }
 
@@ -1790,7 +1797,7 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
     }
     kargv[argc] = NULL;
 
-    shebang = read_shebang_line(kpath, shebang_interp, sizeof(shebang_interp), shebang_interp_arg, sizeof(shebang_interp_arg), shebang_script_abs, sizeof(shebang_script_abs));
+    shebang = read_shebang_line(kpath, shebang_interp, sizeof(shebang_interp), shebang_interp_arg, sizeof(shebang_interp_arg), shebang_script_abs, 1024);
     if (shebang < 0 && shebang != -ENOEXEC) {
         res = shebang;
         goto cleanup_error;
@@ -1834,7 +1841,7 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
             res = -ENOMEM;
             goto cleanup_error;
         }
-        strlcpy(new_argv[new_argc++], shebang_script_abs, 256);
+        strlcpy(new_argv[new_argc++], shebang_script_abs, 1024);
 
         for (int i = 1; i < old_argc; i++) {
             new_argv[new_argc++] = old_argv[i];
@@ -2250,9 +2257,11 @@ int task_exec(const char* path, char* const argv[], char* const envp[], struct s
     vmm_destroy_pml4(old_cr3);
 
     kfree(kpath);
+    kfree(shebang_script_abs);
     return 0;
 
 cleanup_error:
+    kfree(shebang_script_abs);
     kfree(kpath);
     for (int i=0; i<argc; i++) kfree(kargv[i]);
     for (int i=0; i<envc; i++) kfree(kenvp[i]);

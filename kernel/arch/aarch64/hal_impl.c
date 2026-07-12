@@ -60,8 +60,8 @@ void hal_cpu_halt(void) {
 }
 
 void hal_cpu_enable_interrupts_and_halt(void) {
-    hal_interrupts_enable();
-    hal_cpu_halt();
+
+    __asm__ volatile("msr daifclr, #2; wfi");
 }
 
 void hal_halt(void) {

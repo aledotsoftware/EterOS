@@ -192,6 +192,6 @@ void cpu_init_ap(int index) {
     /* Enter scheduler loop instead of simply halting. */
     for(;;) {
         task_yield();
-        __asm__ volatile("hlt");
+        hal_cpu_halt();
     }
 }
