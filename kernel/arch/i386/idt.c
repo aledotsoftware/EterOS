@@ -90,8 +90,8 @@ static void handle_exception(uint8_t vector) {
     serial_write_string(vector < NUM_EXCEPTION_NAMES ? exception_names[vector] : "Unknown");
     serial_write_string("\n");
 
-    __asm__ volatile ("cli");
-    for (;;) { __asm__ volatile ("hlt"); }
+    hal_interrupts_disable();
+    for (;;) { hal_cpu_halt(); }
 }
 
 /* ========================================================================= */

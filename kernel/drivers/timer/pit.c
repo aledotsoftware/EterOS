@@ -10,6 +10,7 @@
 #include "../../../include/io.h"
 #include "../../../include/serial.h"
 #include "../../../include/task.h"
+#include <hal.h>
 
 /* Contador global de ticks (volatile — modificado desde ISR) */
 static volatile uint64_t tick_count = 0;
@@ -62,7 +63,7 @@ void timer_wait(uint32_t ms) {
 
     while (tick_count < (start_ticks + ticks_to_wait)) {
         /* Poner la CPU en bajo consumo hasta la próxima interrupción (timer tick) */
-        __asm__ volatile("hlt");
+        hal_cpu_halt();
     }
 }
 

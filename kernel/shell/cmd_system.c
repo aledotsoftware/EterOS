@@ -17,15 +17,16 @@
 
 extern cpu_info_t* get_current_cpu(void);
 
-static char pending_run_path[256];
+static char pending_run_path[1024];
 static int pending_run_argc = 0;
 static char pending_run_args[16][128];
 
 static void shell_run_user_task(void) {
-    char path[256];
+    char* path = (char*)kmalloc(1024);
+    if(!path) return;
     uint64_t uargv[18];
     const char* argv_src[18];
-    strlcpy(path, pending_run_path, sizeof(path));
+    strlcpy(path, pending_run_path, 1024);
 
     fs_node_t* tty_node = vfs_lookup(fs_root, "/dev/tty");
     task_t* current = task_get_current();
@@ -48,6 +49,7 @@ static void shell_run_user_task(void) {
     uint64_t entry_point = elf_load_file(path, 0x200000000);
     if (entry_point == 0) {
         serial_write_string("[RUN] Error: No se pudo cargar el ELF en la tarea de usuario.\n");
+        kfree(path);
         return;
     }
 
@@ -56,12 +58,14 @@ static void shell_run_user_task(void) {
         void* stack_phys = pmm_alloc_page();
         if (!stack_phys) {
             serial_write_string("[RUN] Error: No se pudo asignar stack de usuario.\n");
-            return;
+            kfree(path);
+        return;
         }
         uint64_t stack_page = stack_top - ((uint64_t)i * PAGE_SIZE);
         if (hal_mem_map((uint64_t)stack_phys, stack_page, HAL_MEM_READ | HAL_MEM_WRITE | HAL_MEM_USER) < 0) {
             serial_write_string("[RUN] Error: No se pudo mapear stack de usuario.\n");
-            return;
+            kfree(path);
+        return;
         }
         memset((void*)stack_page, 0, PAGE_SIZE);
     }
@@ -111,6 +115,7 @@ static void shell_run_user_task(void) {
     cpu_info_t* cpu = get_current_cpu();
     if (cpu) cpu->user_stack_scratch = rsp;
 
+    kfree(path);
     enter_user_mode((void*)entry_point, (void*)rsp);
 }
 
@@ -370,7 +375,7 @@ void cmd_usermode(const char* args) {
 }
 
 void cmd_run(const char* args) {
-    char raw_path[256];
+    char raw_path[1024];
     const char* p;
     size_t path_len = 0;
 
@@ -395,9 +400,11 @@ void cmd_run(const char* args) {
     while (*p == ' ') p++;
 
     task_t* current = task_get_current();
-    char path[256];
-    if (vfs_normalize_path(path, sizeof(path), raw_path, current->cwd) != 0) {
+    char* path = (char*)kmalloc(1024);
+    if(!path) return;
+    if (vfs_normalize_path(path, 1024, raw_path, current->cwd) != 0) {
         terminal_write_string("  Error: Ruta invalida.\n");
+        kfree(path);
         return;
     }
 
@@ -408,7 +415,7 @@ void cmd_run(const char* args) {
         fs_node_t* flat = vfs_lookup(fs_root, path + 1);
         if (flat) {
             node = flat;
-            strlcpy(path, path + 1, sizeof(path));
+            strlcpy(path, path + 1, 1024);
         }
     }
     if (!node) {
@@ -419,14 +426,14 @@ void cmd_run(const char* args) {
             it++;
         }
         if (*base) {
-            char base_path[256];
+            char base_path[1024];
             base_path[0] = '/';
             base_path[1] = '\0';
             strlcat(base_path, base, sizeof(base_path));
             fs_node_t* by_base = vfs_lookup(fs_root, base_path);
             if (by_base) {
                 node = by_base;
-                strlcpy(path, base_path, sizeof(path));
+                strlcpy(path, base_path, 1024);
             }
         }
     }
@@ -434,11 +441,13 @@ void cmd_run(const char* args) {
         terminal_write_string("  Error: No se encontro el archivo ELF: ");
         terminal_write_string(path);
         terminal_write_string("\n");
+        kfree(path);
         return;
     }
     kfree(node);
 
     strlcpy(pending_run_path, path, sizeof(pending_run_path));
+    kfree(path);
     pending_run_argc = 0;
     while (*p != '\0' && pending_run_argc < 16) {
         size_t arg_len = 0;
@@ -478,14 +487,16 @@ void cmd_run(const char* args) {
 
 void cmd_ls(const char* args) {
     task_t* current = task_get_current();
-    char path[256];
+    char* path = (char*)kmalloc(1024);
+    if(!path) return;
     
     if (!args || *args == '\0') {
-        strlcpy(path, current->cwd, 256);
+        strlcpy(path, current->cwd, 1024);
     } else {
-        if (vfs_normalize_path(path, 256, args, current->cwd) != 0) {
+        if (vfs_normalize_path(path, 1024, args, current->cwd) != 0) {
             terminal_write_string("  Error: Ruta invalida.\n");
-            return;
+            kfree(path);
+        return;
         }
     }
 
@@ -494,12 +505,14 @@ void cmd_ls(const char* args) {
         terminal_write_string("  Error: No se encontro el directorio: ");
         terminal_write_string(path);
         terminal_write_string("\n");
+        kfree(path);
         return;
     }
 
     if (!(node->flags & FS_DIRECTORY)) {
         terminal_write_string("  Error: No es un directorio.\n");
         kfree(node);
+        kfree(path);
         return;
     }
 
@@ -537,16 +550,19 @@ void cmd_ls(const char* args) {
     }
     terminal_write_string("\n");
     kfree(node);
+    kfree(path);
 }
 
 void cmd_cd(const char* args) {
     if (!args || *args == '\0') return;
 
     task_t* current = task_get_current();
-    char path[256];
+    char* path = (char*)kmalloc(1024);
+    if(!path) return;
     
-    if (vfs_normalize_path(path, 256, args, current->cwd) != 0) {
+    if (vfs_normalize_path(path, 1024, args, current->cwd) != 0) {
         terminal_write_string("  Error: Ruta invalida.\n");
+        kfree(path);
         return;
     }
 
@@ -555,18 +571,21 @@ void cmd_cd(const char* args) {
         terminal_write_string("  Error: No se encontro el directorio: ");
         terminal_write_string(path);
         terminal_write_string("\n");
+        kfree(path);
         return;
     }
 
     if (!(node->flags & FS_DIRECTORY)) {
         terminal_write_string("  Error: No es un directorio.\n");
         kfree(node);
+        kfree(path);
         return;
     }
 
     /* Actualizar CWD de la tarea actual */
     strlcpy(current->cwd, path, sizeof(current->cwd));
     kfree(node);
+    kfree(path);
 }
 
 void cmd_pwd(const char* args) {
@@ -584,22 +603,26 @@ void cmd_cat(const char* args) {
     }
 
     task_t* current = task_get_current();
-    char path[256];
+    char* path = (char*)kmalloc(1024);
+    if(!path) return;
     
-    if (vfs_normalize_path(path, 256, args, current->cwd) != 0) {
+    if (vfs_normalize_path(path, 1024, args, current->cwd) != 0) {
         terminal_write_string("  Error: Ruta invalida.\n");
+        kfree(path);
         return;
     }
 
     fs_node_t* node = vfs_lookup(fs_root, path);
     if (!node) {
         terminal_write_string("  Error: No se encontro el archivo.\n");
+        kfree(path);
         return;
     }
 
     if (node->flags & FS_DIRECTORY) {
         terminal_write_string("  Error: Es un directorio.\n");
         kfree(node);
+        kfree(path);
         return;
     }
 
@@ -607,6 +630,7 @@ void cmd_cat(const char* args) {
     if (!buffer) {
         terminal_write_string("  Error: No hay memoria para leer el archivo.\n");
         kfree(node);
+        kfree(path);
         return;
     }
 
@@ -619,6 +643,7 @@ void cmd_cat(const char* args) {
 
     kfree(buffer);
     kfree(node);
+    kfree(path);
 }
 
 
