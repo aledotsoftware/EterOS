@@ -72,17 +72,23 @@ fs_node_t* partition_get_active_root() {
     } else {
         node->impl = 0; // Default active
     }
+    if (node->impl != 0 && node->impl != 1) {
+        free(node);
+        return NULL;
+    }
     return node;
 }
 
 void simulate_rollback() {
     if (nvram_get_update_state() == UPDATE_STATE_PENDING) {
         fs_node_t *active = partition_get_active_root();
-        uint8_t current = active->impl;
-        nvram_set_boot_partition(current); // Rollback correctly switches to the currently booted active slot
-        nvram_set_update_state(UPDATE_STATE_FAILED);
-        free(active);
-    }
+        if (active) {
+            uint8_t current = active->impl;
+            nvram_set_boot_partition(current); // Rollback correctly switches to the currently booted active slot
+            nvram_set_update_state(UPDATE_STATE_FAILED);
+            free(active);
+        }
+}
 }
 
 

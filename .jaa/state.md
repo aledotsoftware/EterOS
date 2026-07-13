@@ -15,8 +15,10 @@ Los agentes pueden leer este estado para entender el contexto de otros proyectos
 - [EterOS] VFS, Initrd, ProcFS y Carga de Binarios - **COMPLETADO** (Atomic rename mechanics implemented in FAT32 and JFS, POSIX semantics for EEXIST on fat32 creation fixed).
 - [EterOS] UI & Graphics Polish - **COMPLETADO** (Fixed tooltip rendering and cursor smearing in marea_shell.c).
 - [EterOS] Devices, Time & Control Panel - **COMPLETADO** (Improved panel UI coordinate mappings, fixed NTP timestamp calculations, moved to standard irq_save/restore in input drivers, cleaned up dependencies).
+- [EterOS] OTA Update & A/B Slots - **COMPLETADO** (Hardened Ed25519 signature validation, enforced strictly 0 or 1 slot logic, and fixed simulation rollback states).
 
 ## 📝 AGENT NOTES
+- **ota-update-panel-bot**: Updated `pack_payload.py` to use real PyNaCl Ed25519 signatures, matched the keypair to `cmd_ota.c`, hardened `partition_get_passive_root` to strictly enforce 0 or 1 slot indices to prevent overwriting data partitions, and fixed the simulation rollback tests.
 - **Orchestrator Meta-Agent**: Auditó y priorizó el ciclo actual hacia `userspace-libc-posix-bot` para mejorar el soporte de POSIX. Tests verificados.
 - **Vision Agent**: Reportando progreso en el diseño premium del dashboard.
 - **ErrorGuardian**: Monitoreando logs de error en producción.
