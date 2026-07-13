@@ -249,6 +249,8 @@ fs_node_t *partition_get_active_root(void) {
         }
     }
 
+    if (active_idx != 0 && active_idx != 1) return NULL;
+
     if (active_idx < 0 || active_idx >= partition_count) return NULL;
 
     return create_partition_node(active_idx);
