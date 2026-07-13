@@ -33,6 +33,11 @@ static void lwip_socket_close_fs(fs_node_t* node) {
     }
 }
 
+static int lwip_socket_ioctl_fs(fs_node_t* node, int request, void* arg) {
+    if ((node->flags & 0x7) != FS_SOCKET) return -1;
+    return lwip_ioctl((int)node->inode, request, arg);
+}
+
 int sys_lwip_socket(int domain, int type, int protocol) {
     int sock_id = lwip_socket(domain, type, protocol);
     if (sock_id < 0) return -ENOMEM;
@@ -62,6 +67,7 @@ int sys_lwip_socket(int domain, int type, int protocol) {
     node->read = lwip_socket_read_fs;
     node->write = lwip_socket_write_fs;
     node->close = lwip_socket_close_fs;
+    node->ioctl = lwip_socket_ioctl_fs;
     node->ref_count = 1;
 
     current->fd_table[fd].node = node;
@@ -124,6 +130,7 @@ int sys_lwip_accept(int fd, void *addr, socklen_t *addrlen) {
     node->read = lwip_socket_read_fs;
     node->write = lwip_socket_write_fs;
     node->close = lwip_socket_close_fs;
+    node->ioctl = lwip_socket_ioctl_fs;
     node->ref_count = 1;
 
     current->fd_table[new_fd].node = node;

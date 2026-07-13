@@ -3,6 +3,7 @@
 #include <task.h>
 #include <sem.h>
 #include <mm.h>
+#include <lwip/timeouts.h>
 #include <string.h>
 
 u32_t sys_now(void) {
@@ -80,6 +81,7 @@ u32_t sys_arch_sem_wait(sys_sem_t *sem, u32_t timeout) {
             hal_interrupts_enable();
 
             if(sys_now() - start_time >= timeout) return SYS_ARCH_TIMEOUT;
+            sys_check_timeouts();
             task_sleep(10);
         }
     }
@@ -179,6 +181,7 @@ u32_t sys_arch_mbox_fetch(sys_mbox_t *mbox, void **msg, u32_t timeout) {
             hal_interrupts_enable();
 
             if(sys_now() - start_time >= timeout) return SYS_ARCH_TIMEOUT;
+            sys_check_timeouts();
             task_sleep(10);
         }
     }
