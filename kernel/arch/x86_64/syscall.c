@@ -2536,6 +2536,16 @@ static int64_t sys_poll(struct pollfd* fds, int nfds, int timeout) {
                     bytes = 1; // Files always ready
                 } else if (node->ioctl && node->ioctl(node, FIONREAD, &bytes) == 0) {
                     // bytes updated
+                } else if ((node->flags & 0x7) == FS_SOCKET) {
+#ifndef __ETEROS_HOST_TEST__
+                    extern int sys_lwip_poll(struct pollfd *fds, uint32_t nfds, int timeout);
+                    struct pollfd lwip_pfd;
+                    lwip_pfd.fd = fds[i].fd;
+                    lwip_pfd.events = fds[i].events;
+                    lwip_pfd.revents = 0;
+                    sys_lwip_poll(&lwip_pfd, 1, 0);
+                    if (lwip_pfd.revents & POLLIN) bytes = 1;
+#endif
                 } else {
                     bytes = 1; // Default fallback for unsupported ioctl
                 }
