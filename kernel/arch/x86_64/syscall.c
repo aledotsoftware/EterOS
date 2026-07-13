@@ -2328,6 +2328,7 @@ static void setup_sigcontext(struct syscall_regs* regs,
     /* We subtract frame size and 128 bytes red zone */
     sp = frame_rsp - 128;
     sp = (sp - sizeof(struct sigframe)) & ~0xF;
+    sp -= 8; /* Align so that (sp + 8) is a multiple of 16 */
 
     /* Verify write access */
     if (!vmm_verify_user_access((void*)sp, sizeof(struct sigframe), 1)) {
@@ -2386,7 +2387,8 @@ static void setup_sigcontext(struct syscall_regs* regs,
 static void sys_rt_sigreturn(struct syscall_regs* regs) {
     task_t* current = task_get_current();
 
-    uint64_t frame_addr = current->user_rsp;
+    /* The restorer address was popped by 'ret', so RSP is frame + 8 */
+    uint64_t frame_addr = current->user_rsp - 8;
 
     /* Verify read access */
     if (!vmm_verify_user_access((void*)frame_addr, sizeof(struct sigframe), 0)) {
