@@ -201,8 +201,14 @@ int main(int argc, char *argv[]) {
     }
 
     /* Enforce file permissions */
-    chmod("/etc/shadow", 0600);
-    chmod("/etc/passwd", 0644);
+    if (chmod("/etc/shadow", 0600) < 0) {
+        printf("Error: Failed to set permissions on /etc/shadow\n");
+        return 1;
+    }
+    if (chmod("/etc/passwd", 0644) < 0) {
+        printf("Error: Failed to set permissions on /etc/passwd\n");
+        return 1;
+    }
 
     printf("User '%s' created successfully.\n", username);
     return 0;

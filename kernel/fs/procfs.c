@@ -565,7 +565,7 @@ static int procfs_readdir(fs_node_t *node, uint32_t index, struct dirent *entry)
         return 0;
     }
 
-    index -= 5; /* Shift index for task entries */
+    index -= 6; /* Shift index for task entries */
 
     uint32_t seen = 0;
     int max = task_get_max();

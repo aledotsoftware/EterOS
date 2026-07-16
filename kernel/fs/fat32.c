@@ -199,7 +199,7 @@ static int fat32_alloc_cluster(fat32_volume_t* vol, uint32_t* out_cluster) {
     for (uint32_t i = 0; i < vol->fat_size; i++) {
         if (fat32_read_sector_cached(vol, current_fat_sector + i, buffer) != 0) {
             kfree(buffer);
-            return -ENOMEM;
+            return -EIO;
         }
 
         uint32_t* entries = (uint32_t*)buffer;
@@ -260,7 +260,7 @@ static int fat32_update_dirent(fat32_volume_t* vol, uint32_t sector, uint32_t of
 
     if (fat32_read_sector_cached(vol, sector, buffer) != 0) {
         kfree(buffer);
-        return -ENOMEM;
+        return -EIO;
     }
 
     memcpy(buffer + offset, value, sizeof(fat32_dir_entry_t));
@@ -291,7 +291,7 @@ static int fat32_iterate_dir(fat32_volume_t* vol, uint32_t start_cluster, fat32_
         for (uint32_t i = 0; i < vol->sectors_per_cluster; i++) {
             if (fat32_read_sector_cached(vol, lba + i, buffer) != 0) {
                 kfree(buffer);
-                return -ENOMEM;
+                return -EIO;
             }
 
             fat32_dir_entry_t* entry = (fat32_dir_entry_t*)buffer;
@@ -364,7 +364,7 @@ static int fat32_find_entry_cb(fat32_volume_t* vol, fat32_dir_entry_t* entry, ui
     (void)vol;
     struct find_entry_ctx* c = (struct find_entry_ctx*)ctx;
 
-    if (entry->name[0] == DIRENT_END) return -ENOSPC; /* Not Found, stop iteration */
+    if (entry->name[0] == DIRENT_END) return -ENOENT; /* Not Found, stop iteration */
     if (entry->name[0] == DIRENT_DELETED) return 0;
     if (entry->attr & ATTR_VOLUME_ID) return 0;
     if (entry->attr & ATTR_LONG_NAME) return 0;
@@ -387,8 +387,8 @@ static int fat32_find_dirent_in_chain(fat32_volume_t* vol, uint32_t start_cluste
     int res = fat32_iterate_dir(vol, start_cluster, fat32_find_entry_cb, &ctx, NULL);
 
     if (res == 1) return 0; // Success
-    if (res == -3) return -ENOSPC; // Explicit Not Found
-    if (res == 0) return -ENOSPC; // End of Chain, Not Found
+    if (res == -3) return -ENOENT; // Explicit Not Found
+    if (res == 0) return -ENOENT; // End of Chain, Not Found
     return res; // Error
 }
 
