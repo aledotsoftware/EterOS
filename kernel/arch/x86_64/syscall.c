@@ -3871,7 +3871,95 @@ __attribute__((unused)) static int64_t sys_ustat(unsigned dev, void *ubuf) { (vo
 __attribute__((unused)) static int64_t sys_statfs(const char *path, void *buf) { (void)path; (void)buf; return -ENOSYS; }
 __attribute__((unused)) static int64_t sys_fstatfs(int fd, void *buf) { (void)fd; (void)buf; return -ENOSYS; }
 __attribute__((unused)) static int64_t sys_sysfs(int option, unsigned long arg1, unsigned long arg2) { (void)option; (void)arg1; (void)arg2; return -ENOSYS; }
-__attribute__((unused)) static int64_t sys_getpriority(int which, int who) { (void)which; (void)who; return -ENOSYS; }
+#define ETEROS_PRIO_PROCESS 0
+#define ETEROS_PRIO_PGRP 1
+#define ETEROS_PRIO_USER 2
+
+static int64_t sys_getpriority(int which, int who) {
+    if (which < ETEROS_PRIO_PROCESS || which > ETEROS_PRIO_USER) {
+        return -EINVAL;
+    }
+
+    if (who == 0) {
+        if (which == ETEROS_PRIO_PROCESS) {
+            who = task_get_current()->id;
+        } else if (which == ETEROS_PRIO_PGRP) {
+            who = task_get_current()->pgid;
+        } else if (which == ETEROS_PRIO_USER) {
+            who = task_get_current()->uid;
+        }
+    }
+
+    int highest_prio = 19;
+    int found = 0;
+
+    for (int i = 0; i < task_get_count(); i++) {
+        task_t* t = task_get_at(i);
+        if (!t) continue;
+
+        int match = 0;
+        if (which == ETEROS_PRIO_PROCESS && t->id == (uint32_t)who) match = 1;
+        if (which == ETEROS_PRIO_PGRP && t->pgid == (uint32_t)who) match = 1;
+        if (which == ETEROS_PRIO_USER && t->uid == (uint32_t)who) match = 1;
+
+        if (match) {
+            found = 1;
+            if (t->nice < highest_prio) {
+                highest_prio = t->nice;
+            }
+        }
+    }
+
+    if (!found) {
+        return -ESRCH;
+    }
+
+    return 20 - highest_prio;
+}
+
+static int64_t sys_setpriority(int which, int who, int niceval) {
+    if (which < ETEROS_PRIO_PROCESS || which > ETEROS_PRIO_USER) {
+        return -EINVAL;
+    }
+
+    if (who == 0) {
+        if (which == ETEROS_PRIO_PROCESS) {
+            who = task_get_current()->id;
+        } else if (which == ETEROS_PRIO_PGRP) {
+            who = task_get_current()->pgid;
+        } else if (which == ETEROS_PRIO_USER) {
+            who = task_get_current()->uid;
+        }
+    }
+
+    if (niceval < -20) niceval = -20;
+    if (niceval > 19) niceval = 19;
+
+    int found = 0;
+
+    for (int i = 0; i < task_get_count(); i++) {
+        task_t* t = task_get_at(i);
+        if (!t) continue;
+
+        int match = 0;
+        if (which == ETEROS_PRIO_PROCESS && t->id == (uint32_t)who) match = 1;
+        if (which == ETEROS_PRIO_PGRP && t->pgid == (uint32_t)who) match = 1;
+        if (which == ETEROS_PRIO_USER && t->uid == (uint32_t)who) match = 1;
+
+        if (match) {
+            found = 1;
+            /* In a real OS we'd check permissions (EPERM/EACCES) for lowering nice value here */
+            t->nice = niceval;
+        }
+    }
+
+    if (!found) {
+        return -ESRCH;
+    }
+
+    return 0;
+}
+
 __attribute__((unused)) static int64_t sys_sched_setparam(int pid, void *param) { (void)pid; (void)param; return -ENOSYS; }
 __attribute__((unused)) static int64_t sys_sched_getparam(int pid, void *param) { (void)pid; (void)param; return -ENOSYS; }
 __attribute__((unused)) static int64_t sys_sched_setscheduler(int pid, int policy, const void *param) { (void)pid; (void)policy; (void)param; return -ENOSYS; }
@@ -4168,7 +4256,7 @@ static syscall_ptr_t syscall_linux32_table[MAX_SYSCALL_NUM] = {
     [138] = (syscall_ptr_t)sys_fstatfs,
     [139] = (syscall_ptr_t)sys_sysfs,
     [140] = (syscall_ptr_t)sys_getpriority,
-    [141] = (syscall_ptr_t)sys_getdents64,
+    [141] = (syscall_ptr_t)sys_setpriority,
     [78]  = (syscall_ptr_t)sys_getdents64,
     [153] = (syscall_ptr_t)sys_vhangup,
     [154] = (syscall_ptr_t)sys_modify_ldt,

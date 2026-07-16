@@ -577,6 +577,12 @@ int personality(unsigned long persona) {
 int getpriority(int which, int who) {
     long ret = syscall2(SYS_getpriority, which, who);
     SYSCALL_RETURN(ret);
+    return 20 - (int)ret;
+}
+
+int setpriority(int which, int who, int niceval) {
+    long ret = syscall3(SYS_setpriority, which, who, niceval);
+    SYSCALL_RETURN(ret);
     return (int)ret;
 }
 
