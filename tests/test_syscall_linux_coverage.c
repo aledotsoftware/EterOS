@@ -172,6 +172,9 @@ int main() {
 
     assert(sys_umask(0022) == 0022);
 
+    assert(sys_setpriority(ETEROS_PRIO_PROCESS, 0, 10) == 0 || sys_setpriority(ETEROS_PRIO_PROCESS, 0, 10) == -ESRCH);
+    assert(sys_getpriority(ETEROS_PRIO_PROCESS, 0) == 10 || sys_getpriority(ETEROS_PRIO_PROCESS, 0) == -ESRCH);
+
     char buf[10];
     printf("pread returned %ld\n", sys_pread64(3, buf, 10, 0)); // node doesn't have read ops attached
 
