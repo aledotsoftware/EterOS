@@ -152,7 +152,10 @@ int main(int argc, char *argv[]) {
     }
 
     /* Enforce shadow file permissions */
-    chmod("/etc/shadow", 0600);
+    if (chmod("/etc/shadow", 0600) < 0) {
+        printf("Error: Failed to set permissions on /etc/shadow\n");
+        return 1;
+    }
 
     printf("Password for user '%s' changed successfully.\n", username);
     return 0;

@@ -111,6 +111,7 @@ void close_fs(fs_node_t *node) {}
 int create_fs(fs_node_t *parent, char *name, uint16_t permission) { return 0; }
 int mkdir_fs(fs_node_t *parent, char *name, uint16_t permission) { return 0; }
 int unlink_fs(fs_node_t *parent, char *name) { return 0; }
+int rename_fs(fs_node_t *old_parent, char *old_name, fs_node_t *new_parent, char *new_name) { return 0; }
 fs_node_t *vfs_lookup(fs_node_t *root, const char *path) {
     if (strcmp(path, "/valid") == 0) {
         fs_node_t* n = malloc(sizeof(fs_node_t));
