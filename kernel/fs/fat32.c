@@ -189,7 +189,7 @@ static int fat32_fat_set(fat32_volume_t* vol, uint32_t cluster, uint32_t value) 
 /* Helper: Allocate a free cluster */
 static int fat32_alloc_cluster(fat32_volume_t* vol, uint32_t* out_cluster) {
     uint8_t* buffer = kmalloc(vol->bytes_per_sector);
-    if (!buffer) return -EIO;
+    if (!buffer) return -ENOMEM;
 
     uint32_t current_fat_sector = vol->fat_start_lba;
     uint32_t entries_per_sector = vol->bytes_per_sector / 4;
@@ -256,7 +256,7 @@ static void fat32_free_cluster_chain(fat32_volume_t* vol, uint32_t start_cluster
 /* Helper: Update or Create Directory Entry */
 static int fat32_update_dirent(fat32_volume_t* vol, uint32_t sector, uint32_t offset, fat32_dir_entry_t* value) {
     uint8_t* buffer = kmalloc(vol->bytes_per_sector);
-    if (!buffer) return -EIO;
+    if (!buffer) return -ENOMEM;
 
     if (fat32_read_sector_cached(vol, sector, buffer) != 0) {
         kfree(buffer);
@@ -281,7 +281,7 @@ typedef int (*fat32_dir_cb_t)(fat32_volume_t* vol, fat32_dir_entry_t* entry, uin
 static int fat32_iterate_dir(fat32_volume_t* vol, uint32_t start_cluster, fat32_dir_cb_t callback, void* ctx, uint32_t* last_cluster_out) {
     uint32_t current_cluster = start_cluster;
     uint8_t* buffer = kmalloc(vol->bytes_per_sector);
-    if (!buffer) return -EIO;
+    if (!buffer) return -ENOMEM;
 
     while (current_cluster < FAT32_EOC) {
         if (last_cluster_out) *last_cluster_out = current_cluster;
@@ -647,7 +647,7 @@ static int fat32_readdir_fs_impl(fs_node_t *node, uint32_t index, struct dirent 
     if (res == 2) return 0; /* Success */
     if (res == 1) return 1; /* EOF */
     if (res == 0) return 1; /* EOF (end of chain) */
-    return -EIO; /* Error */
+    return -ENOENT; /* Error */
 }
 
 int fat32_readdir_fs(fs_node_t *node, uint32_t index, struct dirent *entry) {
