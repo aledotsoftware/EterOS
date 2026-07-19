@@ -161,6 +161,12 @@ static void dequeue_sleep(task_t* t) {
 static void enqueue_ready(task_t* t) {
     if (!t) return;
 
+    /* Avoid double enqueuing */
+    if (t->next_ready || t->prev_ready) return;
+    if (t->target_cpu >= 0 && t->target_cpu < total_cpus) {
+        if (cpus[t->target_cpu].local_ready_head == t) return;
+    }
+
     /* Simple load balancing / target assignment */
     cpu_info_t* target_cpu_ptr = NULL;
     if (t->target_cpu >= 0 && t->target_cpu < total_cpus && cpus[t->target_cpu].state == CPU_STATE_ONLINE) {
@@ -205,6 +211,8 @@ static void dequeue_ready(task_t* t) {
         /* If head is t */
         if (target_cpu_ptr->local_ready_head == t) {
             target_cpu_ptr->local_ready_head = t->next_ready;
+        } else {
+            return; /* Task is not in the ready queue */
         }
     }
 
@@ -606,7 +614,7 @@ int task_create(const char* name, void (*entry)(void)) {
         task_count = slot + 1;
     }
 
-    enqueue_ready(&tasks[slot]);
+    tasks[slot].state = TASK_READY; enqueue_ready(&tasks[slot]);
     spin_unlock(&sched_lock);
     task_irq_restore(irq_flags);
 
@@ -631,7 +639,7 @@ static task_t* find_next_task(task_t* current) {
     }
 
     /* Si no hay tareas listas y la actual esta muerta/durmiendo */
-    if (current->state == TASK_RUNNING) {
+    if (current->state == TASK_RUNNING || current->state == TASK_READY) {
         return current;
     }
 
@@ -702,7 +710,7 @@ void schedule(void) {
     }
 
     /* Solo switchear cada SCHEDULER_HZ ticks (excepto si la actual murio/bloqueo) */
-    if (current->state == TASK_RUNNING) {
+    if (current->state == TASK_RUNNING || current->state == TASK_READY) {
         cpu->sched_ticks++;
         if (cpu->sched_ticks < SCHEDULER_HZ) {
             spin_unlock(&sched_lock);
@@ -723,7 +731,7 @@ void schedule(void) {
     current->gs_base = rdmsr(MSR_KERNEL_GS_BASE); /* User GS is in KERNEL_GS_BASE while in kernel */
     
     /* Remove next task from ready queue */
-    dequeue_ready(next_task);
+    if (next_task->state == TASK_READY) { dequeue_ready(next_task); }
 
     next_task->state = TASK_RUNNING;
     /* Clear any pending timeout when task is scheduled */
@@ -1286,7 +1294,7 @@ int task_fork(void* regs_ptr) {
 
     if (slot >= task_count) task_count = slot + 1;
 
-    enqueue_ready(&tasks[slot]);
+    tasks[slot].state = TASK_READY; enqueue_ready(&tasks[slot]);
     spin_unlock(&sched_lock);
     task_irq_restore(irq_flags);
 
@@ -1487,7 +1495,7 @@ int task_clone(uint64_t clone_flags, uint64_t stack_top, uint32_t* parent_tid, u
 
     if (slot >= task_count) task_count = slot + 1;
 
-    enqueue_ready(&tasks[slot]);
+    tasks[slot].state = TASK_READY; enqueue_ready(&tasks[slot]);
     spin_unlock(&sched_lock);
     task_irq_restore(irq_flags);
 

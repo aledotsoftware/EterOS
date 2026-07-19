@@ -75,12 +75,12 @@ extern hal_interrupts_enable
 
 global fork_return
 fork_return:
-    ; Release sched_lock held by the scheduler before returning to userspace
-    mov dword [sched_lock], 0
-
     ; Align stack to 16 bytes for System V AMD64 ABI before calling C functions
     mov r12, rsp
     and rsp, ~0xF
+
+    ; Release sched_lock held by the scheduler before returning to userspace
+    mov dword [sched_lock], 0
 
     call hal_interrupts_enable
 
