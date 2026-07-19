@@ -7,7 +7,7 @@ kernel/arch/x86_64/syscall.c
 Cobertura progresiva de syscalls Linux x86_64 con foco en GNU/Linux real.
 
 ## Current Goal
-Corregir la tabla de syscalls Linux (`kernel/arch/x86_64/syscall.c`) donde la syscall 141 apunta erróneamente a `sys_getdents64` en lugar de `sys_setpriority` y la 78 estaba a `sys_getdents64` en lugar de `sys_getdents`. Asegurarse de que `sys_getpriority` devuelva `20 - task->nice` y que `sys_setpriority` guarde el `nice` ajustado en el rango de `-20` a `19`. Este problema ha sido reasignado ya que el intento anterior falló. [ASIGNADO PARA EL PRESENTE CICLO]
+Corregir los múltiples mapeos duplicados en la tabla de syscalls Linux (`kernel/arch/x86_64/syscall.c`), donde existen varias entradas conflictivas para los mismos números de syscall. En específico: debes limpiar las entradas duplicadas (revisando cuidadosamente todo el arreglo `syscall_linux_table`) asegurando que la syscall 140 apunte a `sys_getpriority`, la 141 a `sys_setpriority`, la 78 a `sys_getdents` y la 217 a `sys_getdents64`. Además, debes implementar `sys_getdents` (y definir su struct correspondiente de ser necesario) de forma análoga a `sys_getdents64`, pero operando sobre la estructura correcta, para brindar compatibilidad real con POSIX. [ASIGNADO PARA EL PRESENTE CICLO URGENTE]
 
 ## Guidelines
 - Trabaja sobre el estado actual del repo, no sobre una arquitectura idealizada.
