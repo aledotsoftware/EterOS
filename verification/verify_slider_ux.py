@@ -59,7 +59,7 @@ def run():
         assert 0.43 < opacity_computed < 0.45, f"Expected computed opacity ~0.44, got {opacity_computed}"
 
         # Take screenshot
-        page.locator("#control-center").screenshot(path="verification/slider_ux.png")
+        page.locator("#control-center").screenshot(path=os.path.join(os.path.dirname(__file__), 'slider_ux.png'))
         print("Screenshot saved")
 
         browser.close()

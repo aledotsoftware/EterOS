@@ -47,7 +47,7 @@ def run():
         # Capture screenshot of the window
         # We can't see the tooltip in the screenshot because it's an OS tooltip,
         # but we can see the window exists.
-        page.screenshot(path='verification/ux_improvements.png')
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'ux_improvements.png'))
 
         browser.close()
 

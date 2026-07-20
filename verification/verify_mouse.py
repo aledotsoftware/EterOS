@@ -5,7 +5,7 @@ def verify_app(page):
     page.goto(f"file://{os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web_ui', 'index.html'))}")
     page.locator("#boot-splash").wait_for(state="detached")
     # Take a screenshot
-    page.screenshot(path="verification/app_loaded.png")
+    page.screenshot(path=os.path.join(os.path.dirname(__file__), 'app_loaded.png'))
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

@@ -53,7 +53,7 @@ def run():
         print("Taking screenshot...")
         if not os.path.exists("verification"):
             os.makedirs("verification")
-        page.screenshot(path="verification/ux_verification.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'ux_verification.png'))
 
         browser.close()
         print("Verification complete.")

@@ -29,7 +29,7 @@ def run():
 
         time.sleep(1) # Wait for animation to settle
 
-        page.screenshot(path="verification/before_shake.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'before_shake.png'))
 
         print("Opening GIMP second time to trigger shake...")
         page.locator(".dock-item[aria-label='Abrir GIMP']").click()
@@ -44,7 +44,7 @@ def run():
         print(f"Is shaking immediately? {is_shaking}")
 
         if is_shaking:
-            page.screenshot(path="verification/shake_active.png")
+            page.screenshot(path=os.path.join(os.path.dirname(__file__), 'shake_active.png'))
             print("Captured shake_active.png")
 
         # Wait for animation to finish (500ms)

@@ -17,7 +17,7 @@ def verify_empty_state():
             print("Boot splash disappeared.")
         except:
              print("Boot splash did not disappear in time.")
-             page.screenshot(path="verification/error_splash_timeout.png")
+             page.screenshot(path=os.path.join(os.path.dirname(__file__), 'error_splash_timeout.png'))
              browser.close()
              return
 
@@ -42,7 +42,7 @@ def verify_empty_state():
             print("Empty state is visible.")
         except:
             print("ERROR: Empty state is NOT visible.")
-            page.screenshot(path="verification/error_not_visible.png")
+            page.screenshot(path=os.path.join(os.path.dirname(__file__), 'error_not_visible.png'))
             browser.close()
             return
 
@@ -64,7 +64,7 @@ def verify_empty_state():
              print("Action button is NOT visible (Expected if not implemented yet).")
 
         # Take screenshot of the empty state
-        page.screenshot(path="verification/empty_state_visible.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'empty_state_visible.png'))
 
         # Click the button if visible (simulating user action)
         if clear_action_btn.is_visible():
@@ -85,7 +85,7 @@ def verify_empty_state():
             else:
                 print("ERROR: Launcher grid is NOT visible.")
 
-        page.screenshot(path="verification/empty_state_cleared.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'empty_state_cleared.png'))
         browser.close()
 
 if __name__ == "__main__":

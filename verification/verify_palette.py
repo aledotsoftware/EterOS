@@ -27,7 +27,7 @@ def verify_palette():
         page.keyboard.press("Shift+Tab")
 
         # Take screenshot of start button focused
-        page.locator(".dock-container").screenshot(path="verification/start_btn_focus.png")
+        page.locator(".dock-container").screenshot(path=os.path.join(os.path.dirname(__file__), 'start_btn_focus.png'))
 
         # Focus window close button
         print("Focusing window close button...")
@@ -44,7 +44,7 @@ def verify_palette():
         time.sleep(0.5)
 
         # Take a screenshot of the window header showing tooltip and focus
-        page.locator('.window').screenshot(path="verification/window_close_tooltip.png")
+        page.locator('.window').screenshot(path=os.path.join(os.path.dirname(__file__), 'window_close_tooltip.png'))
 
         browser.close()
         print("Verification complete.")

@@ -18,7 +18,7 @@ def verify_slider_value():
             print("Boot splash disappeared.")
         except:
              print("Boot splash did not disappear in time.")
-             page.screenshot(path="verification/error_splash_timeout.png")
+             page.screenshot(path=os.path.join(os.path.dirname(__file__), 'error_splash_timeout.png'))
              browser.close()
              return
 
@@ -39,7 +39,7 @@ def verify_slider_value():
 
         if count != 2:
             print("ERROR: Expected 2 slider values.")
-            page.screenshot(path="verification/error_slider_count.png")
+            page.screenshot(path=os.path.join(os.path.dirname(__file__), 'error_slider_count.png'))
             browser.close()
             return
 
@@ -74,7 +74,7 @@ def verify_slider_value():
             print("ERROR: Slider values did not update correctly.")
 
         # Take screenshot
-        page.screenshot(path="verification/slider_verification.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'slider_verification.png'))
 
         browser.close()
 

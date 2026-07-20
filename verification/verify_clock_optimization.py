@@ -24,7 +24,7 @@ def verify_clock(page):
     print(f"Trigger aria-label: {aria_label}")
 
     # Take screenshot
-    page.screenshot(path="verification/clock_verification.png")
+    page.screenshot(path=os.path.join(os.path.dirname(__file__), 'clock_verification.png'))
 
 if __name__ == "__main__":
     with sync_playwright() as p:

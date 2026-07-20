@@ -50,7 +50,7 @@ def verify_search_optimization_screenshot():
              print("FAIL: Firefox is NOT visible after changing search to 'Fire'")
         else:
              print("PASS: Firefox is visible.")
-             page.screenshot(path="verification/frontend_verification.png")
+             page.screenshot(path=os.path.join(os.path.dirname(__file__), 'frontend_verification.png'))
 
         browser.close()
 

@@ -17,7 +17,7 @@ def run():
         splash = page.locator("#boot-splash")
         if splash.is_visible():
             print("Boot splash is visible.")
-            page.screenshot(path="verification/boot_splash_initial.png")
+            page.screenshot(path=os.path.join(os.path.dirname(__file__), 'boot_splash_initial.png'))
         else:
             print("Boot splash is NOT visible initially!")
 
@@ -28,7 +28,7 @@ def run():
 
         if not splash.is_visible():
             print("Boot splash disappeared as expected.")
-            page.screenshot(path="verification/boot_splash_after.png")
+            page.screenshot(path=os.path.join(os.path.dirname(__file__), 'boot_splash_after.png'))
         else:
             print("Boot splash is STILL visible!")
 

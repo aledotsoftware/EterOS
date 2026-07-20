@@ -18,7 +18,7 @@ def run():
         page.wait_for_selector(".window")
 
         # Take a screenshot to verify the window opens and the close button has focus
-        page.screenshot(path="verification/window_focused.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'window_focused.png'))
 
         # 3. Press Escape to close the window
         page.keyboard.press("Escape")
@@ -27,7 +27,7 @@ def run():
         page.wait_for_selector(".window", state="hidden")
 
         # Take another screenshot to verify it closed
-        page.screenshot(path="verification/window_closed.png")
+        page.screenshot(path=os.path.join(os.path.dirname(__file__), 'window_closed.png'))
 
         browser.close()
 
